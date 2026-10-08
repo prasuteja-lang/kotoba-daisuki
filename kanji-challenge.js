@@ -1,3 +1,4 @@
+var KC_ENGINE_VERSION = '2.4.3';   // cek di console: KC_ENGINE_VERSION
 /* ==================== KANJI CHALLENGE (modul tambahan) ====================
    Tahap 1–2 : tombol di menu Kanji + halaman utama
    Tahap 3–7 : Buat Room, Gabung Room, Room Code, Lobby, Avatar+Nama+Ready
@@ -405,7 +406,36 @@ function kcBuka() {
 }
 function kcKembali() {
   kcTampil(null);
+  if (kcDipulihkan) {                                  // halaman dibuka lagi setelah muat ulang -> menu Kanji belum dimuat, kembali ke Menu Utama
+    kcDipulihkan = false;
+    document.getElementById('main-menu-page').classList.remove('hidden');
+    return;
+  }
   document.getElementById('kanji-main-page').classList.remove('hidden');
+}
+
+/* ---------- Pulihkan halaman setelah layar diputar / aplikasi dimuat ulang ---------- */
+var kcDipulihkan = false;
+function kcPulihkan(idHalaman, kode) {
+  document.getElementById('main-menu-page').classList.add('hidden');
+  kcDipulihkan = true;
+  if ((idHalaman === 'kc-lobby-page' || idHalaman === 'kc-game-page') && kode) {
+    var isi = document.getElementById(idHalaman === 'kc-game-page' ? 'kc-game-body' : 'kc-lobby-body');
+    if (isi) isi.innerHTML = '<div class="kc-status">Menyambungkan kembali ke room…</div>';
+    kcTampil(idHalaman);
+    kcInitFirebase()
+      .then(function () {
+        if (idHalaman === 'kc-lobby-page' && kcDb.joinRoom) return kcDb.joinRoom(kode, kcPemainSaya()).catch(function () {});
+      })
+      .then(function () { kcMasukLobby(kode); })       // halaman lobby / papan game dipilih otomatis sesuai status room
+      .catch(function () { kcTampil('kanji-challenge-page'); });
+    return true;
+  }
+  kcInitFirebase();
+  if (idHalaman === 'kc-buat-page') kcBuatRoom();
+  else if (idHalaman === 'kc-gabung-page') kcGabungRoom();
+  else kcTampil('kanji-challenge-page');
+  return true;
 }
 
 /* ---------- Tahap 3 : Buat Room ---------- */

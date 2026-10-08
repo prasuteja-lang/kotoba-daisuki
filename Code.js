@@ -86,15 +86,13 @@ var completionTimeFormatted = "";
 var isStopwatchMode = false;
 
 // ===== INFO UPDATE TERBARU (edit bagian ini setiap ada update baru) =====
-var APP_VERSI = "Versi 2.4.0";
+var APP_VERSI = "Versi 2.4.3";
 var APP_UPDATE_INTRO = "Sekarang ada Update terbaru, silakan dicek ya minna-san :";
 var APP_UPDATE_LIST = [
-  'Menu Progres: Daily Quest, Statistik, dan Achievement kini digabung dalam satu menu Progres (Hari Ini, Belajar, Pencapaian) dengan angka yang sama di semua tampilan.',
-  'Streak dan Achievement kini tersimpan di akun, jadi tidak hilang saat berganti HP atau browser.',
-  'Menu Pencapaian: Kini tersedia Achievement bertahap dari Perunggu hingga Legenda untuk Kotoba, Bunpou, Kanji, Test, dan streak Daily Quest, sehingga kalian bisa terus berlatih dan naik level.',
-  'Menu Pencapaian: Ditambahkan Bintang Kotoba untuk setiap jenis test, lengkap dengan Kolektor Bintang bagi yang berhasil mengumpulkan semuanya.',
-  'Menu Pesan: Tampilan pesan dibuat lebih ringan dan natural agar nyaman dibaca.',
-  'Menu Utama: Posisi menu bagian bawah dinaikkan agar tidak bentrok dengan tombol Home atau Back di perangkat kalian.'
+  'Menu Kanji: Saat HP dimiringkan, aplikasi tidak lagi keluar sendiri ke halaman utama. Kalau lagi seru main Kanji Challenge lalu layar tidak sengaja berputar, kalian otomatis kembali ke room dan permainan yang sedang berjalan.',
+  'Menu Kanji: Kanji Challenge kini tidak mengulang kotoba yang sudah terjawab, jadi tiap kotoba hanya bisa dijawab satu kali.',
+  'Menu Kanji: Kartu di tangan tidak lagi kembar, dan Random Kanji selalu punya pasangan di kartu kalian supaya poin lebih mudah didapat.',
+  'Menu Kanji: Memilih kartu yang salah kini mengurangi 1 poin, jadi pikirkan dulu sebelum menekan kartu ya.'
 ];
 
 var APP_UPDATE_OUTRO = "Pastikan Versi-nya sesuai Update terbaru ya minna-san, jika belum silakan untuk refresh kembali. Arigatou ne 🙏";
@@ -169,6 +167,38 @@ function tutupUpdate() {
   document.getElementById('update-modal').classList.add('modal-hidden');
 }
 
+// ===== PULIHKAN HALAMAN SETELAH LAYAR DIPUTAR / APLIKASI DIMUAT ULANG =====
+// Saat HP dimiringkan, WebView di aplikasi bisa memuat ulang halaman sehingga kembali ke Menu Utama.
+// Halaman Kanji Challenge yang sedang dibuka dicatat, lalu dibuka lagi bila dimuat ulang dalam 2 menit.
+var PULIH_KUNCI = 'kotoba_halaman_terakhir';
+var PULIH_BATAS_MS = 120000;
+var PULIH_HALAMAN = ['kanji-challenge-page', 'kc-buat-page', 'kc-gabung-page', 'kc-lobby-page', 'kc-game-page'];
+
+function simpanHalamanTerakhir() {
+  try {
+    if (!localStorage.getItem('kotoba_logged_user')) return;
+    var id = '';
+    for (var i = 0; i < PULIH_HALAMAN.length; i++) {
+      var el = document.getElementById(PULIH_HALAMAN[i]);
+      if (el && !el.classList.contains('hidden')) { id = PULIH_HALAMAN[i]; break; }
+    }
+    if (!id) { localStorage.removeItem(PULIH_KUNCI); return; }
+    var kode = (typeof kcState !== 'undefined' && kcState && kcState.code) ? kcState.code : '';
+    localStorage.setItem(PULIH_KUNCI, JSON.stringify({ id: id, kode: kode, t: Date.now() }));
+  } catch (e) {}
+}
+function pulihkanHalamanTerakhir() {
+  var p = null;
+  try { p = JSON.parse(localStorage.getItem(PULIH_KUNCI) || 'null'); } catch (e) {}
+  if (!p || !p.id || PULIH_HALAMAN.indexOf(p.id) < 0) return false;
+  if (!p.t || Date.now() - p.t > PULIH_BATAS_MS) return false;
+  if (typeof kcPulihkan !== 'function') return false;
+  try { return !!kcPulihkan(p.id, p.kode); } catch (e) { return false; }
+}
+setInterval(simpanHalamanTerakhir, 1000);
+window.addEventListener('pagehide', simpanHalamanTerakhir);
+document.addEventListener('visibilitychange', function() { if (document.hidden) simpanHalamanTerakhir(); });
+
 window.onload = function() {
   terapkanTema(temaSaatIni());
   var savedUser = localStorage.getItem("kotoba_logged_user");
@@ -181,7 +211,12 @@ window.onload = function() {
     document.getElementById('ask-page').classList.add('hidden');
     document.getElementById('student-identity-page').classList.add('hidden');
     document.getElementById('main-menu-page').classList.remove('hidden');
-    tampilkanUpdateTerbaru();
+    if (pulihkanHalamanTerakhir()) {                  // dimuat ulang saat main (mis. layar diputar) -> lanjut di halaman tadi
+      var verEl = document.getElementById('mm-versi');
+      if (verEl) verEl.textContent = APP_VERSI;
+    } else {
+      tampilkanUpdateTerbaru();
+    }
   } else {
     document.getElementById('ask-page').classList.remove('hidden');
     document.getElementById('student-identity-page').classList.add('hidden');
