@@ -1,0 +1,485 @@
+/* ==== Tema KANJI (merah) ==== */
+.kanji-level-header {
+  display: block;
+  width: 82%;
+  max-width: 300px;
+  margin: 0 auto 10px auto;
+  text-align: center;
+  background: #fbeaea;
+  border: 1px solid #f0c9c9;
+  border-radius: 12px;
+  padding: 12px 14px;
+  cursor: pointer;
+  font-weight: 700;
+  color: #a85558;
+  font-size: 15px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  user-select: none;
+}
+.kanji-level-header:active { background: #f5d9d9; }
+.kanji-level-header .kk-arrow { color: #c17b7e; font-size: 15px; margin-left: 6px; }
+.kanji-level-group { margin-bottom: 10px; text-align: left; }
+
+.kanji-kategori-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #fff;
+  border: 1px solid #fecaca;
+  border-radius: 12px;
+  padding: 11px 14px;
+  margin: 8px 0 0 0;
+  cursor: pointer;
+  text-align: left;
+}
+.kanji-kategori-row:active { background: #fef2f2; }
+.kanji-kategori-row .kk-title { font-weight: 700; color: #b91c1c; font-size: 14px; }
+.kanji-kategori-row .kk-sub { font-size: 12px; color: #64748b; margin-top: 2px; }
+.kanji-kategori-row .kk-arrow { color: #dc2626; font-size: 18px; margin-left: 8px; flex-shrink: 0; }
+
+.kanji-item-row {
+  display: flex;
+  align-items: center;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 10px 14px;
+  margin: 6px 0;
+  cursor: pointer;
+  text-align: left;
+}
+.kanji-item-row:active { background: #f8fafc; }
+.kanji-item-row .ki-char { font-size: 22px; font-weight: 700; color: #1e293b; width: 38px; text-align: center; flex-shrink: 0; }
+.kanji-item-row .ki-info { flex: 1; padding-left: 10px; min-width: 0; }
+.kanji-item-row .ki-carabaca { font-size: 12px; color: #64748b; }
+.kanji-item-row .ki-arrow { color: #94a3b8; font-size: 18px; flex-shrink: 0; }
+
+/* Grid kartu kanji (per level) */
+.kanji-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 4px;
+}
+.kanji-bagian-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #94a3b8;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  margin: 18px 0 10px 0;
+}
+.kanji-bagian-label:first-of-type { margin-top: 2px; }
+.kanji-bagian-label::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: #e2e8f0;
+}
+.kanji-grid-card {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 12px 6px 10px 6px;
+  text-align: center;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+}
+.kanji-grid-card:active { background: #fef2f2; border-color: #fecaca; }
+.kanji-grid-card .gc-char { font-size: 26px; font-weight: 700; color: #b91c1c; line-height: 1.2; }
+.kanji-grid-card .gc-arti { font-size: 11px; color: #475569; margin-top: 4px; line-height: 1.3; word-break: break-word; }
+
+/* Kartu flip (halaman detail) */
+.kanji-flip-wrap {
+  width: 100%;
+  aspect-ratio: 1240 / 1748;
+  max-height: 420px;
+  border-radius: 16px;
+  overflow: hidden;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.kanji-flip-img { width: 100%; height: 100%; object-fit: contain; background: #f1f5f9; }
+.kanji-flip-empty { font-size: 13px; color: #94a3b8; padding: 20px; }
+
+/* Panel belakang (data teks pengganti gambar kedua) */
+.kanji-back-panel {
+  width: 100%;
+  height: 100%;
+  overflow-y: auto;
+  box-sizing: border-box;
+  padding: 22px 16px 16px 16px;
+  background: #fff;
+  text-align: center;
+}
+.kanji-back-char { font-size: 46px; font-weight: 800; color: #1e293b; line-height: 1.1; }
+.kanji-back-arti { font-size: 17px; font-weight: 700; color: #1e293b; margin-top: 6px; }
+.kanji-back-yomi { font-size: 12.5px; color: #64748b; margin-top: 8px; line-height: 1.6; }
+.kanji-back-extra { font-size: 12px; color: #475569; margin-top: 10px; line-height: 1.6; text-align: left; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 10px; }
+.kanji-back-extra b { color: #1e293b; }
+.kanji-back-kotoba-title {
+  text-align: left;
+  color: #b91c1c;
+  font-weight: 700;
+  font-size: 12.5px;
+  letter-spacing: 0.5px;
+  margin-top: 18px;
+  margin-bottom: 6px;
+  border-bottom: 2px solid #fecaca;
+  padding-bottom: 4px;
+}
+.kanji-kotoba-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px dashed #e2e8f0;
+  text-align: left;
+}
+.kanji-kotoba-row:last-child { border-bottom: none; }
+.kanji-kotoba-left { flex: 1 1 50%; font-size: 14px; color: #1e293b; text-align: left; display: flex; align-items: center; flex-wrap: wrap; }
+.kanji-kotoba-left .kw-carabaca { font-size: 11.5px; color: #94a3b8; margin-left: 4px; }
+.kanji-kotoba-right { flex: 1 1 50%; font-size: 12.5px; color: #64748b; text-align: left; }
+
+.kanji-speak-btn {
+  border: none;
+  background: #fee2e2;
+  color: #b91c1c;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+  flex-shrink: 0;
+  margin-left: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+.kanji-speak-btn:active { background: #fecaca; }
+
+.kanji-speak-btn-main {
+  border: none;
+  background: #dc2626;
+  color: #fff;
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 7px 16px;
+  border-radius: 999px;
+  cursor: pointer;
+  margin-top: 10px;
+}
+.kanji-speak-btn-main:active { background: #b91c1c; }
+.kanji-back-empty { font-size: 12.5px; color: #94a3b8; margin-top: 16px; }
+
+/* Cara Tulis Kanji (jiplak kanji samar) */
+.kanji-flip-wrap.tulis { aspect-ratio: auto; max-height: none; height: auto; display: block; overflow: visible; background: #fff; }
+.kt-panel { padding: 14px 12px 12px; text-align: center; background: #fff; border-radius: 16px; }
+.kt-title { font-size: 15px; font-weight: 800; color: #1e293b; line-height: 1.4; }
+.kt-title b { font-size: 20px; color: #b91c1c; }
+.kt-sub { font-size: 12px; color: #64748b; margin: 4px 0 10px; }
+.kt-box {
+  position: relative; width: min(100%, 300px); aspect-ratio: 1 / 1; margin: 0 auto;
+  border: 2px solid #fecaca; border-radius: 14px; background-color: #fff; overflow: hidden;
+  background-image: repeating-linear-gradient(to bottom, #fca5a5 0 5px, transparent 5px 10px), repeating-linear-gradient(to right, #fca5a5 0 5px, transparent 5px 10px);
+  background-size: 1px 100%, 100% 1px; background-position: center, center; background-repeat: no-repeat;
+}
+.kt-box canvas { position: absolute; left: 0; top: 0; width: 100%; height: 100%; touch-action: none; }
+#kt-hw { width: 100%; height: 100%; touch-action: none; }
+#kt-hw svg { display: block; width: 100%; height: 100%; }
+.kt-tabs { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; margin: 8px 0 2px; }
+.kt-tab { width: auto !important; margin: 0 !important; padding: 7px 11px !important; font-size: 12px !important; font-weight: 800 !important; border-radius: 999px !important; background: #fff !important; color: #b91c1c !important; border: 2px solid #fecaca !important; box-shadow: none !important; }
+.kt-tab.on { background: #dc2626 !important; color: #fff !important; border-color: #dc2626 !important; }
+.kt-fb { min-height: 40px; margin: 10px 4px 0; font-size: 13px; line-height: 1.5; font-weight: 700; }
+.kt-fb.ok { color: #059669; } .kt-fb.mid { color: #b45309; } .kt-fb.no { color: #dc2626; }
+.kt-btns { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-top: 6px; }
+.kt-btns button { width: auto !important; margin: 0 !important; padding: 9px 14px !important; font-size: 13px !important; background: #fff !important; color: #b91c1c !important; border: 2px solid #fecaca !important; }
+.kt-btns button.main { background: #dc2626 !important; color: #fff !important; border-color: #dc2626 !important; }
+
+.btn-flip {
+  background-color: #dc2626;
+  box-shadow: 0 2px 6px rgba(220, 38, 38, 0.25);
+}
+
+.kanji-nav-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  background-color: #1e293b;
+  border-radius: 999px;
+  padding: 10px 18px;
+  margin-top: 12px;
+  width: fit-content;
+  margin-left: auto;
+  margin-right: auto;
+}
+.kanji-nav-bar button {
+  background: none;
+  border: none;
+  color: #fff;
+  font-size: 18px;
+  width: auto;
+  max-width: none;
+  padding: 0 4px;
+  margin: 0;
+  box-shadow: none;
+  cursor: pointer;
+}
+.kanji-nav-bar button:disabled { opacity: 0.35; cursor: default; }
+.kanji-nav-bar span { color: #fff; font-size: 13px; font-weight: 600; min-width: 46px; text-align: center; }
+
+.kanji-empty { text-align: center; color: #64748b; font-size: 13px; padding: 20px 0; }
+.kanji-loading { text-align: center; color: #b91c1c; font-size: 13px; padding: 20px 0; }
+
+.kanji-divider {
+  border: none;
+  border-top: 1px solid #cbd5e1;
+  margin: 16px 0;
+}
+
+.kanji-daisuki-btn {
+  display: block;
+  width: 82%;
+  max-width: 300px;
+  margin: 0 auto;
+  text-align: center;
+  background: #fdf1e0;
+  border: 1px solid #f0d3a8;
+  border-radius: 12px;
+  padding: 12px 14px;
+  cursor: pointer;
+  font-weight: 700;
+  color: #b3803f;
+  font-size: 15px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  user-select: none;
+}
+.kanji-daisuki-btn:active { background: #f8e4c3; }
+.kanji-daisuki-btn .kk-arrow { color: #c99451; font-size: 15px; margin-left: 6px; }
+
+/* ==== Game: Kanji Daisuki ==== */
+#kanji-daisuki-page { position: relative; }
+
+.kd-topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+.kd-skor-box {
+  background: #f1f5f9;
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-weight: 700;
+  font-size: 13px;
+  color: #1e293b;
+}
+
+.kd-chain-preview {
+  min-height: 20px;
+  text-align: center;
+  font-size: 13px;
+  color: #94a3b8;
+  margin-bottom: 10px;
+  font-weight: 600;
+  transition: color 0.2s ease;
+}
+.kd-chain-preview.kd-chain-active { color: #2563eb; }
+.kd-chain-preview.kd-chain-gagal { color: #dc2626; }
+
+.kd-board {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.kd-tile {
+  aspect-ratio: 1 / 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff7ed;
+  border: 2px solid #fdba74;
+  border-radius: 12px;
+  font-size: 48px;
+  font-weight: 800;
+  color: #9a3412;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease, color 0.15s ease;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+}
+.kd-tile:active { transform: scale(0.94); }
+.kd-tile.selected {
+  background: #dbeafe;
+  border-color: #3b82f6;
+  color: #1d4ed8;
+  box-shadow: 0 0 0 2px rgba(59,130,246,0.3);
+}
+.kd-tile.selected.kd-mungkin {
+  background: #fed7aa;
+  border-color: #f97316;
+  color: #c2410c;
+  box-shadow: 0 0 0 2px rgba(249,115,22,0.35);
+}
+.kd-tile.kd-sukses {
+  background: #bbf7d0 !important;
+  border-color: #22c55e !important;
+  color: #15803d !important;
+  transform: scale(1.06);
+}
+.kd-tile.kd-gagal {
+  background: #fecaca !important;
+  border-color: #ef4444 !important;
+  color: #b91c1c !important;
+}
+.kd-tile-kosong {
+  background: transparent !important;
+  border: 2px dashed #cbd5e1 !important;
+  box-shadow: none !important;
+  cursor: default !important;
+}
+
+.kd-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 2px;
+}
+.kd-actions button {
+  width: auto;
+  max-width: none;
+  flex: 1;
+  margin: 0;
+}
+
+.kd-btn-batal {
+  background-color: #64748b;
+  font-size: 13px;
+  padding: 9px;
+  box-shadow: 0 2px 6px rgba(100,116,139,0.25);
+}
+.kd-btn-batal:active { background-color: #475569; }
+
+.kd-btn-tambah {
+  background-color: #0ea5e9;
+  font-size: 13px;
+  padding: 9px;
+  box-shadow: 0 2px 6px rgba(14,165,233,0.25);
+}
+.kd-btn-tambah:active { background-color: #0284c7; }
+
+.kd-btn-referensi {
+  width: 100%;
+  max-width: none;
+  background-color: #8b5cf6;
+  font-size: 13px;
+  padding: 9px;
+  margin: 8px 0 0 0;
+  box-shadow: 0 2px 6px rgba(139,92,246,0.25);
+}
+.kd-btn-referensi:active { background-color: #7c3aed; }
+
+/* ==== Referensi Kotoba ==== */
+.referensi-search-input {
+  width: 100%;
+  padding: 10px 12px;
+  margin: 4px 0 12px 0;
+  border-radius: 10px;
+  border: 1px solid #cbd5e1;
+  font-size: 14px;
+  outline: none;
+  background: #fff;
+}
+.referensi-level-label {
+  font-weight: 700;
+  color: #b91c1c;
+  font-size: 13px;
+  margin: 14px 0 6px 0;
+  text-align: left;
+}
+.referensi-level-label:first-child { margin-top: 0; }
+.referensi-item-row {
+  display: flex;
+  align-items: stretch;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  margin: 8px 0;
+  overflow: hidden;
+  text-align: left;
+}
+.referensi-no-badge {
+  width: 34px;
+  flex-shrink: 0;
+  background: #eff6ff;
+  color: #2563eb;
+  font-weight: 800;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.referensi-item-body { flex: 1; min-width: 0; padding: 10px 12px; }
+.referensi-item-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.referensi-kotoba { font-size: 17px; font-weight: 800; color: #1e293b; }
+.referensi-checkbox { width: 18px; height: 18px; flex-shrink: 0; margin-top: 2px; accent-color: #2563eb; }
+.referensi-carabaca-box {
+  display: block;
+  background: #f1f5f9;
+  color: #64748b;
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 13px;
+  margin-top: 6px;
+}
+.referensi-arti { color: #16a34a; font-weight: 700; font-size: 13px; margin-top: 6px; }
+.referensi-item-row.referensi-checked { background: #f8fafc; }
+.referensi-item-row.referensi-checked .referensi-kotoba,
+.referensi-item-row.referensi-checked .referensi-arti { opacity: 0.55; }
+
+.kd-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(255,255,255,0.94);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 18px;
+  z-index: 20;
+}
+.kd-overlay-inner { text-align: center; padding: 20px; }
+.kd-overlay-title { font-size: 20px; font-weight: 800; color: #1e293b; margin-bottom: 8px; }
+.kd-overlay-skor { font-size: 16px; font-weight: 700; color: #c2410c; margin-bottom: 16px; }
+.kd-btn-main-lagi { background-color: #f97316; box-shadow: 0 4px 12px rgba(249,115,22,0.3); }
+.kd-btn-main-lagi:active { background-color: #ea580c; }
+
+.kd-challenge-msg {
+  font-size: 14px;
+  font-weight: 600;
+  color: #475569;
+  line-height: 1.5;
+  margin-bottom: 18px;
+  max-width: 260px;
+}
+.kd-btn-tetap {
+  width: auto;
+  max-width: none;
+  background-color: #64748b;
+  font-size: 13px;
+  padding: 9px 20px;
+  margin-top: 8px;
+  box-shadow: 0 2px 6px rgba(100,116,139,0.25);
+}
+.kd-btn-tetap:active { background-color: #475569; }

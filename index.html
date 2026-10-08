@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <script>
+    (function () {
+      var tema = null;
+      try { tema = localStorage.getItem('kotoba_theme'); } catch (e) {}
+      if (!tema) tema = (window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+      if (tema === 'dark') document.documentElement.classList.add('dark');
+    })();
+  </script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="kanji.css">
+  <link rel="stylesheet" href="bunpou.css">
+  <link rel="stylesheet" href="kanji-challenge.css">
+</head>
+<body>
+
+<!-- 1. HALAMAN PERTAMA: Konfirmasi Siswa Joycare -->
+<div id="ask-page" class="card">
+  <h2>Apakah kamu siswa Joycare?</h2>
+  <p class="welcome-desc">Silakan konfirmasi untuk melanjutkan ke aplikasi hafalan kotoba.</p>
+  <button class="btn-hai" onclick="jawabHai()">はい</button>
+</div>
+
+<!-- 2. HALAMAN KEDUA: Sambutan & Identitas Peserta (Login) -->
+<div id="student-identity-page" class="card hidden">
+  <h3>Selamat Datang di Aplikasi Kotoba Joycare Indonesia! 🌸</h3>
+  <p class="welcome-desc">
+    Aplikasi ini dirancang khusus untuk membantu <i>minna-san</i> menghafal <i>kotoba</i> dengan lebih mudah, praktis, dan menyenangkan. Yuk, silakan masuk dengan akun kamu! ✨
+  </p>
+
+  <div style="text-align: left; margin-bottom: 6px;">
+    <label for="input-nama">User name:</label>
+    <input type="text" id="input-nama" placeholder="Ketik user name...">
+
+    <label for="input-password">Password:</label>
+    <input type="password" id="input-password" placeholder="Ketik password...">
+  </div>
+
+  <div style="display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 13px; font-weight: 600;">
+    <a href="javascript:void(0);" onclick="bukaHalamanRegister()" style="color: #0d9488; text-decoration: none;">Buat akun</a>
+    <a href="javascript:void(0);" onclick="bukaHalamanUbahPassword()" style="color: #3b82f6; text-decoration: none;">Ubah Password</a>
+  </div>
+
+  <button class="btn-ready" style="margin:0 0 10px 0;" onclick="simpanIdentitasDanMasuk()">Lanjutkan ke Aplikasi 🚀</button>
+  <button class="btn-back" style="margin:0;" onclick="kembaliKeAskPage()">Kembali</button>
+</div>
+
+<!-- 3. HALAMAN KETIGA: Form Buat Akun / Register -->
+<div id="register-page" class="card hidden">
+  <h3>Pendaftaran Akun Baru 🌸</h3>
+  <p class="welcome-desc">Silakan lengkapi data di bawah ini untuk mengajukan akun baru.</p>
+
+  <div style="text-align: left; margin-bottom: 12px;">
+    <label for="reg-kelas">Pilih Kelas:</label>
+    <select id="reg-kelas">
+      <option value="" disabled selected>-- Pilih Kelas --</option>
+      <option value="Joycare">Joycare</option>
+      <option value="Joybridge">Joybridge</option>
+      <option value="Joygreen">Joygreen</option>
+      <option value="Joyserve">Joyserve</option>
+    </select>
+
+    <label for="reg-nama">Nama / Username:</label>
+    <input type="text" id="reg-nama" placeholder="Ketik user name...">
+
+    <label for="reg-password">Password:</label>
+    <input type="password" id="reg-password" placeholder="Ketik password...">
+
+    <label for="reg-email">Batch :</label>
+    <input type="text" id="reg-email" placeholder="(Contoh : Batch 1)...">
+  </div>
+
+  <button class="btn-ready fun-teal" style="margin:0 0 10px 0;" onclick="prosesDaftarAkun()">Daftar & Masuk 🚀</button>
+  <button class="btn-back" style="margin:0;" onclick="kembaliKeLogin()">Kembali ke Login</button>
+</div>
+
+<!-- 4. HALAMAN KEEMPAT: Form Ubah Password -->
+<div id="ubah-password-page" class="card hidden">
+  <h3>Ubah Password 🔑</h3>
+  <p class="welcome-desc">Silakan masukkan user name, password lama, dan password baru Anda.</p>
+
+  <div style="text-align: left; margin-bottom: 12px;">
+    <label for="up-nama">User name:</label>
+    <input type="text" id="up-nama" placeholder="Ketik user name...">
+
+    <label for="up-old-password">Password lama:</label>
+    <input type="password" id="up-old-password" placeholder="Ketik password lama...">
+
+    <label for="up-new-password">Password baru:</label>
+    <input type="password" id="up-new-password" placeholder="Ketik password baru...">
+  </div>
+
+  <button class="btn-ready" style="margin:0 0 10px 0;" onclick="prosesUbahPassword()">Simpan Password Baru 🔒</button>
+  <button class="btn-back" style="margin:0;" onclick="kembaliKeLoginFromUbahPass()">Kembali ke Login</button>
+</div>
+
+<!-- MENU UTAMA (berisi 5 tab: Home, Profile, Progres, Pesan, Setting) -->
+<div id="main-menu-page" class="card hidden">
+
+  <!-- TAB: HOME -->
+  <div id="tab-home" class="tab-pane">
+    <div class="mm-head">
+      <button type="button" class="mm-avatar" id="mm-avatar" onclick="bukaAvatar()" aria-label="Ganti foto profil" title="Ganti foto profil">
+        <span class="mm-avatar-emoji" id="mm-avatar-emoji">😺</span>
+        <img id="mm-avatar-img" class="hidden" alt="">
+        <span class="mm-avatar-edit">✏️</span>
+      </button>
+      <div class="mm-sapa">
+        <div class="mm-hai" id="mm-hai">こんにちは ☀️</div>
+        <div class="mm-nama" id="mm-nama">Selamat datang</div>
+        <div class="mm-sub">Mau belajar apa hari ini?</div>
+      </div>
+    </div>
+
+    <!-- QUEST HARIAN -->
+    <div class="mm-quest" onclick="bukaQuest()" role="button" aria-label="Buka Progres &amp; Daily Quest">
+      <div class="mq-teks">
+        <span id="mq-streak">🔥 Mulai streak-mu hari ini!</span>
+        <span class="mq-dot">•</span>
+        <span id="mq-target-wrap">Target Hari Ini: <b id="mq-target">0/10 Kata</b></span>
+      </div>
+      <div class="mq-bar"><i id="mq-bar"></i></div>
+    </div>
+
+    <div class="mm-card mm-kotoba" onclick="bukaKotobaDariMain()">
+      <span class="mm-ico">📘</span>
+      <span class="mm-txt"><b>KOTOBA</b><small>Kosakata, tes &amp; flashcard</small></span>
+      <span class="mm-arrow">›</span>
+    </div>
+    <div class="mm-card mm-kanji" onclick="bukaKanjiDariMain()">
+      <span class="mm-ico">🈴</span>
+      <span class="mm-txt"><b>KANJI</b><small>Belajar kanji &amp; permainan</small></span>
+      <span class="mm-arrow">›</span>
+    </div>
+    <div class="mm-card mm-bunpou" onclick="bukaBunpouDariMain()">
+      <span class="mm-ico">📗</span>
+      <span class="mm-txt"><b>BUNPOU</b><small>Pola kalimat &amp; choukai</small></span>
+      <span class="mm-arrow">›</span>
+    </div>
+  </div>
+
+  <!-- TAB: PROFILE -->
+  <div id="tab-profile" class="tab-pane hidden">
+    <h3 class="tab-judul">👤 Profil</h3>
+    <div class="pf-card">
+      <button type="button" class="mm-avatar" id="pf-avatar" onclick="bukaAvatar()" aria-label="Ganti foto profil" title="Ganti foto profil">
+        <span class="mm-avatar-emoji" id="pf-avatar-emoji">😺</span>
+        <img id="pf-avatar-img" class="hidden" alt="">
+        <span class="mm-avatar-edit">✏️</span>
+      </button>
+      <div class="pf-nama" id="pf-nama">-</div>
+      <div class="pf-kelas" id="pf-kelas">-</div>
+      <div class="pf-streak" id="pf-streak">🔥 Mulai streak-mu hari ini!</div>
+    </div>
+    <button type="button" class="btn-ready" onclick="bukaAvatar()">🐱 Ganti Foto Profil</button>
+  </div>
+
+  <!-- TAB: PROGRES (gabungan Daily Quest + Statistik + Achievement) -->
+  <div id="tab-statistik" class="tab-pane hidden">
+    <h3 class="tab-judul">🎯 Progres</h3>
+    <div class="pg-hero" id="pg-hero"></div>
+    <div class="qst-tabs pg-tabs">
+      <div class="qst-tab aktif" id="pg-tab-hari" onclick="progTab('hari')">⚔️ Hari Ini</div>
+      <div class="qst-tab" id="pg-tab-belajar" onclick="progTab('belajar')">📊 Belajar</div>
+      <div class="qst-tab" id="pg-tab-capai" onclick="progTab('capai')">🏆 Pencapaian</div>
+    </div>
+
+    <!-- Hari Ini: Daily Quest -->
+    <div id="pg-pane-hari" style="text-align:left;">
+      <div class="qst-sub" id="qst-sub">Selesaikan quest untuk menjaga streak-mu!</div>
+      <div id="qst-list"></div>
+      <div class="qst-selesai-msg hidden" id="qst-selesai-msg">🎉 Daily Quest hari ini sudah selesai ya!</div>
+      <div class="qst-note" id="qst-note">🎮 Hadiah &amp; mekanisme quest lengkap segera hadir!</div>
+    </div>
+
+    <!-- Belajar: statistik + level -->
+    <div id="pg-pane-belajar" class="hidden" style="text-align:left;">
+      <div id="pg-belajar-level"></div>
+      <div id="riwayat-isi"></div>
+    </div>
+
+    <!-- Pencapaian: lencana -->
+    <div id="pg-pane-capai" class="hidden" style="text-align:left;"></div>
+  </div>
+
+  <!-- TAB: PESAN -->
+  <div id="tab-pesan" class="tab-pane hidden">
+    <h3 class="tab-judul">💬 Pesan</h3>
+    <div class="chat-head"><span class="chat-ava">先</span><div style="text-align:left;"><div class="chat-nm">Sensei</div><div class="chat-sub">Balasan untuk masukan Anda</div></div></div>
+    <div id="notif-list" class="notif-list"></div>
+  </div>
+
+  <!-- TAB: SETTING -->
+  <div id="tab-setting" class="tab-pane hidden">
+    <h3 class="tab-judul">⚙️ Setting</h3>
+
+    <div class="mm-tema" style="margin:4px 0 16px;">
+      <div class="tema-switch" role="group" aria-label="Pilih tema">
+        <button type="button" data-tema="light" onclick="setTema('light')">☀️ Terang</button>
+        <button type="button" data-tema="dark" onclick="setTema('dark')">🌙 Gelap</button>
+      </div>
+    </div>
+
+    <div class="mm-card mm-purple" onclick="bukaMasukan()">
+      <span class="mm-ico">💬</span>
+      <span class="mm-txt"><b>Saran &amp; Masukan</b><small>Kirim saran atau kendala ke Sensei</small></span>
+      <span class="mm-arrow">›</span>
+    </div>
+    <div class="mm-card mm-orange" onclick="tampilkanUpdateTerbaru()">
+      <span class="mm-ico">🎉</span>
+      <span class="mm-txt"><b>Info Update</b><small>Lihat fitur terbaru aplikasi</small></span>
+      <span class="mm-arrow">›</span>
+    </div>
+
+    <div class="mm-card mm-indigo" onclick="cekUpdateAplikasi()">
+      <span class="mm-ico">📲</span>
+      <span class="mm-txt"><b>Cek Update Aplikasi</b><small>Periksa & unduh versi terbaru</small></span>
+      <span class="mm-arrow">›</span>
+    </div>
+
+    <div class="mm-card mm-rose" onclick="bukaModalLogout()">
+      <span class="mm-ico">🚪</span>
+      <span class="mm-txt"><b>Logout</b><small>Keluar dari akun ini</small></span>
+      <span class="mm-arrow">›</span>
+    </div>
+    <div class="mm-versi" id="mm-versi"></div>
+  </div>
+</div>
+
+<!-- MENU BAR BAWAH (tampil hanya saat Menu Utama terbuka; diatur lewat CSS) -->
+<nav id="bottom-nav" aria-label="Menu utama">
+  <div class="bn-inner">
+    <button type="button" class="bn-item aktif" id="bn-home" onclick="pindahTab('home')"><span class="bn-ico">🏠</span><span class="bn-lb">Home</span></button>
+    <button type="button" class="bn-item" id="bn-profile" onclick="pindahTab('profile')"><span class="bn-ico">👤</span><span class="bn-lb">Profile</span></button>
+    <button type="button" class="bn-item" id="bn-statistik" onclick="pindahTab('statistik')"><span class="bn-ico">🎯</span><span class="bn-lb">Progres</span></button>
+    <button type="button" class="bn-item" id="mm-bell" onclick="pindahTab('pesan')"><span class="bn-ico">💬</span><span class="bn-lb">Pesan</span><span id="notif-badge" class="mm-badge hidden">0</span></button>
+    <button type="button" class="bn-item" id="bn-setting" onclick="pindahTab('setting')"><span class="bn-ico">⚙️</span><span class="bn-lb">Setting</span></button>
+  </div>
+</nav>
+
+<!-- SUBMENU KOTOBA -->
+<div id="menu-page" class="card hidden">
+  <button class="btn-icon-back" onclick="kembaliKeMenuUtama()"><span class="arrow">‹</span> Menu Utama</button>
+  <h3>Kotoba</h3>
+  <div class="mm-card mm-kotoba" onclick="bukaMenuKotoba('modul', 'Kotoba N5 (Modul)')">
+    <span class="mm-ico">📘</span>
+    <span class="mm-txt"><b>N5 (Modul)</b><small>Kosakata dasar JLPT N5</small></span>
+    <span class="mm-lencana" data-jenis="modul" title="Bintang: sudah menuntaskan test N5 (Modul)">⭐</span>
+    <span class="mm-arrow">›</span>
+  </div>
+  <div class="mm-card mm-pink" onclick="bukaMenuKotoba('irodori', 'Kotoba Irodori 1')">
+    <span class="mm-ico">🌸</span>
+    <span class="mm-txt"><b>Irodori 1</b><small>Kosakata buku Irodori level 1</small></span>
+    <span class="mm-lencana" data-jenis="irodori" title="Bintang: sudah menuntaskan test Irodori 1">⭐</span>
+    <span class="mm-arrow">›</span>
+  </div>
+  <div class="mm-card mm-purple" onclick="bukaMenuKotoba('irodori2', 'Kotoba Irodori 2')">
+    <span class="mm-ico">🍁</span>
+    <span class="mm-txt"><b>Irodori 2</b><small>Kosakata buku Irodori level 2</small></span>
+    <span class="mm-lencana" data-jenis="irodori2" title="Bintang: sudah menuntaskan test Irodori 2">⭐</span>
+    <span class="mm-arrow">›</span>
+  </div>
+  <div id="btn-menu-kaigo" class="mm-card mm-teal" onclick="bukaMenuKotoba('kaigo', 'Kotoba Kaigo')">
+    <span class="mm-ico">🩺</span>
+    <span class="mm-txt"><b>Kaigo</b><small>Kosakata perawatan lansia</small></span>
+    <span class="mm-lencana" data-jenis="kaigo" title="Bintang: sudah menuntaskan test Kaigo">⭐</span>
+    <span class="mm-arrow">›</span>
+  </div>
+  <div id="btn-menu-konstruksi" class="mm-card mm-orange" onclick="bukaMenuKotoba('konstruksi', 'Kotoba Konstruksi')">
+    <span class="mm-ico">🏗️</span>
+    <span class="mm-txt"><b>Konstruksi</b><small>Kosakata dunia konstruksi</small></span>
+    <span class="mm-lencana" data-jenis="konstruksi" title="Bintang: sudah menuntaskan test Konstruksi">⭐</span>
+    <span class="mm-arrow">›</span>
+  </div>
+  <div id="btn-menu-makanan" class="mm-card mm-rose" onclick="bukaMenuKotoba('kotoba', 'Kotoba Pengolahan Makanan')">
+    <span class="mm-ico">🍱</span>
+    <span class="mm-txt"><b>Pengolahan Makanan</b><small>Kosakata pengolahan makanan</small></span>
+    <span class="mm-lencana" data-jenis="kotoba" title="Bintang: sudah menuntaskan test Pengolahan Makanan">⭐</span>
+    <span class="mm-arrow">›</span>
+  </div>
+</div>
+
+<div id="bab-page" class="card hidden">
+  <h3 id="judul-menu-terpilih">Pilihan Bab</h3>
+  <div id="bab-container"></div>
+  <button class="btn-back" onclick="kembaliKeMenu()">Kembali ke Menu Utama</button>
+</div>
+
+<div id="sub-bab-page" class="card hidden">
+  <h3 id="judul-sub-bab">Pilih Kategori</h3>
+  <div id="sub-bab-container"></div>
+  <button class="btn-back" onclick="kembaliDariSubBab()">Kembali ke Pilihan Bab</button>
+</div>
+
+<div id="test-bab-page" class="card hidden">
+  <h3 id="judul-test-menu">Pilihan Bab Test</h3>
+  <div style="margin-bottom: 12px; text-align: left;">
+    <label for="quizLimitSelect">Pilih Jumlah Soal Test:</label>
+    <select id="quizLimitSelect">
+      <option value="10" selected>10 Soal</option>
+      <option value="20">20 Soal</option>
+      <option value="30">30 Soal</option>
+      <option value="50">50 Soal</option>
+      <option value="100">100 Soal</option>
+      <option value="Semua">Semua Soal</option>
+    </select>
+  </div>
+  <div id="test-bab-container"></div>
+  <button class="btn-back" onclick="kembaliDariTestBab()">Kembali ke Daftar Kotoba</button>
+</div>
+
+<!-- HALAMAN PEMILIHAN JENIS TEST -->
+<div id="select-test-type-page" class="card hidden">
+  <h3 id="judul-mode-test">Pilih Jenis Test</h3>
+  <p class="welcome-desc" style="margin-bottom: 16px;">Silakan pilih metode test yang ingin kamu gunakan.</p>
+
+  <div class="mm-card mm-kotoba" onclick="lanjutkanTest('pg')">
+    <span class="mm-ico">📝</span>
+    <span class="mm-txt"><b>Test Pilihan Ganda</b><small id="prog-info-pg">Pilih jawaban yang paling tepat</small></span>
+    <span class="mm-arrow">›</span>
+  </div>
+  <div class="mm-card mm-teal" onclick="lanjutkanTest('tulis')">
+    <span class="mm-ico">✍️</span>
+    <span class="mm-txt"><b>Test Tulis Kotoba</b><small id="prog-info-tulis">Ketik cara baca dengan hiragana</small></span>
+    <span class="mm-arrow">›</span>
+  </div>
+  <div class="mm-card mm-purple" onclick="lanjutkanTest('joyquiz')">
+    <span class="mm-ico">🎯</span>
+    <span class="mm-txt"><b>JoyFlash</b><small>Kartu kilat: balik &amp; hafalkan</small></span>
+    <span class="mm-arrow">›</span>
+  </div>
+  <div id="btn-mode-dokkai" class="mm-card mm-pink" style="display:none;" onclick="bukaDokkaiDariTest()">
+    <span class="mm-ico">📖</span>
+    <span class="mm-txt"><b>Dokkai</b><small>Latihan membaca teks bab ini</small></span>
+    <span class="mm-arrow">›</span>
+  </div>
+  <button class="btn-back" onclick="kembaliDariModeTest()">⬅️ Kembali</button>
+</div>
+
+<!-- HALAMAN TEST PILIHAN GANDA -->
+<div id="quiz-page" class="card hidden">
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+    <span id="quiz-progress" style="font-size:14px; font-weight:700; color:#10b981;">Soal 1 / 10</span>
+    <span id="quiz-timer" class="timer-badge">⏱️ 03:00</span>
+  </div>
+
+  <div class="quiz-question-box">
+    <div id="quiz-reading" class="quiz-reading">...</div>
+    <div id="quiz-meaning" class="quiz-meaning">...</div>
+  </div>
+
+  <div class="quiz-instruction">Pilih jawaban yang tepat</div>
+
+  <div class="quiz-grid" id="quiz-options-container"></div>
+
+  <button class="btn-back" style="margin-top:8px;" onclick="bukaMenuTestDariBab()">Hentikan Test</button>
+  <button class="btn-back btn-reset-test" onclick="konfirmasiResetProgres('pg', true)">🔄 Reset &amp; Ulang dari Awal</button>
+</div>
+
+<!-- HALAMAN TEST TULIS KOTOBA -->
+<div id="write-quiz-page" class="card hidden">
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+    <span id="write-progress" style="font-size:14px; font-weight:700; color:#0d9488;">Soal 1 / 10</span>
+    <span id="write-timer" class="timer-badge hidden">⏱️ 03:00</span>
+  </div>
+
+  <div class="quiz-question-box">
+    <div style="font-size: 13px; color: #64748b; margin-bottom: 6px;">Ketik cara baca (furigana/hiragana) dari kanji berikut:</div>
+    <div id="write-kanji" class="quiz-reading" style="font-size: 32px; color: #1e293b; margin: 10px 0;">...</div>
+    <div id="write-meaning" class="quiz-meaning" style="color: #0d9488; font-weight: 600;">...</div>
+  </div>
+
+  <div style="margin-bottom: 16px; text-align: left;">
+    <input type="text" id="user-write-input" placeholder="Ketik cara baca (cth: たべます)..." style="width: 100%; padding: 12px 14px; border-radius: 12px; border: 2px solid #cbd5e1; font-size: 16px; outline: none; text-align: center;" onkeydown="handleWriteKeydown(event)">
+  </div>
+
+  <button class="btn-ready fun-teal" style="margin:0 0 10px 0;" onclick="cekJawabanTulis()">Jawab / Kirim 🚀</button>
+  <button class="btn-back" style="margin:0;" onclick="bukaMenuTestDariBab()">Hentikan Test</button>
+  <button class="btn-back btn-reset-test" onclick="konfirmasiResetProgres('tulis', true)">🔄 Reset &amp; Ulang dari Awal</button>
+</div>
+
+<div id="data-page" class="card hidden">
+  <div class="page-header">
+    <button class="btn-icon-back" onclick="kembaliKeMenuDariData()" title="Kembali ke Menu Utama">
+      <span class="arrow">←</span><span>Back</span>
+    </button>
+    <h3 id="judul-bab">Daftar Kotoba</h3>
+    <button class="btn-icon-back spacer" aria-hidden="true" tabindex="-1">
+      <span class="arrow">←</span><span>Back</span>
+    </button>
+  </div>
+
+  <!-- Tombol Test Kotoba langsung membuka pilihan mode test berdasarkan Bab aktif -->
+  <div class="test-hafal-row">
+    <button class="btn-test" onclick="bukaMenuTestDariBab()">📝 TEST KOTOBA</button>
+    <button class="btn-hafal-list" onclick="bukaModalHafal()">KOTOBA DIHAFAL (<span id="count-hafal">0</span>)</button>
+  </div>
+
+  <div class="filter-grid">
+    <div class="filter-col">
+      <label for="limitSelect">Jumlah Kotoba:</label>
+      <select id="limitSelect" onchange="renderData()">
+        <option value="5">5 Kotoba</option>
+        <option value="10">10 Kotoba</option>
+        <option value="15">15 Kotoba</option>
+        <option value="20">20 Kotoba</option>
+        <option value="25">25 Kotoba</option>
+        <option value="30">30 Kotoba</option>
+        <option value="Semua" selected>Semua Kotoba</option>
+      </select>
+    </div>
+  </div>
+
+  <div id="loading" class="hidden">Memuat data...</div>
+
+  <div id="kotoba-list" class="kotoba-container"></div>
+
+  <button class="btn-back" onclick="kembaliKeBab()">Kembali ke Pilihan Bab</button>
+</div>
+
+<div id="dokkai-page" class="card hidden">
+  <h3 id="judul-dokkai">Dokkai</h3>
+  <div id="loading-dokkai" class="hidden">Memuat teks Dokkai...</div>
+  <div id="dokkai-content" style="text-align: left; margin-bottom: 16px;"></div>
+  <button class="btn-back" onclick="kembaliDariDokkai()">Kembali</button>
+</div>
+
+<div id="modal-hafal" class="modal modal-hidden">
+  <div class="modal-content">
+    <h3 style="color:#0d9488; text-align:center;">Kotoba yang Sudah Dihafal</h3>
+    <div id="hafal-list" class="kotoba-container"></div>
+    <button class="btn-back" style="width:100%;" onclick="tutupModalHafal()">Tutup</button>
+  </div>
+</div>
+
+<!-- HALAMAN JOYQUIZ (FLASHCARD KOTOBA) -->
+<div id="joyquiz-page" class="card hidden">
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+    <span id="joyquiz-progress" style="font-size:14px; font-weight:700; color:#8b5cf6;">Kartu 1 / 10</span>
+    <span style="font-size:13px; font-weight:700; color:#64748b; background:#f1f5f9; padding:4px 10px; border-radius:8px;">🎯 JoyFlash card</span>
+  </div>
+
+  <div class="flashcard-wrapper">
+    <div class="flashcard" id="flashcard-box" onclick="flipFlashcard()">
+      <div id="fc-kanji-container">
+        <div id="fc-kanji" class="fc-kanji">...</div>
+        <div class="fc-hint"> </div>
+      </div>
+
+      <div id="fc-answer-container" class="fc-answer-section hidden">
+        <div id="fc-baca" class="fc-baca">...</div>
+        <div id="fc-arti" class="fc-arti">...</div>
+      </div>
+    </div>
+  </div>
+
+  <div style="display: flex; gap: 10px; margin-bottom: 12px;">
+    <button class="btn-back" style="margin:0; flex:1; width:auto !important;" onclick="lanjutkanFlashcard(-1)">‹ Sebelumnya</button>
+    <button class="btn-ready fun-purple" style="margin:0; flex:1; width:auto !important;" onclick="lanjutkanFlashcard(1)">Selanjutnya ›</button>
+  </div>
+
+  <button class="btn-back" style="margin:0;" onclick="bukaMenuTestDariBab()">Keluar Flashcard</button>
+</div>
+
+<!-- POP UP KUSTOM: Konfirmasi Logout -->
+<div id="custom-logout-modal" class="modal modal-hidden">
+  <div class="custom-alert-box">
+    <div class="custom-alert-title" style="color: #ef4444;">Keluar Akun?</div>
+    <div class="custom-alert-msg">Apakah kamu yakin ingin keluar (Logout)?</div>
+
+    <div style="display: flex; gap: 8px; justify-content: center;">
+      <button class="btn-back" style="margin:0; flex:1; width:auto !important;" onclick="tutupModalLogout()">Batal</button>
+      <button class="btn-danger" style="margin:0; flex:1; width:auto !important;" onclick="prosesLogout()">Ya, Keluar</button>
+    </div>
+  </div>
+</div>
+
+<!-- POP UP KUSTOM: Pilih Foto Profil -->
+<div id="avatar-modal" class="modal modal-hidden">
+  <div class="custom-alert-box av-box">
+    <div class="custom-alert-title" style="margin-bottom:4px;">🐱 Pilih Foto Profil</div>
+    <div class="av-sub">Ketuk salah satu avatar favoritmu</div>
+    <div id="av-grid" class="av-grid"></div>
+    <div id="av-status" class="av-status"></div>
+    <button class="btn-back" style="margin:0;" onclick="tutupAvatar()">Tutup</button>
+  </div>
+</div>
+
+<!-- POP UP KUSTOM: Konfirmasi reset progres test -->
+<div id="reset-progres-modal" class="modal modal-hidden">
+  <div class="custom-alert-box">
+    <div class="custom-alert-title" style="color:#ef4444;">Ulang dari Awal?</div>
+    <div class="custom-alert-msg" id="reset-progres-msg">Progres test akan dihapus.</div>
+    <div style="display:flex; gap:8px; justify-content:center;">
+      <button class="btn-back" style="margin:0; flex:1; width:auto !important;" onclick="tutupResetProgres()">Batal</button>
+      <button class="btn-danger" style="margin:0; flex:1; width:auto !important;" onclick="prosesResetProgres()">Ya, Reset</button>
+    </div>
+  </div>
+</div>
+
+<!-- POP UP KUSTOM: Saran & Masukan -->
+<div id="masukan-modal" class="modal modal-hidden">
+  <div class="custom-alert-box" style="max-width:360px; text-align:left;">
+    <div class="custom-alert-title" style="color:#2563eb; text-align:center;">💬 Saran &amp; Masukan</div>
+    <div class="custom-alert-msg" style="text-align:center; margin-bottom:12px;">Tulis saran atau kendala Anda. Masukan akan dibaca oleh Sensei.</div>
+    <textarea id="masukan-teks" maxlength="1000" placeholder="Tulis di sini..." oninput="hitungMasukan()"></textarea>
+    <div class="masukan-hitung" id="masukan-hitung">0 / 1000</div>
+    <div style="display:flex; gap:8px;">
+      <button class="btn-back" style="margin:0; flex:1; width:auto !important;" onclick="tutupMasukan()">Batal</button>
+      <button id="masukan-kirim" class="btn-ready" style="margin:0; flex:1; width:auto !important;" onclick="kirimMasukan()">Kirim 🚀</button>
+    </div>
+  </div>
+</div>
+
+<!-- POP UP KUSTOM: Update Terbaru -->
+<div id="update-modal" class="modal modal-hidden">
+  <div class="custom-alert-box upd-box">
+    <div class="upd-head">
+      <div class="upd-emoji">🎉</div>
+      <div class="upd-title">Update Terbaru!</div>
+      <span class="upd-ver" id="upd-ver"></span>
+    </div>
+    <div class="upd-body">
+      <div class="upd-intro" id="upd-intro"></div>
+      <ol class="upd-list" id="upd-list"></ol>
+      <div class="upd-outro"><span>💡</span><span id="upd-outro"></span></div>
+    </div>
+    <div class="upd-foot">
+      <div class="tema-switch" role="group" aria-label="Pilih tema">
+        <button type="button" data-tema="light" onclick="setTema('light')">☀️ Terang</button>
+        <button type="button" data-tema="dark" onclick="setTema('dark')">🌙 Gelap</button>
+      </div>
+      <button class="btn-ready" onclick="tutupUpdate()">Siap, Mengerti 👍</button>
+    </div>
+  </div>
+</div>
+
+<!-- POP UP KUSTOM: Cek Update Aplikasi (APK) -->
+<div id="update-app-modal" class="modal modal-hidden">
+  <div class="custom-alert-box">
+    <div id="ua-title" class="custom-alert-title">Update Aplikasi</div>
+    <div id="ua-msg" class="custom-alert-msg" style="white-space:pre-line;">...</div>
+    <button id="ua-unduh" class="btn-ready hidden" style="margin:0 0 8px;" onclick="unduhApkTerbaru()">Unduh Sekarang ⬇️</button>
+    <button class="btn-back" style="margin:0; width:100% !important;" onclick="tutupUpdateApp()">Tutup</button>
+  </div>
+</div>
+
+<!-- POP UP KUSTOM: Umum / Informasi / Ubah Password Berhasil -->
+<div id="custom-alert-modal" class="modal modal-hidden">
+  <div class="custom-alert-box">
+    <div id="c-alert-title" class="custom-alert-title">Berhasil! 🎉</div>
+    <div id="c-alert-msg" class="custom-alert-msg">Pesan informasi</div>
+
+    <button class="btn-ready" style="margin:0;" onclick="tutupCustomAlert()">OK 👍</button>
+  </div>
+</div>
+
+<script src="Code.js"></script>
+
+<!-- ===== HALAMAN KANJI ===== -->
+<!-- KANJI: Menu Level -->
+<div id="kanji-main-page" class="card hidden">
+  <div class="page-header">
+    <button class="btn-icon-back" onclick="kembaliKeMainDariKanji()"><span class="arrow">‹</span> Menu Utama</button>
+    <h3>🈴 Kanji</h3>
+    <button class="btn-icon-back spacer">spacer</button>
+  </div>
+  <div id="kanji-level-container">
+    <div class="kanji-loading">Memuat data kanji...</div>
+  </div>
+
+  <hr class="kanji-divider">
+
+  <div class="kanji-daisuki-btn" onclick="bukaKanjiDaisuki()">
+    <span>Kanji Daisuki</span>
+    <span class="kk-arrow">›</span>
+  </div>
+
+  <div class="kc-menu-btn" onclick="kcBuka()">
+    <span>Kanji Challenge!</span>
+    <span class="kk-arrow">›</span>
+  </div>
+</div>
+
+<!-- KANJI: Daftar Kanji per Level (grid) -->
+<div id="kanji-list-page" class="card hidden">
+  <div class="page-header">
+    <button class="btn-icon-back" onclick="kembaliKeKanjiMain()"><span class="arrow">‹</span> Kembali</button>
+    <h3 id="kanji-list-judul">Kanji</h3>
+    <button class="btn-icon-back spacer">spacer</button>
+  </div>
+  <div id="kanji-list-container">
+    <div class="kanji-loading">Memuat...</div>
+  </div>
+</div>
+
+<!-- KANJI: Detail Satu Kanji (kartu bolak-balik) -->
+<div id="kanji-detail-page" class="card hidden">
+  <div class="page-header">
+    <button class="btn-icon-back" onclick="kembaliKeKanjiList()"><span class="arrow">‹</span> Kembali</button>
+    <h3 id="kanji-detail-judul">Detail Kanji</h3>
+    <button class="btn-icon-back spacer">spacer</button>
+  </div>
+
+  <div class="kanji-flip-wrap" id="kanji-flip-wrap"></div>
+
+  <button class="btn-flip" style="width:70%; max-width:240px; margin:0 auto 4px auto; display:block; padding:11px; border-radius:10px; border:none; color:#fff; font-weight:600; font-size:14px;" onclick="balikKartuKanji()">🔄 Balik Kartu</button>
+
+  <button id="kanji-btn-tulis" class="btn-flip" style="width:70%; max-width:240px; margin:8px auto 4px auto; display:block; padding:11px; border-radius:10px; border:none; color:#fff; font-weight:600; font-size:14px;" onclick="toggleTulisKanji()">✍️ Cara Tulis Kanji</button>
+
+  <div class="kanji-nav-bar">
+    <button id="kanji-nav-prev" onclick="kanjiSebelumnya()">‹</button>
+    <span id="kanji-detail-counter">01/01</span>
+    <button id="kanji-nav-next" onclick="kanjiBerikutnya()">›</button>
+  </div>
+</div>
+
+<!-- KANJI: Game Kanji Daisuki -->
+<div id="kanji-daisuki-page" class="card hidden">
+  <div class="page-header">
+    <button class="btn-icon-back" onclick="kdKeluarGame()"><span class="arrow">‹</span> Kembali</button>
+    <h3>🀄 Kanji Daisuki Games</h3>
+    <button class="btn-icon-back spacer">spacer</button>
+  </div>
+
+  <div class="kd-topbar">
+    <div class="kd-skor-box">🏆 Skor: <span id="kd-skor">0</span></div>
+    <div class="kd-skor-box kd-skor-tertinggi">🏅 Tertinggi: <span id="kd-skor-tertinggi">0</span></div>
+  </div>
+
+  <div class="kd-chain-preview" id="kd-chain-preview">Klik kanji untuk mulai merangkai kotoba...</div>
+
+  <div class="kd-board" id="kd-board">
+    <div class="kanji-loading">Memuat game...</div>
+  </div>
+
+  <div class="kd-actions">
+    <button class="kd-btn-batal" onclick="kdBatalkanPilihan()">↺ Batalkan Pilihan</button>
+    <button class="kd-btn-tambah" onclick="kdResetKanji()">🔄 Reset Kanji</button>
+  </div>
+  <button class="kd-btn-referensi" onclick="bukaReferensiKotoba()">📖 Referensi Kotoba</button>
+
+  <div id="kd-challenge-overlay" class="kd-overlay hidden">
+    <div class="kd-overlay-inner">
+      <div class="kd-overlay-title">🎉 Selamat!</div>
+      <div class="kd-challenge-msg">Score kamu sudah mencapai 250. Apakah kamu mau menaikkan tingkat tantangan?</div>
+      <button class="kd-btn-main-lagi" onclick="kdPilihTantangN4()">🔥 Tantang N4</button>
+      <button class="kd-btn-tetap" onclick="kdPilihTetapN5()">Tetap N5</button>
+    </div>
+  </div>
+</div>
+
+<!-- KANJI: Referensi Kotoba -->
+<div id="referensi-kotoba-page" class="card hidden">
+  <div class="page-header">
+    <button class="btn-icon-back" onclick="kembaliDariReferensiKotoba()"><span class="arrow">‹</span> Kembali</button>
+    <h3>📖 Referensi Kotoba</h3>
+    <button class="btn-icon-back spacer">spacer</button>
+  </div>
+
+  <input type="text" id="referensi-search" class="referensi-search-input" placeholder="🔍 Cari kotoba atau arti..." oninput="filterReferensiKotoba()">
+
+  <div id="referensi-kotoba-container">
+    <div class="kanji-loading">Memuat...</div>
+  </div>
+</div>
+
+<!-- KANJI: Kanji Challenge (multiplayer) -->
+<div id="kanji-challenge-page" class="card hidden">
+  <div class="page-header">
+    <button class="btn-icon-back" onclick="kcKembali()"><span class="arrow">‹</span> Kembali</button>
+    <h3>🃏 Kanji Challenge</h3>
+    <button class="btn-icon-back spacer">spacer</button>
+  </div>
+
+  <div class="kc-intro">Game kartu kanji multiplayer online.<br>Gabungkan kartu kanjimu dengan Random Kanji untuk membentuk kotoba!</div>
+
+  <div class="kc-aturan">
+    👥 Main bersama 2–3 pemain<br>
+    🃏 Tiap pemain memegang 4 kartu kanji<br>
+    ✅ Kotoba harus ada di database<br>
+    ⏱ Waktu game 10 / 20 / 30 menit
+  </div>
+
+  <button class="kc-big-btn" onclick="kcBuatRoom()">➕ BUAT ROOM</button>
+  <button class="kc-big-btn kc-alt" onclick="kcGabungRoom()">🔑 GABUNG ROOM</button>
+</div>
+
+<!-- KANJI CHALLENGE: Buat Room -->
+<div id="kc-buat-page" class="card hidden">
+  <div class="page-header">
+    <button class="btn-icon-back" onclick="kcTampil('kanji-challenge-page')"><span class="arrow">‹</span> Kembali</button>
+    <h3>➕ Buat Room</h3>
+    <button class="btn-icon-back spacer">spacer</button>
+  </div>
+  <div class="kc-label">⏱ Durasi game</div>
+  <div class="kc-chips" id="kc-pilih-durasi"></div>
+  <div class="kc-label">🎖️ Level kanji</div>
+  <div class="kc-chips" id="kc-pilih-level"></div>
+  <button id="kc-btn-buat" class="kc-big-btn" onclick="kcBuatSekarang()">BUAT ROOM</button>
+</div>
+
+<!-- KANJI CHALLENGE: Gabung Room -->
+<div id="kc-gabung-page" class="card hidden">
+  <div class="page-header">
+    <button class="btn-icon-back" onclick="kcTampil('kanji-challenge-page')"><span class="arrow">‹</span> Kembali</button>
+    <h3>🔑 Gabung Room</h3>
+    <button class="btn-icon-back spacer">spacer</button>
+  </div>
+  <div class="kc-label" style="text-align:center;">MASUKKAN ROOM CODE</div>
+  <input type="text" id="kc-kode-input" class="kc-kode-input" maxlength="5" placeholder="A7K92" autocomplete="off" autocapitalize="characters" oninput="kcBersihkanKode(this)" onkeydown="kcKodeEnter(event)">
+  <div class="kc-error" id="kc-gabung-error"></div>
+  <button class="kc-big-btn" onclick="kcGabungSekarang()">GABUNG</button>
+</div>
+
+<!-- KANJI CHALLENGE: Lobby -->
+<div id="kc-lobby-page" class="card hidden">
+  <div class="page-header">
+    <button class="btn-icon-back" onclick="kcKeluarRoom()"><span class="arrow">‹</span> Keluar</button>
+    <h3>🃏 Lobby</h3>
+    <button class="btn-icon-back spacer">spacer</button>
+  </div>
+  <div id="kc-lobby-body"></div>
+</div>
+
+<!-- KANJI CHALLENGE: Game Board (Tahap 8) -->
+<div id="kc-game-page" class="card hidden kc-game-card">
+  <div id="kc-game-body"></div>
+</div>
+
+<script src="kanji.js"></script>
+<script src="kanji-challenge.js"></script>
+<!-- ===== HALAMAN BUNPOU ===== -->
+<!-- BUNPOU -->
+<div id="bunpou-page" class="card hidden">
+  <div class="page-header">
+    <button class="btn-icon-back" onclick="bpBack()"><span class="arrow">‹</span> Kembali</button>
+    <h3 id="bp-title">📗 Bunpou</h3>
+    <button class="btn-icon-back spacer">spacer</button>
+  </div>
+  <div id="bp-body"></div>
+</div>
+
+<script src="bunpou.js"></script>
+</body>
+</html>
