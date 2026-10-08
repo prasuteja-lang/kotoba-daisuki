@@ -699,20 +699,28 @@ function kcMuatKamus() {
 }
 
 // Cari kotoba yang tersusun dari kanji-kanji ini (urutan bebas, yang penting ADA di database).
-// Prioritas: urutan Random Kanji dulu lalu urutan ketukan; kalau tidak ada, urutan lain yang valid.
-function kcCari(chars) {
+// Kotoba yang SUDAH TERJAWAB (solved) tidak dihitung lagi -> tidak ada pengulangan.
+// Prioritas: urutan Random Kanji dulu lalu urutan ketukan; kalau tidak ada, urutan lain yang valid & belum terjawab.
+function kcCari(chars, solved) {
   var list = kcKamus.byKey[kcKunci(chars)];
   if (!list || !list.length) return null;
+  solved = solved || {};
   var pas = chars.join('');
-  return list.indexOf(pas) >= 0 ? pas : list[0];
+  if (list.indexOf(pas) >= 0 && !solved[pas]) return pas;
+  for (var i = 0; i < list.length; i++) if (!solved[list[i]]) return list[i];
+  return null;
 }
-function kcBisaLanjut(total, sisaTangan) {            // HINT: masih bisa jadi kotoba lebih panjang?
+function kcSudahTerjawab(chars, solved) {            // kotoba ada di database, tapi semua susunannya sudah pernah dijawab
+  var list = kcKamus.byKey[kcKunci(chars)];
+  return !!(list && list.length && !kcCari(chars, solved));
+}
+function kcBisaLanjut(total, sisaTangan, solved) {   // HINT: masih bisa jadi kotoba lebih panjang (yang belum terjawab)?
   if (total.length >= 3) return false;
   var seen = {};
   for (var i = 0; i < sisaTangan.length; i++) {
     var h = sisaTangan[i];
     if (seen[h]) continue; seen[h] = 1;
-    if (kcKamus.byKey[kcKunci(total.concat([h]))]) return true;
+    if (kcCari(total.concat([h]), solved)) return true;
   }
   return false;
 }
@@ -723,15 +731,16 @@ function kcLevelData(level) {
   if (!daftar.length) daftar = Object.keys(kcKamus.kata).filter(function (w) { return w.length === 2; });
   var set = {}, chars = [];
   daftar.forEach(function (w) { for (var i = 0; i < w.length; i++) { var c = w.charAt(i); if (!set[c]) { set[c] = 1; chars.push(c); } } });
-  var mitra = {};
+  var mitra = {}, pairs = [];
   Object.keys(kcKamus.kata).forEach(function (w) {
     if (w.length !== 2) return;
     var a = w.charAt(0), b = w.charAt(1);
     if (a === b || !set[a] || !set[b]) return;
+    pairs.push(w);
     (mitra[a] = mitra[a] || []); if (mitra[a].indexOf(b) < 0) mitra[a].push(b);
     (mitra[b] = mitra[b] || []); if (mitra[b].indexOf(a) < 0) mitra[b].push(a);
   });
-  var d = { chars: chars, mitra: mitra, utama: chars.filter(function (c) { return mitra[c] && mitra[c].length; }) };
+  var d = { chars: chars, mitra: mitra, pairs: pairs, utama: chars.filter(function (c) { return mitra[c] && mitra[c].length; }) };
   kcKamus.cache[level] = d;
   return d;
 }
@@ -742,10 +751,9 @@ function kcLevelData(level) {
    { level, order[uid], turn, turnNo, kanji, passes, seq, sel[], tMulai, batas, mulai, akhir,
      hands{uid:[kanji]}, scores{uid}, streaks{uid}, need{uid}, usage{kanji:n}, last{...} } */
 var KC_KARTU = 4;                    // kartu di tangan
-var KC_BATAS_PAKAI = 3;              // satu kanji maksimal muncul 3x sebagai kartu
 var KC_GILIRAN_DETIK = 60;           // batas waktu satu giliran (lewat -> otomatis PASS)
 var KC_OFFLINE_DETIK = 8;            // pemain offline dilewati setelah ini
-var KC_BIAS = 0.3;                   // peluang kartu yang ditarik cocok dgn Random Kanji (0 = murni acak)
+var KC_DENDA_SALAH = 1;              // poin yang dikurangi setiap pilihan kartu salah (skor tidak turun di bawah 0)
 var KC_RESET_MAKS = 3;                // jumlah reset kartu per giliran
 var KC_GANTI_KANJI_SETELAH_BENAR = true;   // true: setelah ada yang benar, Random Kanji diganti baru
 
@@ -771,6 +779,7 @@ function kcNormG(g) {
   g.order = kcArr(g.order); g.sel = kcArr(g.sel);
   g.hands = kcObj(g.hands); g.usage = kcObj(g.usage); g.scores = kcObj(g.scores);
   g.streaks = kcObj(g.streaks); g.need = kcObj(g.need);
+  g.solved = kcObj(g.solved); g.shown = kcObj(g.shown);
   g.order.forEach(function (id) { g.hands[id] = kcArr(g.hands[id]); g.scores[id] = g.scores[id] || 0; g.streaks[id] = g.streaks[id] || 0; g.need[id] = g.need[id] || 0; });
   g.resets = g.resets || 0; g.passes = g.passes || 0; g.seq = g.seq || 0; g.turnNo = g.turnNo || 1;
   return g;
@@ -778,42 +787,97 @@ function kcNormG(g) {
 function kcPilih(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 function kcNow() { return kcDb.now ? kcDb.now() : Date.now(); }
 
-function kcPoolAktif(g) {                              // kanji yang belum mencapai batas 3x
-  return kcLevelData(g.level).chars.filter(function (c) { return (g.usage[c] || 0) < KC_BATAS_PAKAI; });
+function kcPunyaPasangan(g, kanji, c) {                // kanji + c masih membentuk kotoba yang BELUM terjawab?
+  return !!kcCari([kanji, c], g.solved);
 }
-function kcKanjiBaru(g) {                              // Random Kanji: harus punya pasangan kotoba di database
+function kcKartuHidup(g) {                             // kanji yang masih punya minimal 1 kotoba belum terjawab
   var d = kcLevelData(g.level);
-  var kand = (d.utama.length ? d.utama : d.chars).filter(function (c) { return c !== g.kanji; });
-  if (!kand.length) kand = d.chars;
-  return kand.length ? kcPilih(kand) : '？';
+  return d.chars.filter(function (c) {
+    var m = d.mitra[c] || [];
+    for (var i = 0; i < m.length; i++) if (kcPunyaPasangan(g, c, m[i])) return true;
+    return false;
+  });
 }
-function kcAmbilKartu(g) {                             // tarik 1 kartu dari pool (usageCount +1), null jika pool habis
-  var aktif = kcPoolAktif(g);
-  if (!aktif.length) return null;
-  var ak = {}; aktif.forEach(function (c) { ak[c] = 1; });
-  var mitra = (kcLevelData(g.level).mitra[g.kanji] || []).filter(function (c) { return ak[c]; });
-  var c = (mitra.length && Math.random() < KC_BIAS) ? kcPilih(mitra) : kcPilih(aktif);
+function kcPoolAktif(g) { return kcKartuHidup(g); }
+function kcSisaKotoba(g) {                             // sisa kotoba (di referensi level ini) yang belum terjawab
+  var sv = g.solved || {};
+  return kcLevelData(g.level).pairs.filter(function (w) { return !sv[w]; }).length;
+}
+
+// Random Kanji: (1) masih punya kotoba belum terjawab, (2) punya PASANGAN di tangan pemain yang sedang giliran,
+// (3) dipilih dari yang paling jarang muncul -> tidak berulang-ulang.
+function kcKanjiBaru(g, uid) {
+  var d = kcLevelData(g.level), tangan = (uid && g.hands[uid]) || [], cand = {};
+  tangan.forEach(function (c) {
+    (d.mitra[c] || []).forEach(function (m) { if (m !== g.kanji && kcPunyaPasangan(g, m, c)) cand[m] = 1; });
+  });
+  var kand = Object.keys(cand);
+  if (!kand.length) kand = kcKartuHidup(g).filter(function (c) { return c !== g.kanji; });
+  if (!kand.length) kand = kcKartuHidup(g);
+  if (!kand.length) return '';                         // semua kotoba sudah terjawab
+  var min = Infinity;
+  kand.forEach(function (c) { min = Math.min(min, g.shown[c] || 0); });
+  var k = kcPilih(kand.filter(function (c) { return (g.shown[c] || 0) === min; }));
+  g.shown[k] = (g.shown[k] || 0) + 1;
+  return k;
+}
+
+// Tarik 1 kartu: hanya kanji yang masih "hidup", TIDAK kembar dengan kartu di tangan, dan yang paling jarang dibagikan.
+function kcAmbilKartu(g, tangan, hindari) {
+  var hidup = kcKartuHidup(g);
+  if (!hidup.length) return null;
+  tangan = tangan || []; hindari = hindari || [];
+  var pool = hidup.filter(function (c) { return tangan.indexOf(c) < 0 && hindari.indexOf(c) < 0; });
+  if (!pool.length) pool = hidup.filter(function (c) { return tangan.indexOf(c) < 0; });
+  if (!pool.length) pool = hidup;
+  var min = Infinity;
+  pool.forEach(function (c) { min = Math.min(min, g.usage[c] || 0); });
+  var c = kcPilih(pool.filter(function (x) { return (g.usage[x] || 0) === min; }));
   g.usage[c] = (g.usage[c] || 0) + 1;
   return c;
+}
+
+// Pastikan Random Kanji punya pasangan di tangan pemain ini. Kalau belum: tukar 1 kartu (kembar diutamakan) dengan kartu pasangan.
+// Kalau Random Kanji sudah tidak punya kotoba tersisa: ganti Random Kanji. Return false jika semua kotoba sudah habis.
+function kcPastikanPasangan(g, uid) {
+  var tangan = g.hands[uid]; if (!tangan) return true;
+  var d = kcLevelData(g.level);
+  function pasangan() { return g.kanji ? (d.mitra[g.kanji] || []).filter(function (c) { return kcPunyaPasangan(g, g.kanji, c); }) : []; }
+  var mitra = pasangan();
+  if (!mitra.length) { g.kanji = kcKanjiBaru(g, uid); if (!g.kanji) return false; mitra = pasangan(); }
+  if (tangan.some(function (c) { return mitra.indexOf(c) >= 0; })) return true;
+  if (!mitra.length) return true;
+  var min = Infinity;
+  mitra.forEach(function (c) { min = Math.min(min, g.usage[c] || 0); });
+  var p = kcPilih(mitra.filter(function (c) { return (g.usage[c] || 0) === min; }));
+  g.usage[p] = (g.usage[p] || 0) + 1;
+  if (tangan.length < KC_KARTU) { tangan.push(p); return true; }
+  var ix = -1;
+  for (var i = 0; i < tangan.length; i++) if (tangan.indexOf(tangan[i]) !== i) { ix = i; break; }   // kartu kembar dulu
+  if (ix < 0) ix = Math.floor(Math.random() * tangan.length);
+  g.usage[tangan[ix]] = Math.max(0, (g.usage[tangan[ix]] || 0) - 1);
+  tangan[ix] = p;
+  return true;
 }
 function kcSetGiliran(g, id) {                         // pindah giliran + bagikan kartu pengganti yang tertunda
   g.turn = id; g.turnNo++; g.sel = []; g.resets = 0;
   var now = kcNow(); g.tMulai = now; g.batas = now + KC_GILIRAN_DETIK * 1000;
   var n = g.need[id] || 0;
-  while (n > 0 && g.hands[id].length < KC_KARTU) { var c = kcAmbilKartu(g); if (!c) break; g.hands[id].push(c); n--; }
+  while (n > 0 && g.hands[id].length < KC_KARTU) { var c = kcAmbilKartu(g, g.hands[id]); if (!c) break; g.hands[id].push(c); n--; }
   g.need[id] = 0;
+  if (!kcPastikanPasangan(g, id)) g.habis = true;      // Random Kanji selalu punya pasangan di tangan pemain yg giliran
 }
 function kcGiliranBerikut(g) { return g.order[(g.order.indexOf(g.turn) + 1) % g.order.length]; }
 
 function kcEngInit(ids, durasi, level, now) {
-  var g = { level: level, order: ids.slice(), usage: {}, hands: {}, scores: {}, streaks: {}, need: {},
+  var g = { level: level, order: ids.slice(), usage: {}, solved: {}, shown: {}, hands: {}, scores: {}, streaks: {}, need: {},
             passes: 0, turnNo: 0, seq: 0, sel: [], kanji: '', mulai: now, akhir: now + durasi * 60000 };
-  g.kanji = kcKanjiBaru(g);
+  g.pertama = kcPilih(ids);                            // pemain pertama RANDOM
   ids.forEach(function (id) {
     g.hands[id] = []; g.scores[id] = 0; g.streaks[id] = 0; g.need[id] = 0;
-    for (var i = 0; i < KC_KARTU; i++) { var c = kcAmbilKartu(g); if (c) g.hands[id].push(c); }
+    for (var i = 0; i < KC_KARTU; i++) { var c = kcAmbilKartu(g, g.hands[id]); if (c) g.hands[id].push(c); }
   });
-  g.pertama = kcPilih(ids);                            // pemain pertama RANDOM
+  g.kanji = kcKanjiBaru(g, g.pertama);                 // Random Kanji pertama: pasti ada pasangannya di tangan pemain pertama
   kcSetGiliran(g, g.pertama);
   return g;
 }
@@ -845,17 +909,20 @@ function kcFnGerak(uid, kartu) {
       if (ix < 0) return undefined;                    // kartu tidak dimiliki
       tangan.splice(ix, 1);
     }
-    var kata = kcCari([g.kanji].concat(kartu));        // VALIDASI oleh database
+    var kata = kcCari([g.kanji].concat(kartu), g.solved);   // VALIDASI oleh database (kotoba yang sudah terjawab ditolak)
     if (!kata) return undefined;
     var streak = (g.streaks[uid] || 0) + (kartu.length === 2 ? 2 : 1);   // 3 kanji = streak +2
     var poin = streak * 2;
+    g.solved[kata] = 1;                                // kotoba ini sudah terpakai -> tidak muncul/valid lagi
     g.hands[uid] = tangan;
     g.scores[uid] += poin; g.streaks[uid] = streak;
-    while (g.hands[uid].length < KC_KARTU) { var cb = kcAmbilKartu(g); if (!cb) break; g.hands[uid].push(cb); }   // kartu pengganti langsung dibagikan
+    while (g.hands[uid].length < KC_KARTU) { var cb = kcAmbilKartu(g, g.hands[uid]); if (!cb) break; g.hands[uid].push(cb); }   // kartu pengganti langsung dibagikan (tidak kembar)
     g.seq++;
     g.last = { seq: g.seq, turnNo: g.turnNo, uid: uid, tipe: 'benar', kata: kata, baca: kcKamus.baca[kata] || '', arti: kcKamus.arti[kata] || '', poin: poin, streak: streak };
     g.passes = 0;
-    if (KC_GANTI_KANJI_SETELAH_BENAR) g.kanji = kcKanjiBaru(g);
+    if (KC_GANTI_KANJI_SETELAH_BENAR) g.kanji = kcKanjiBaru(g, uid);
+    if (!kcPastikanPasangan(g, uid)) g.habis = true;
+    if (g.habis) r.status = 'selesai';                 // semua kotoba sudah terjawab
     g.sel = [];                                        // pemain TETAP di gilirannya: boleh menjawab lagi sampai menekan PASS
     g.tMulai = now; g.batas = now + KC_GILIRAN_DETIK * 1000;
     return r;
@@ -865,8 +932,10 @@ function kcFnSalah(uid, teks) {
   return function (r) {
     var g = kcSiapAksi(r, uid, kcNow());
     if (!g) return undefined;
+    var denda = Math.min(KC_DENDA_SALAH, g.scores[uid] || 0);      // kurangi poin, tidak sampai minus
+    g.scores[uid] = (g.scores[uid] || 0) - denda;
     g.streaks[uid] = 0; g.sel = []; g.seq++;
-    g.last = { seq: g.seq, turnNo: g.turnNo, uid: uid, tipe: 'salah', kata: teks || '' };
+    g.last = { seq: g.seq, turnNo: g.turnNo, uid: uid, tipe: 'salah', kata: teks || '', denda: denda };
     return r;
   };
 }
@@ -896,9 +965,10 @@ function kcFnPass(uid, mode, turnNo) {                 // mode: manual | waktu |
     g.last = { seq: g.seq, turnNo: g.turnNo, uid: uid, tipe: mode === 'waktu' ? 'waktu' : 'pass' };
     if (g.passes >= g.order.length) {                  // SEMUA PASS: Random Kanji dibuang, giliran kembali ke Player 1
       g.passes = 0; g.last.semua = true;
-      g.kanji = kcKanjiBaru(g);
+      g.kanji = kcKanjiBaru(g, g.order[0]);
       kcSetGiliran(g, g.order[0]);
     } else kcSetGiliran(g, kcGiliranBerikut(g));
+    if (g.habis) r.status = 'selesai';
     return r;
   };
 }
@@ -910,9 +980,10 @@ function kcFnReset(uid) {                             // tukar semua kartu di ta
     if (!n) return undefined;
     lama.forEach(function (c) { g.usage[c] = Math.max(0, (g.usage[c] || 0) - 1); });   // kartu lama kembali ke deck
     var baru = [];
-    for (var i = 0; i < n; i++) { var c = kcAmbilKartu(g); if (c) baru.push(c); }
+    for (var i = 0; i < n; i++) { var c = kcAmbilKartu(g, baru, lama); if (c) baru.push(c); }   // kartu baru: tidak kembar & beda dari yang lama
     if (!baru.length) return undefined;
     g.hands[uid] = baru; g.resets = (g.resets || 0) + 1; g.sel = [];
+    if (!kcPastikanPasangan(g, uid)) { g.habis = true; r.status = 'selesai'; }
     return r;
   };
 }
@@ -947,7 +1018,7 @@ function kcFnKeluar(id) {                              // dipakai kedua lapisan 
         if (g.order.length < 2) { r.status = 'selesai'; }
         else {
           g.passes = 0;
-          if (giliranDia) kcSetGiliran(g, g.order[ix % g.order.length]);
+          if (giliranDia) { kcSetGiliran(g, g.order[ix % g.order.length]); if (g.habis) r.status = 'selesai'; }
         }
       }
     }
@@ -1037,7 +1108,7 @@ function kcHasilHtml(room, g, pop) {
       (L.baca ? '<div class="kc-h-baca">' + kcEsc(L.baca) + '</div>' : '') + (L.arti ? '<div class="kc-h-arti">' + kcEsc(L.arti) + '</div>' : '') +
       '<div class="kc-h-poin">+' + L.poin + ' POINT &nbsp;🔥 streak ' + L.streak + '</div></div>';
   }
-  var teks = L.tipe === 'salah' ? '✗ Oops, salah!! — ' + n
+  var teks = L.tipe === 'salah' ? '✗ Oops, salah!! — ' + n + (L.denda ? ' &nbsp;<b>−' + L.denda + ' POINT</b>' : '')
     : (L.tipe === 'waktu' ? '⏰ ' + n + ' kehabisan waktu → PASS' : '⏭ ' + n + ' PASS');
   if (L.semua) teks += '<br>🔄 Semua PASS — Random Kanji diganti baru';
   return '<div class="' + cls + ' ' + (L.tipe === 'salah' ? 'salah' : 'pass') + '">' + teks + '</div>';
@@ -1105,7 +1176,7 @@ function kcRenderGame(room) {
   }
   h += '</div>';
 
-  h += '<div class="kc-aksi"><div class="kc-deck">🃏 DECK<small>' + (kcKamus.siap ? kcPoolAktif(g).length : '…') + ' kartu</small></div>';
+  h += '<div class="kc-aksi"><div class="kc-deck">🃏 DECK<small>' + (kcKamus.siap ? kcSisaKotoba(g) : '…') + ' kotoba</small></div>';
   if (kcOk && giliranSaya) h += '<button class="kc-btn-ok" onclick="kcAmbilSekarang()">✓ AMBIL ' + kcEsc(kcOk.kata) + '</button>';
   var sisaReset = KC_RESET_MAKS - (g.resets || 0);
   h += '<button class="kc-btn-reset" ' + (giliranSaya && !kcSibukAksi && sisaReset > 0 ? '' : 'disabled') + ' onclick="kcReset()">🔄 RESET <small>(' + Math.max(0, sisaReset) + ')</small></button>';
@@ -1140,8 +1211,8 @@ function kcPilihKartu(i) {
   var chars = kcSel.map(function (k) { return tangan[k]; });
   var total = [g.kanji].concat(chars);
   var sisa = tangan.filter(function (_, k) { return kcSel.indexOf(k) < 0; });
-  var kata = kcCari(total);
-  var lanjut = kcBisaLanjut(total, sisa);
+  var kata = kcCari(total, g.solved);
+  var lanjut = kcBisaLanjut(total, sisa, g.solved);
 
   if (kata && !lanjut) { kcKirimGerak(chars); return; }            // valid & final -> langsung
   if (kata && lanjut) {                                            // valid tapi bisa lebih panjang -> HINT
@@ -1149,10 +1220,16 @@ function kcPilihKartu(i) {
     kcPesanLokal = { teks: '💡 HINT: Masih bisa dilanjutkan! Pilih kartu lain, atau ambil poin sekarang.', kls: 'hint' };
   } else if (lanjut) {
     kcPesanLokal = { teks: '💡 HINT: Masih bisa dilanjutkan!', kls: 'hint' };
+  } else if (kcSudahTerjawab(total, g.solved)) {                   // kotoba benar tapi SUDAH PERNAH terjawab -> tidak dihitung, tanpa hukuman
+    kcResetPilihan();
+    kcPesanLokal = { teks: '📌 Kotoba ' + total.join('') + ' sudah pernah terjawab. Coba kartu lain!', kls: 'no' };
+    kcSinkronSel();
+    kcRenderGame(kcRoom);
+    return;
   } else {                                                         // jalan buntu -> SALAH
     var teks = total.join('');
     kcResetPilihan();
-    kcPesanLokal = { teks: 'Oops, salah!!', kls: 'no' };
+    kcPesanLokal = { teks: 'Oops, salah!! Poinmu dikurangi ' + KC_DENDA_SALAH + '. Pikir dulu sebelum memilih kartu.', kls: 'no' };
     kcTx(kcFnSalah(kcUid(), teks));
     kcRenderGame(kcRoom);
     return;
@@ -1249,7 +1326,8 @@ function kcRenderVictory(room) {
 
   var h = '<div class="kc-victory">';
   h += '<div class="kc-v-judul">' + (seri ? '🤝 SERI!' : '🏆 VICTORY!') + '</div>';
-  if (awal) h += '<div class="kc-v-sub">Game berakhir lebih awal karena pemain lain keluar.</div>';
+  if (g.habis) h += '<div class="kc-v-sub">Semua kotoba sudah terjawab!</div>';
+  else if (awal) h += '<div class="kc-v-sub">Game berakhir lebih awal karena pemain lain keluar.</div>';
   h += '<div class="kc-v-juara">';
   juara.forEach(function (d) {
     h += '<div class="kc-v-box' + (d.p.id === saya ? ' saya' : '') + '"><div class="kc-v-av">' + kcAvatarHtml(d.p.avatar) + '</div>' +

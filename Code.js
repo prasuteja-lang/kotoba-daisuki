@@ -1153,8 +1153,8 @@ function prosesLogout() {
 }
 
 // ===== UPDATE APLIKASI (.apk) =====
-// Alamat version.json di hosting Netlify (satu folder dengan index.html).
-var URL_VERSI_APK = 'https://stellar-snickerdoodle-f87f30.netlify.app/version.json';
+// Alamat version.json di hosting GitHub Pages (satu folder dengan index.html).
+var URL_VERSI_APK = 'https://prasuteja-lang.github.io/kotoba-daisuki/version.json';
 var apkInfoTerbaru = null;
 
 // Versi APK yang terpasang, dibaca lewat jembatan Android (AppInfo). null = tidak bisa dibaca.
