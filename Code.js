@@ -1191,6 +1191,9 @@ function prosesLogout() {
 // Alamat version.json di hosting GitHub Pages (satu folder dengan index.html).
 var URL_VERSI_APK = 'https://prasuteja-lang.github.io/kotoba-daisuki/version.json';
 var apkInfoTerbaru = null;
+// URL Web App Apps Script yang membaca folder Google Drive berisi APK (lihat update-drive.gs). Kosong = pakai version.json lama.
+var URL_UPDATE_DRIVE = 'https://script.google.com/macros/s/AKfycbxlH1WrIaYy3gopjfkzjayPoCIRLm2y38DGybpKosRgMZb25MHMshFI-Ui-FqNtmLO8/exec';
+var KUNCI_APK_TERPASANG = 'kotoba_apk_terpasang';
 
 // Versi APK yang terpasang, dibaca lewat jembatan Android (AppInfo). null = tidak bisa dibaca.
 function versiApkTerpasang() {
@@ -1214,7 +1217,48 @@ function tutupUpdateApp() {
   document.getElementById('update-app-modal').classList.add('modal-hidden');
 }
 
+function formatTanggalApk(n) {
+  var s = String(n);
+  return s.length === 8 ? s.slice(6, 8) + '-' + s.slice(4, 6) + '-' + s.slice(0, 4) : '';
+}
+function cekUpdateDrive() {
+  apkInfoTerbaru = null;
+  tampilUpdateApp('Update Aplikasi', 'Memeriksa versi terbaru...', false);
+  fetch(URL_UPDATE_DRIVE + (URL_UPDATE_DRIVE.indexOf('?') < 0 ? '?' : '&') + 't=' + Date.now(), { cache: 'no-store' })
+    .then(function(r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    })
+    .then(function(res) {
+      if (!res || !res.ok) throw new Error((res && res.pesan) || 'respon tidak valid');
+      var f = res.terbaru;
+      if (!f) {
+        tampilUpdateApp('Update Aplikasi', 'Belum ada file APK di folder update.', false);
+        return;
+      }
+      var pen = { id: f.id, nama: f.nama, tanggal: f.tanggal || 0, diubah: f.diubah || 0 };
+      var lama = null;
+      try { lama = JSON.parse(localStorage.getItem(KUNCI_APK_TERPASANG) || 'null'); } catch (e) {}
+      var sudahTerbaru = lama && lama.id === pen.id && lama.diubah === pen.diubah;      // file yang sama dan tidak diganti
+      if (sudahTerbaru) {
+        tampilUpdateApp('Sudah Terbaru ✅', 'Versi Aplikasi sudah terbaru!\n(' + pen.nama + ')', false);
+        return;
+      }
+      apkInfoTerbaru = {
+        apkUrl: 'https://drive.usercontent.google.com/download?id=' + encodeURIComponent(pen.id) + '&export=download&confirm=t',
+        versionName: pen.tanggal ? formatTanggalApk(pen.tanggal) : pen.nama,
+        penanda: pen
+      };
+      unduhApkTerbaru();                                                                    // ada file lebih baru -> unduh otomatis
+    })
+    .catch(function() {
+      tampilUpdateApp('Gagal Memeriksa',
+        'Tidak bisa membaca folder update. Periksa internet kamu lalu coba lagi.', false);
+    });
+}
+
 function cekUpdateAplikasi() {
+  if (URL_UPDATE_DRIVE) { cekUpdateDrive(); return; }
   apkInfoTerbaru = null;
   tampilUpdateApp('Update Aplikasi', 'Memeriksa versi terbaru...', false);
 
@@ -1249,6 +1293,9 @@ function unduhApkTerbaru() {
   if (!apkInfoTerbaru || !apkInfoTerbaru.apkUrl) return;
   var url = String(apkInfoTerbaru.apkUrl);
   if (!/^https:\/\//.test(url)) return;
+  if (apkInfoTerbaru.penanda) {                                  // catat file yang diunduh agar pengecekan berikutnya tahu sudah terbaru
+    try { localStorage.setItem(KUNCI_APK_TERPASANG, JSON.stringify(apkInfoTerbaru.penanda)); } catch (e) {}
+  }
 
   // Cara 1: unduh langsung lewat Android (muncul di notifikasi)
   var jalan = false;
