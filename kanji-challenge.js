@@ -781,7 +781,7 @@ function kcLevelData(level) {
    { level, order[uid], turn, turnNo, kanji, passes, seq, sel[], tMulai, batas, mulai, akhir,
      hands{uid:[kanji]}, scores{uid}, streaks{uid}, need{uid}, usage{kanji:n}, last{...} } */
 var KC_KARTU = 4;                    // kartu di tangan
-var KC_GILIRAN_DETIK = 60;           // batas waktu satu giliran (lewat -> otomatis PASS)
+var KC_GILIRAN_DETIK = 30;           // batas waktu satu giliran (lewat -> otomatis PASS & ganti ke pemain berikutnya)
 var KC_OFFLINE_DETIK = 8;            // pemain offline dilewati setelah ini
 var KC_DENDA_SALAH = 1;              // poin yang dikurangi setiap pilihan kartu salah (skor tidak turun di bawah 0)
 var KC_RESET_MAKS = 3;                // jumlah reset kartu per giliran
@@ -954,7 +954,7 @@ function kcFnGerak(uid, kartu) {
     if (!kcPastikanPasangan(g, uid)) g.habis = true;
     if (g.habis) r.status = 'selesai';                 // semua kotoba sudah terjawab
     g.sel = [];                                        // pemain TETAP di gilirannya: boleh menjawab lagi sampai menekan PASS
-    g.tMulai = now; g.batas = now + KC_GILIRAN_DETIK * 1000;
+    g.tMulai = now;                                    // catatan aktivitas terakhir saja; g.batas TIDAK di-reset (30 dtk = total waktu giliran)
     return r;
   };
 }
