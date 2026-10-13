@@ -86,13 +86,13 @@ var completionTimeFormatted = "";
 var isStopwatchMode = false;
 
 // ===== INFO UPDATE TERBARU (edit bagian ini setiap ada update baru) =====
-var APP_VERSI = "Versi 2.4.6";
+var APP_VERSI = "Versi 2.4.7";
 var APP_UPDATE_INTRO = "Ada pembaruan baru, silakan dicek ya minna-san";
 // Format: { ico, tag (FIX/NEW/UPDATE/INFO), judul, isi }. Teks biasa "Menu Xxx: ..." juga masih didukung.
 var APP_UPDATE_LIST = [
-  { ico: '🔤', tag: 'FIX',    judul: 'Contoh kotoba di menu Kana', isi: 'Contoh kotoba pada tiap huruf Kana kini bisa dibaca, termasuk untuk Katakana.' },
-  { ico: '🈴', tag: 'FIX',    judul: 'Tampilan Kana gabungan',      isi: 'Huruf gabungan seperti きゅ kini tampil sejajar di lembar contoh, tidak lagi bertumpuk.' },
-  { ico: '✨', tag: 'NEW',    judul: 'Tampilan info update baru',    isi: 'Info update kini lebih rapi, dengan tombol Download Update langsung di depan.' }
+  { ico: '🔤', tag: 'FIX', judul: 'Contoh kotoba di menu Kana', isi: 'Setiap huruf Kana (Hiragana & Katakana) kini selalu punya contoh kotoba, lengkap dengan cara baca dan arti.' },
+  { ico: '🈴', tag: 'FIX', judul: 'Tampilan Kana gabungan', isi: 'Huruf gabungan seperti きゅ kini tampil sejajar, tidak lagi bertumpuk.' },
+  { ico: '🎛️', tag: 'FIX', judul: 'Tombol di lembar Kana', isi: 'Tombol Sebelumnya, Berikutnya, dan Tutup kini rata dan berada di tengah.' }
 ];
 
 var APP_UPDATE_OUTRO = "Pastikan Versi-nya sesuai Update terbaru ya minna-san, jika belum silakan untuk refresh kembali. Arigatou ne 🙏";
@@ -2365,6 +2365,65 @@ function kanaKeHira(s) {
 // kunci pencarian: NFC + selalu hiragana, jadi Katakana ikut menemukan contoh kotoba
 function kanaNorm(s) { s = String(s || '').trim(); s = s.normalize ? s.normalize('NFC') : s; return kanaKeHira(s); }
 
+
+/* ---- contoh kotoba bawaan (dipakai bila sheet "Gana" kosong / server gagal) ---- */
+var KANA_BAWAAN = {
+'あ':'あめ|ame|hujan;あさ|asa|pagi','い':'いぬ|inu|anjing;いえ|ie|rumah','う':'うみ|umi|laut;うた|uta|lagu',
+'え':'えき|eki|stasiun;えんぴつ|enpitsu|pensil','お':'おかね|okane|uang;おちゃ|ocha|teh',
+'か':'かさ|kasa|payung;かわ|kawa|sungai','き':'き|ki|pohon;きもの|kimono|kimono','く':'くつ|kutsu|sepatu;くるま|kuruma|mobil',
+'け':'けさ|kesa|pagi ini;けむり|kemuri|asap','こ':'こども|kodomo|anak;こえ|koe|suara',
+'さ':'さかな|sakana|ikan;さくら|sakura|bunga sakura','し':'しお|shio|garam;しごと|shigoto|pekerjaan',
+'す':'すし|sushi|sushi;すいか|suika|semangka','せ':'せんせい|sensei|guru;せかい|sekai|dunia','そ':'そら|sora|langit;そば|soba|mi soba',
+'た':'たまご|tamago|telur;たべもの|tabemono|makanan','ち':'ちち|chichi|ayah (saya);ちかてつ|chikatetsu|kereta bawah tanah',
+'つ':'つき|tsuki|bulan;つくえ|tsukue|meja','て':'てがみ|tegami|surat;てんき|tenki|cuaca','と':'とり|tori|burung;ともだち|tomodachi|teman',
+'な':'なつ|natsu|musim panas;なまえ|namae|nama','に':'にく|niku|daging;にほん|Nihon|Jepang','ぬ':'ぬの|nuno|kain;ぬりえ|nurie|buku mewarnai',
+'ね':'ねこ|neko|kucing;ねつ|netsu|demam','の':'のり|nori|rumput laut;のみもの|nomimono|minuman','は':'はな|hana|bunga;はし|hashi|sumpit',
+'ひ':'ひと|hito|orang;ひこうき|hikōki|pesawat','ふ':'ふゆ|fuyu|musim dingin;ふね|fune|kapal','へ':'へや|heya|kamar;へび|hebi|ular',
+'ほ':'ほん|hon|buku;ほし|hoshi|bintang','ま':'まど|mado|jendela;まち|machi|kota','み':'みず|mizu|air;みみ|mimi|telinga',
+'む':'むし|mushi|serangga;むら|mura|desa','め':'め|me|mata;めがね|megane|kacamata','も':'もも|momo|persik;もり|mori|hutan',
+'や':'やま|yama|gunung;やさい|yasai|sayur','ゆ':'ゆき|yuki|salju;ゆめ|yume|mimpi','よ':'よる|yoru|malam;よむ|yomu|membaca',
+'ら':'らくだ|rakuda|unta;らいねん|rainen|tahun depan','り':'りんご|ringo|apel;りす|risu|tupai','る':'るす|rusu|tidak di rumah;ふるい|furui|tua/lama',
+'れ':'れきし|rekishi|sejarah;れいぞうこ|reizōko|kulkas','ろ':'ろく|roku|enam;ろうそく|rōsoku|lilin','わ':'わたし|watashi|saya;わらい|warai|tawa',
+'を':'ほんを よむ|hon o yomu|membaca buku;みずを のむ|mizu o nomu|minum air','ん':'ほん|hon|buku;ぱん|pan|roti',
+'が':'がっこう|gakkō|sekolah;がいこく|gaikoku|luar negeri','ぎ':'ぎんこう|ginkō|bank;ぎゅうにゅう|gyūnyū|susu',
+'ぐ':'ぐうぜん|gūzen|kebetulan;ぐみ|gumi|permen karet','げ':'げんき|genki|sehat;げつようび|getsuyōbi|hari Senin',
+'ご':'ごはん|gohan|nasi/makan;ごご|gogo|siang-sore','ざ':'ざっし|zasshi|majalah;ざいりょう|zairyō|bahan',
+'じ':'じかん|jikan|waktu;じてんしゃ|jitensha|sepeda','ず':'みずうみ|mizuumi|danau;ずぼん|zubon|celana',
+'ぜ':'かぜ|kaze|angin/masuk angin;ぜんぶ|zenbu|semuanya','ぞ':'ぞう|zō|gajah;かぞく|kazoku|keluarga',
+'だ':'だれ|dare|siapa;だいがく|daigaku|universitas','ぢ':'はなぢ|hanaji|mimisan;ちぢむ|chijimu|menyusut',
+'づ':'つづく|tsuzuku|berlanjut;こづつみ|kozutsumi|paket kecil','で':'でんしゃ|densha|kereta listrik;でぐち|deguchi|pintu keluar',
+'ど':'どこ|doko|di mana;どうぶつ|dōbutsu|hewan','ば':'ばなな|banana|pisang;ばしょ|basho|tempat',
+'び':'びょういん|byōin|rumah sakit;びじゅつ|bijutsu|seni rupa','ぶ':'ぶた|buta|babi;ぶんがく|bungaku|sastra',
+'べ':'べんきょう|benkyō|belajar;べんとう|bentō|bekal makan','ぼ':'ぼうし|bōshi|topi;ぼく|boku|aku (laki-laki)',
+'ぱ':'ぱん|pan|roti;ぱそこん|pasokon|komputer pribadi','ぴ':'えんぴつ|enpitsu|pensil;ぴかぴか|pikapika|berkilau',
+'ぷ':'ぷりん|purin|puding;ぷーる|pūru|kolam renang','ぺ':'ぺん|pen|pena;ぺらぺら|perapera|lancar (bahasa)',
+'ぽ':'さんぽ|sanpo|jalan-jalan;ぽけっと|poketto|saku',
+'きゃ':'きゃく|kyaku|tamu;きゃべつ|kyabetsu|kol','きゅ':'きゅうり|kyūri|mentimun;きゅうこう|kyūkō|kereta ekspres',
+'きょ':'きょう|kyō|hari ini;きょうしつ|kyōshitsu|ruang kelas','しゃ':'しゃしん|shashin|foto;しゃかい|shakai|masyarakat',
+'しゅ':'しゅくだい|shukudai|PR;しゅみ|shumi|hobi','しょ':'しょくじ|shokuji|makan;しょうがっこう|shōgakkō|sekolah dasar',
+'ちゃ':'おちゃ|ocha|teh;ちゃいろ|chairo|cokelat','ちゅ':'ちゅうごく|Chūgoku|Tiongkok;ちゅうしゃ|chūsha|parkir',
+'ちょ':'ちょっと|chotto|sebentar;ちょきん|chokin|tabungan','にゃ':'こんにゃく|konnyaku|konnyaku;にゃあ|nyā|meong',
+'にゅ':'にゅうがく|nyūgaku|masuk sekolah;ぎゅうにゅう|gyūnyū|susu','にょ':'にょうぼう|nyōbō|istri (akrab)',
+'ひゃ':'ひゃく|hyaku|seratus;ひゃっかじてん|hyakkajiten|ensiklopedia','ひゅ':'ひゅうが|Hyūga|nama daerah di Miyazaki',
+'ひょ':'ひょうげん|hyōgen|ungkapan;ひょう|hyō|macan tutul','みゃ':'みゃく|myaku|denyut nadi;みゃくはく|myakuhaku|denyut',
+'みゅ':'ミュージック|myūjikku|musik;ミュージカル|myūjikaru|musikal','みょ':'みょうじ|myōji|nama keluarga;みょうにち|myōnichi|besok (formal)',
+'りゃ':'りゃくご|ryakugo|singkatan;りゃくす|ryakusu|menyingkat','りゅ':'りゅう|ryū|naga;りゅうがくせい|ryūgakusei|pelajar asing',
+'りょ':'りょうり|ryōri|masakan;りょこう|ryokō|wisata','ぎゃ':'ぎゃく|gyaku|kebalikan;ぎゃくてん|gyakuten|berbalik keadaan',
+'ぎゅ':'ぎゅうにゅう|gyūnyū|susu;ぎゅうにく|gyūniku|daging sapi','ぎょ':'ぎょうざ|gyōza|pangsit;ぎょうじ|gyōji|acara',
+'じゃ':'じゃがいも|jagaimo|kentang;じゃま|jama|gangguan','じゅ':'じゅぎょう|jugyō|pelajaran;じゅうしょ|jūsho|alamat',
+'じょ':'じょうず|jōzu|mahir;じょせい|josei|wanita','びゃ':'さんびゃく|sanbyaku|tiga ratus;びゃくだん|byakudan|cendana',
+'びゅ':'インタビュー|intabyū|wawancara;レビュー|rebyū|ulasan','びょ':'びょういん|byōin|rumah sakit;びょうき|byōki|sakit',
+'ぴゃ':'はっぴゃく|happyaku|delapan ratus;ろっぴゃく|roppyaku|enam ratus','ぴゅ':'コンピューター|konpyūtā|komputer;ぴゅあ|pyua|murni',
+'ぴょ':'はっぴょう|happyō|pengumuman;ぴょんぴょん|pyonpyon|melompat-lompat'
+};
+function kanaContohDari(k) {
+  var key = kanaNorm(k);
+  var l = kanaContoh[key];
+  if (l && l.length) return l;
+  var s = KANA_BAWAAN[key]; if (!s) return [];
+  return s.split(';').map(function (t) { var p = t.split('|'); return { kotoba: p[0], bacaKotoba: p[1], arti: p[2], kategori: '' }; });
+}
+
 function kanaMuatData() {
   if (kanaMuat === 'ok' || kanaMuat === 'memuat') return;
   kanaMuat = 'memuat';
@@ -2405,7 +2464,7 @@ function kanaRender() {
       if (!sel) { h += '<div class="kn-cell kosong"><span class="kn-kana">あ</span><span class="kn-romaji">a</span></div>'; continue; }
       var k = kata ? kanaKeKata(sel[0]) : sel[0];
       var i = kanaDaftar.push({ k: k, r: sel[1] }) - 1;
-      var ada = kanaContoh[kanaNorm(k)] ? ' ada' : '';
+      var ada = kanaContohDari(k).length ? ' ada' : '';
       h += '<div class="kn-cell' + ada + '" role="button" onclick="kanaBuka(' + i + ')"><span class="kn-kana">' + k + '</span><span class="kn-romaji">' + sel[1] + '</span></div>';
     }
   }
@@ -2445,7 +2504,7 @@ function kanaGeser(arah) {
 }
 function kanaBicara() { if (kanaIdx >= 0) kanaSuara(kanaDaftar[kanaIdx].k); }
 function kanaBicaraKotoba(i) {
-  var l = kanaContoh[kanaNorm(kanaDaftar[kanaIdx].k)] || [];
+  var l = kanaContohDari(kanaDaftar[kanaIdx].k);
   if (l[i]) kanaSuara(l[i].kotoba);
 }
 function kanaIsiSheet() {
@@ -2455,7 +2514,7 @@ function kanaIsiSheet() {
   fbEl('ks-prev').classList.toggle('mati', kanaIdx === 0);
   fbEl('ks-next').classList.toggle('mati', kanaIdx === kanaDaftar.length - 1);
 
-  var list = kanaContoh[kanaNorm(d.k)] || [];
+  var list = kanaContohDari(d.k);
   var h = '';
   if (list.length) {
     h += '<div class="fb-judul-kecil" style="margin-top:0;">Contoh kotoba</div>';
