@@ -86,12 +86,14 @@ var completionTimeFormatted = "";
 var isStopwatchMode = false;
 
 // ===== INFO UPDATE TERBARU (edit bagian ini setiap ada update baru) =====
-var APP_VERSI = "Versi 2.5.0";
+var APP_VERSI = "Versi 2.4.9";
 var APP_UPDATE_INTRO = "Ada pembaruan baru, silakan dicek ya minna-san";
 // Format: { ico, tag (FIX/NEW/UPDATE/INFO), judul, isi }. Teks biasa "Menu Xxx: ..." juga masih didukung.
 var APP_UPDATE_LIST = [
-  { ico: '🎤', tag: 'NEW', judul: 'Belajar lewat lagu', isi: 'Menu Hiburan > Musik kini punya pemutar lirik: furigana, romaji, dan arti per baris, mengikuti lagu secara langsung.' },
-  { ico: '🔁', tag: 'NEW', judul: 'Kontrol belajar', isi: 'Ulangi satu baris, atur kecepatan, dan ketuk baris mana pun untuk melompat ke bagian itu.' }
+  { ico: '🔤', tag: 'FIX', judul: 'Contoh kotoba di menu Kana', isi: 'Setiap huruf Kana (Hiragana & Katakana) kini selalu punya contoh kotoba, lengkap dengan cara baca dan arti.' },
+  { ico: '🈴', tag: 'FIX', judul: 'Tampilan Kana gabungan', isi: 'Huruf gabungan seperti きゅ kini tampil sejajar, tidak lagi bertumpuk.' },
+  { ico: '🔠', tag: 'NEW', judul: 'Kotoba Katakana', isi: 'Mode Katakana kini memakai daftar kotoba Katakana asli dari data Gana.' },
+  { ico: '🎛️', tag: 'FIX', judul: 'Tombol di lembar Kana', isi: 'Tombol Sebelumnya, Berikutnya, dan Tutup kini rata dan berada di tengah.' }
 ];
 
 var APP_UPDATE_OUTRO = "Pastikan Versi-nya sesuai Update terbaru ya minna-san, jika belum silakan untuk refresh kembali. Arigatou ne 🙏";
@@ -2594,10 +2596,7 @@ function ujianRender() {
 
 /* =====================================================================
    HIBURAN (Video / Musik / Berita)
-   - Video & Musik: tempel link YouTube -> judul & thumbnail otomatis,
-     diputar langsung di dalam aplikasi.
-   - Berita: tempel link artikel apa saja -> dibuka di tab baru.
-   - Data tambahan disimpan di perangkat (localStorage).
+   - Daftar konten diisi manual lewat HIBURAN_CONTOH (item ber-url dibuka di tab baru).
    ===================================================================== */
 var hiburanState = { tab: 'video', level: 'Semua' };
 var HB_KUNCI = 'kotoba_hiburan_v1';
@@ -2676,9 +2675,8 @@ function hiburanRender() {
   });
 
   var h = '<div class="fb-info">' + HIBURAN_KETERANGAN[tab] + '</div>';
-  h += '<button class="hb-add" onclick="hiburanBukaTambah()">＋ Tambah ' + (tab === 'berita' ? 'link berita' : 'dari link YouTube') + '</button>';
   if (!data.length) {
-    h += '<div class="fb-info">Belum ada konten untuk level ' + hiburanState.level + '. Coba pilih level lain atau tambahkan sendiri.</div>';
+    h += '<div class="fb-info">Belum ada konten untuk level ' + hiburanState.level + '. Coba pilih level lain.</div>';
   }
   for (i = 0; i < data.length; i++) {
     var x = data[i], d = x.d, w = HB_WARNA[(x.idx + i) % HB_WARNA.length];
@@ -2690,13 +2688,13 @@ function hiburanRender() {
       aksi = "window.open('" + d.url + "','_blank','noopener')";
       tag = 'Rekomendasi';
     } else {
-      aksi = "fbSegera('Contoh tampilan 🚧','Ini baru contoh. Tekan tombol ＋ Tambah untuk memasukkan konten sungguhan, lalu contoh ini akan hilang.')";
+      aksi = "fbSegera('Contoh tampilan 🚧','Ini baru contoh tampilan. Konten sungguhan akan ditambahkan oleh sensei.')";
       tag = 'Contoh';
     }
     h += '<div class="hb-item" role="button" onclick="' + aksi + '">' +
       '<div class="hb-thumb" style="--t1:' + w[0] + ';--t2:' + w[1] + ';' + bg + '">' + isi + '</div>' +
       '<div class="hb-body"><b>' + hbEsc(d.judul) + '</b><div class="hb-meta"><span class="hb-lv">' + hbEsc(d.lv) + '</span>' +
-      (tag ? '<span>' + tag + '</span>' : (d.yt ? '<span>' + (d.lirik ? 'Lirik ♪' : 'YouTube') + '</span>' : '<span>Link</span>')) + '</div></div></div>';
+      (tag ? '<span>' + tag + '</span>' : (d.yt ? '<span>YouTube</span>' : '<span>Link</span>')) + '</div></div></div>';
   }
   fbEl('hiburan-isi').innerHTML = h;
 }
@@ -2707,7 +2705,6 @@ function hiburanBuka(idx) {
   var tab = hiburanState.tab, d = hbMuat()[tab][idx];
   if (!d) return;
   if (!d.yt) { window.open(d.url, '_blank', 'noopener'); return; }
-  if (tab === 'musik') { lkBuka(idx); return; }
   hbAktif = { tab: tab, idx: idx };
   fbEl('hb-player-judul').textContent = d.judul;
   fbEl('hb-player-frame').innerHTML = '<iframe src="https://www.youtube-nocookie.com/embed/' + encodeURIComponent(d.yt) +
@@ -2730,315 +2727,7 @@ function hiburanHapusAktif() {
   hiburanRender();
 }
 
-/* ---------- tambah ---------- */
-var hbJudulOtomatis = '';
-function hiburanBukaTambah() {
-  var berita = hiburanState.tab === 'berita';
-  fbEl('hb-add-judul').textContent = berita ? 'Tambah link berita' : (hiburanState.tab === 'musik' ? 'Tambah lagu' : 'Tambah video');
-  fbEl('hb-add-link').value = '';
-  fbEl('hb-add-link').placeholder = berita ? 'https://...' : 'Tempel link YouTube';
-  fbEl('hb-add-nama').value = '';
-  fbEl('hb-add-nama').placeholder = berita ? 'Judul berita' : 'Judul (terisi otomatis dari YouTube)';
-  fbEl('hb-add-lv').value = hiburanState.level === 'Semua' ? 'N5' : hiburanState.level;
-  fbEl('hb-add-info').textContent = '';
-  fbEl('hb-add-ok').disabled = false;
-  hbJudulOtomatis = '';
-  fbEl('hb-add-modal').classList.remove('modal-hidden');
-}
-function hiburanTutupTambah() { fbEl('hb-add-modal').classList.add('modal-hidden'); }
-
-/* isi judul otomatis saat link YouTube ditempel (oEmbed, tanpa API key) */
-function hiburanLinkBerubah() {
-  if (hiburanState.tab === 'berita') return;
-  var link = fbEl('hb-add-link').value, id = hbYtId(link), info = fbEl('hb-add-info'), nama = fbEl('hb-add-nama');
-  if (!id) { info.textContent = link.trim() ? 'Link YouTube belum dikenali.' : ''; return; }
-  info.textContent = 'Mengambil judul…';
-  fetch('https://www.youtube.com/oembed?format=json&url=' + encodeURIComponent('https://www.youtube.com/watch?v=' + id))
-    .then(function (r) { if (!r.ok) throw new Error('x'); return r.json(); })
-    .then(function (j) {
-      if (hbYtId(fbEl('hb-add-link').value) !== id) return;
-      if (!nama.value.trim() || nama.value === hbJudulOtomatis) { nama.value = j.title || ''; hbJudulOtomatis = nama.value; }
-      info.textContent = '✓ Video ditemukan';
-    })
-    .catch(function () {
-      info.textContent = 'Judul tidak bisa diambil otomatis (video privat atau tidak bisa disematkan?). Isi judul manual.';
-    });
-}
-
-function hiburanSimpanBaru() {
-  var tab = hiburanState.tab, link = fbEl('hb-add-link').value.trim(),
-      nama = fbEl('hb-add-nama').value.trim(), lv = fbEl('hb-add-lv').value, item;
-  if (tab === 'berita') {
-    if (!hbUrlValid(link)) { fbEl('hb-add-info').textContent = 'Masukkan link yang diawali http:// atau https://'; return; }
-    if (!nama) { fbEl('hb-add-info').textContent = 'Judul wajib diisi.'; return; }
-    item = { url: link, judul: nama, lv: lv };
-  } else {
-    var id = hbYtId(link);
-    if (!id) { fbEl('hb-add-info').textContent = 'Link YouTube tidak valid. Contoh: https://youtu.be/xxxxxxxxxxx'; return; }
-    item = { yt: id, url: 'https://www.youtube.com/watch?v=' + id, judul: nama || 'Video YouTube', lv: lv };
-  }
-  var d = hbMuat();
-  var dobel = d[tab].some(function (z) { return (item.yt && z.yt === item.yt) || (!item.yt && z.url === item.url); });
-  if (dobel) { fbEl('hb-add-info').textContent = 'Link ini sudah ada di daftar.'; return; }
-  d[tab].unshift(item);
-  hbSimpan(d);
-  hiburanTutupTambah();
-  hiburanState.level = 'Semua';
-  hiburanRender();
-}
-
 document.addEventListener('keydown', function (e) {
   if (e.key !== 'Escape') return;
   if (!fbEl('hb-player-modal').classList.contains('modal-hidden')) hiburanTutupPlayer();
-  else if (!fbEl('hb-add-modal').classList.contains('modal-hidden')) hiburanTutupTambah();
 });
-
-
-/* =====================================================================
-   PEMUTAR LIRIK (Hiburan > Musik)
-   Video YouTube + lirik berfurigana/romaji/arti yang menyala mengikuti lagu.
-   Lirik diketik/ditempel sendiri (tombol ✏️), disimpan di perangkat bersama item lagunya.
-   Format satu baris:
-     [m:dd.d] 表記|furigana|romaji 表記|furigana|romaji ... // arti Indonesia
-   Kata kana tanpa furigana: に||ni . Spasi di dalam romaji pakai _ (garis bawah).
-   ===================================================================== */
-var LK_WARNA = ['#eab308', '#a78bfa', '#4ade80', '#38bdf8', '#fb923c', '#f472b6'];
-var LK_KECEPATAN = [0.5, 0.75, 1, 1.25];
-var LK_CONTOH =
-  '[0:00.0] 今日|きょう|kyō は||wa いい||ii 天気|てんき|tenki です||desu ね||ne // Hari ini cuacanya bagus, ya\n' +
-  '[0:04.0] 一緒|いっしょ|issho に||ni 学校|がっこう|gakkō へ||e 行|い|i きましょう||kimashō // Ayo pergi ke sekolah bersama\n' +
-  '[0:08.0] 日本語|にほんご|nihongo は||wa 楽|たの|tano しい||shii です||desu // Bahasa Jepang itu menyenangkan';
-
-var lkS = { idx: -1, yt: null, baris: [], aktif: -1, pin: true, jelas: true, tr: true, ulang: -1, kec: 2, geser: false, timer: null, cbApi: null };
-function lkEl(id) { return document.getElementById(id); }
-
-function lkParse(raw) {
-  var out = [];
-  String(raw || '').split(/\r?\n/).forEach(function (ln) {
-    ln = ln.trim();
-    var m = ln.match(/^\[(\d+):(\d{1,2}(?:\.\d+)?)\]\s*(.*)$/);
-    if (!m) return;
-    var t = parseInt(m[1], 10) * 60 + parseFloat(m[2]), rest = m[3], tr = '', p = rest.indexOf('//');
-    if (p >= 0) { tr = rest.slice(p + 2).trim(); rest = rest.slice(0, p); }
-    var tokens = rest.trim().split(/\s+/).filter(Boolean).map(function (s) {
-      var a = s.split('|').map(function (x) { return x.replace(/_/g, ' '); });
-      return { k: a[0] || '', f: a[1] || '', r: a[2] || '' };
-    });
-    if (!tokens.length && !tr) return;
-    out.push({ t: t, tokens: tokens, tr: tr });
-  });
-  out.sort(function (a, b) { return a.t - b.t; });
-  return out;
-}
-function lkWaktu(s) {
-  s = Math.max(0, s || 0);
-  var m = Math.floor(s / 60), d = Math.floor(s % 60);
-  return m + ':' + (d < 10 ? '0' : '') + d;
-}
-function lkStempel(s) {
-  var m = Math.floor(s / 60), d = (s - m * 60).toFixed(1);
-  return '[' + m + ':' + (parseFloat(d) < 10 ? '0' : '') + d + ']';
-}
-
-/* ---------- buka / tutup ---------- */
-function lkBuka(idx) {
-  var d = hbMuat().musik[idx];
-  if (!d || !d.yt) return;
-  lkS.idx = idx; lkS.aktif = -1; lkS.ulang = -1; lkS.geser = false;
-  lkS.baris = lkParse(d.lirik);
-  lkEl('lk-judul').textContent = d.judul;
-  lkEl('lk-info').textContent = '';
-  lkEl('lk-yt-wrap').innerHTML = '<div id="lk-yt"></div>';
-  lkEl('hiburan-page').classList.add('hidden');
-  lkEl('lirik-page').classList.remove('hidden');
-  window.scrollTo(0, 0);
-  lkTutupEditor();
-  lkTampilanKelas();
-  lkRender();
-  lkMuatApi(function () { lkBuatPlayer(d.yt); });
-  if (!lkS.baris.length) lkEditor();
-}
-function lkTutup() {
-  if (lkS.timer) { clearInterval(lkS.timer); lkS.timer = null; }
-  try { if (lkS.yt && lkS.yt.destroy) lkS.yt.destroy(); } catch (e) {}
-  lkS.yt = null; lkS.cbApi = null;
-  lkEl('lk-yt-wrap').innerHTML = '';
-  lkEl('lirik-page').classList.add('hidden');
-  lkEl('hiburan-page').classList.remove('hidden');
-  hiburanRender();
-  window.scrollTo(0, 0);
-}
-function lkHapusLagu() {
-  if (!confirm('Hapus lagu ini dari daftar?')) return;
-  var d = hbMuat();
-  d.musik.splice(lkS.idx, 1);
-  hbSimpan(d);
-  lkTutup();
-}
-
-/* ---------- YouTube IFrame API ---------- */
-function lkMuatApi(cb) {
-  if (window.YT && YT.Player) { cb(); return; }
-  lkS.cbApi = cb;
-  if (window.__lkApiMuat) return;
-  window.__lkApiMuat = true;
-  window.onYouTubeIframeAPIReady = function () {
-    var f = lkS.cbApi; lkS.cbApi = null;
-    if (f) f();
-  };
-  var s = document.createElement('script');
-  s.src = 'https://www.youtube.com/iframe_api';
-  s.onerror = function () { window.__lkApiMuat = false; lkEl('lk-info').textContent = 'Pemutar tidak bisa dimuat. Periksa koneksi internet.'; };
-  document.head.appendChild(s);
-}
-function lkBuatPlayer(id) {
-  var vars = { playsinline: 1, rel: 0, enablejsapi: 1, modestbranding: 1 };
-  if (/^https?:/.test(location.protocol)) vars.origin = location.origin;
-  lkS.yt = new YT.Player('lk-yt', {
-    videoId: id, width: '100%', height: '100%', playerVars: vars,
-    events: {
-      onReady: function () {
-        if (lkS.timer) clearInterval(lkS.timer);
-        lkS.timer = setInterval(lkTick, 150);
-        try { lkS.yt.setPlaybackRate(LK_KECEPATAN[lkS.kec]); } catch (e) {}
-      },
-      onStateChange: function (e) { lkEl('lk-play-ico').textContent = (e.data === 1) ? '⏸' : '▶'; lkEl('lk-play-txt').textContent = (e.data === 1) ? 'Pause' : 'Play'; },
-      onError: function () { lkEl('lk-info').textContent = 'Video ini tidak bisa diputar di dalam aplikasi (pemilik video membatasi penyematan).'; }
-    }
-  });
-}
-
-/* ---------- sinkron lirik ---------- */
-function lkTick() {
-  var p = lkS.yt;
-  if (!p || !p.getCurrentTime) return;
-  var cur = p.getCurrentTime(), dur = p.getDuration() || 0;
-  if (!lkS.geser) {
-    var sk = lkEl('lk-seek');
-    sk.max = dur || 1; sk.value = cur;
-    lkEl('lk-t1').textContent = lkWaktu(cur);
-    lkEl('lk-t2').textContent = lkWaktu(dur);
-    lkSeekWarna();
-  }
-  var b = lkS.baris, idx = -1, i;
-  for (i = 0; i < b.length; i++) { if (b[i].t <= cur + 0.05) idx = i; else break; }
-  if (lkS.ulang >= 0 && b[lkS.ulang]) {
-    var akhir = b[lkS.ulang + 1] ? b[lkS.ulang + 1].t : dur;
-    if (cur >= akhir - 0.05) { p.seekTo(b[lkS.ulang].t, true); cur = b[lkS.ulang].t; }
-    idx = lkS.ulang;
-  }
-  if (idx !== lkS.aktif) lkSetAktif(idx);
-}
-function lkSeekWarna() {
-  var sk = lkEl('lk-seek'), pr = (sk.max > 0) ? (sk.value / sk.max * 100) : 0;
-  sk.style.setProperty('--p', pr + '%');
-}
-function lkSetAktif(idx) {
-  var lama = lkEl('lk-l' + lkS.aktif), baru = lkEl('lk-l' + idx);
-  if (lama) lama.classList.remove('on');
-  lkS.aktif = idx;
-  if (baru) {
-    baru.classList.add('on');
-    if (lkS.pin) baru.scrollIntoView({ block: 'center', behavior: 'smooth' });
-  }
-}
-function lkRender() {
-  var h = '';
-  if (!lkS.baris.length) {
-    h = '<div class="fb-info">Lirik belum ada. Tekan tombol <b>✏️</b> untuk menempel lirik berfurigana, romaji, dan arti.</div>';
-  }
-  lkS.baris.forEach(function (b, i) {
-    h += '<div class="lk-line" id="lk-l' + i + '" onclick="lkLompat(' + i + ')"><div class="lk-tokens">';
-    b.tokens.forEach(function (w, j) {
-      h += '<span class="lk-w" style="--c:' + LK_WARNA[j % LK_WARNA.length] + '"><i>' + (w.f ? hbEsc(w.f) : '&nbsp;') + '</i><b>' + hbEsc(w.k) + '</b><u>' + (w.r ? hbEsc(w.r) : '&nbsp;') + '</u></span>';
-    });
-    h += '</div>' + (b.tr ? '<p class="lk-tr">' + hbEsc(b.tr) + '</p>' : '') + '</div>';
-  });
-  lkEl('lk-list').innerHTML = h + '<div class="lk-ruang"></div>';
-}
-function lkLompat(i) {
-  var b = lkS.baris[i];
-  if (!b || !lkS.yt || !lkS.yt.seekTo) return;
-  if (lkS.ulang >= 0) lkS.ulang = i;
-  lkS.yt.seekTo(b.t, true);
-  lkS.yt.playVideo();
-}
-
-/* ---------- kontrol ---------- */
-function lkTampilanKelas() {
-  var pg = lkEl('lirik-page');
-  pg.classList.toggle('lk-tanpa-furi', !lkS.jelas);
-  pg.classList.toggle('lk-tanpa-tr', !lkS.tr);
-  lkEl('lk-b-pin').classList.toggle('on', lkS.pin);
-  lkEl('lk-b-jelas').classList.toggle('on', lkS.jelas);
-  lkEl('lk-b-ulang').classList.toggle('on', lkS.ulang >= 0);
-  lkEl('lk-b-cc').classList.toggle('on', lkS.tr);
-  lkEl('lk-kec').textContent = LK_KECEPATAN[lkS.kec] + 'x';
-}
-function lkPin() { lkS.pin = !lkS.pin; lkTampilanKelas(); if (lkS.pin) { var e = lkEl('lk-l' + lkS.aktif); if (e) e.scrollIntoView({ block: 'center', behavior: 'smooth' }); } }
-function lkJelas() { lkS.jelas = !lkS.jelas; lkTampilanKelas(); }
-function lkTerjemah() { lkS.tr = !lkS.tr; lkTampilanKelas(); }
-function lkUlang() {
-  lkS.ulang = (lkS.ulang >= 0) ? -1 : Math.max(0, lkS.aktif);
-  if (!lkS.baris.length) lkS.ulang = -1;
-  lkTampilanKelas();
-}
-function lkKecepatan() {
-  lkS.kec = (lkS.kec + 1) % LK_KECEPATAN.length;
-  try { if (lkS.yt) lkS.yt.setPlaybackRate(LK_KECEPATAN[lkS.kec]); } catch (e) {}
-  lkTampilanKelas();
-}
-function lkPlay() {
-  var p = lkS.yt;
-  if (!p || !p.getPlayerState) return;
-  if (p.getPlayerState() === 1) p.pauseVideo(); else p.playVideo();
-}
-function lkSeekGeser(el) {
-  lkS.geser = true;
-  lkEl('lk-t1').textContent = lkWaktu(parseFloat(el.value));
-  lkSeekWarna();
-}
-function lkSeekLepas(el) {
-  lkS.geser = false;
-  if (lkS.yt && lkS.yt.seekTo) lkS.yt.seekTo(parseFloat(el.value), true);
-}
-
-/* ---------- editor lirik ---------- */
-function lkEditor() {
-  var d = hbMuat().musik[lkS.idx];
-  lkEl('lk-ta').value = (d && d.lirik) || '';
-  lkEl('lk-editor').classList.remove('hidden');
-  lkEl('lk-list').classList.add('hidden');
-}
-function lkTutupEditor() {
-  lkEl('lk-editor').classList.add('hidden');
-  lkEl('lk-list').classList.remove('hidden');
-}
-function lkCapWaktu() {
-  if (!lkS.yt || !lkS.yt.getCurrentTime) return;
-  var ta = lkEl('lk-ta'), v = ta.value, pos = ta.selectionStart || 0;
-  var awal = v.lastIndexOf('\n', pos - 1) + 1, akhir = v.indexOf('\n', pos);
-  if (akhir < 0) akhir = v.length;
-  var sisa = v.slice(awal, akhir).replace(/^\s*\[[^\]]*\]\s*/, '');
-  var baru = lkStempel(lkS.yt.getCurrentTime()) + ' ' + sisa;
-  ta.value = v.slice(0, awal) + baru + v.slice(akhir);
-  ta.focus();
-  ta.selectionStart = ta.selectionEnd = awal + baru.length;
-}
-function lkIsiContoh() {
-  var ta = lkEl('lk-ta');
-  ta.value = (ta.value.trim() ? ta.value.replace(/\s+$/, '') + '\n' : '') + LK_CONTOH;
-}
-function lkSimpan() {
-  var d = hbMuat(), item = d.musik[lkS.idx];
-  if (!item) return;
-  item.lirik = lkEl('lk-ta').value.trim();
-  hbSimpan(d);
-  lkS.baris = lkParse(item.lirik);
-  lkS.aktif = -1; lkS.ulang = -1;
-  lkTutupEditor();
-  lkTampilanKelas();
-  lkRender();
-  if (item.lirik && !lkS.baris.length) lkEl('lk-info').textContent = 'Tidak ada baris yang terbaca. Tiap baris harus diawali waktu seperti [0:12.5].';
-  else lkEl('lk-info').textContent = '';
-}
