@@ -913,5 +913,43 @@
   </div>
 </div>
 
+<!-- Hiburan: pemutar lirik (musik) -->
+<div id="lirik-page" class="card lk-page hidden">
+  <div class="lk-top">
+    <button class="lk-ib" onclick="lkTutup()" aria-label="Kembali">←</button>
+    <div class="lk-judul" id="lk-judul"></div>
+    <button class="lk-ib" id="lk-b-cc" onclick="lkTerjemah()" aria-label="Tampilkan terjemahan">💬</button>
+  </div>
+  <div class="lk-video" id="lk-yt-wrap"></div>
+  <div class="lk-info" id="lk-info"></div>
+  <div class="lk-list" id="lk-list"></div>
+  <div class="lk-editor hidden" id="lk-editor">
+    <div class="lk-help">Satu baris satu lirik: <b>[0:12.5] 遥|はるか|haruka か||ka // arti</b><br>Putar lagu, letakkan kursor di baris, lalu tekan <b>⏱ Cap waktu</b> untuk mengisi waktunya.</div>
+    <textarea id="lk-ta" spellcheck="false" placeholder="[0:00.0] ..."></textarea>
+    <div class="lk-ed-btn">
+      <button onclick="lkCapWaktu()">⏱ Cap waktu</button>
+      <button onclick="lkIsiContoh()">Isi contoh</button>
+      <button class="lk-ok" onclick="lkSimpan()">Simpan</button>
+      <button onclick="lkTutupEditor()">Batal</button>
+      <button class="lk-bahaya" onclick="lkHapusLagu()">🗑 Hapus lagu</button>
+    </div>
+  </div>
+  <div class="lk-bar">
+    <div class="lk-seekrow">
+      <span id="lk-t1">0:00</span>
+      <input type="range" id="lk-seek" min="0" max="1" step="0.1" value="0" oninput="lkSeekGeser(this)" onchange="lkSeekLepas(this)">
+      <span id="lk-t2">0:00</span>
+    </div>
+    <div class="lk-ctl">
+      <div class="lk-btn" id="lk-b-pin" role="button" onclick="lkPin()"><span>📌</span><small>Pin</small></div>
+      <div class="lk-btn" id="lk-b-jelas" role="button" onclick="lkJelas()"><span>✨</span><small>Jelas</small></div>
+      <div class="lk-btn" id="lk-b-ulang" role="button" onclick="lkUlang()"><span>🔁</span><small>Ulang</small></div>
+      <div class="lk-btn" role="button" onclick="lkKecepatan()"><span id="lk-kec">1x</span><small>Speed</small></div>
+      <div class="lk-btn" role="button" onclick="lkPlay()"><span id="lk-play-ico">▶</span><small id="lk-play-txt">Play</small></div>
+      <div class="lk-fab" role="button" onclick="lkEditor()" aria-label="Edit lirik">✏️</div>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
