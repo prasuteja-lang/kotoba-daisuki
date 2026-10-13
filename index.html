@@ -885,7 +885,32 @@
     <div class="fb-pill" data-k="N3" onclick="hiburanPilihLevel('N3')">N3</div>
   </div>
   <div id="hiburan-isi"></div>
-  <div class="hb-contoh">Konten di atas masih contoh tampilan.</div>
+</div>
+
+<!-- Hiburan: pemutar -->
+<div id="hb-player-modal" class="hb-modal modal-hidden" onclick="if(event.target===this)hiburanTutupPlayer()">
+  <div class="hb-box">
+    <div class="hb-box-head"><b id="hb-player-judul"></b><button class="hb-x" onclick="hiburanTutupPlayer()" aria-label="Tutup">✕</button></div>
+    <div class="hb-frame" id="hb-player-frame"></div>
+    <div class="hb-box-foot">
+      <a id="hb-player-yt" href="#" target="_blank" rel="noopener">Tidak bisa diputar? Buka di YouTube ↗</a>
+      <button class="hb-hapus" onclick="hiburanHapusAktif()">🗑 Hapus</button>
+    </div>
+  </div>
+</div>
+
+<!-- Hiburan: tambah -->
+<div id="hb-add-modal" class="hb-modal modal-hidden" onclick="if(event.target===this)hiburanTutupTambah()">
+  <div class="hb-box">
+    <div class="hb-box-head"><b id="hb-add-judul">Tambah</b><button class="hb-x" onclick="hiburanTutupTambah()" aria-label="Tutup">✕</button></div>
+    <div class="hb-form">
+      <input id="hb-add-link" type="url" inputmode="url" autocomplete="off" oninput="hiburanLinkBerubah()">
+      <input id="hb-add-nama" type="text" maxlength="120" autocomplete="off">
+      <select id="hb-add-lv"><option>N5</option><option>N4</option><option>N3</option></select>
+      <div id="hb-add-info" class="hb-info-kecil"></div>
+      <button id="hb-add-ok" class="hb-add" onclick="hiburanSimpanBaru()">Simpan</button>
+    </div>
+  </div>
 </div>
 
 </body>

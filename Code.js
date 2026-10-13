@@ -2595,25 +2595,34 @@ function ujianRender() {
 }
 
 /* =====================================================================
-   HIBURAN (Video / Musik / Berita) — data contoh untuk tampilan
+   HIBURAN (Video / Musik / Berita)
+   - Video & Musik: tempel link YouTube -> judul & thumbnail otomatis,
+     diputar langsung di dalam aplikasi.
+   - Berita: tempel link artikel apa saja -> dibuka di tab baru.
+   - Data tambahan disimpan di perangkat (localStorage).
    ===================================================================== */
 var hiburanState = { tab: 'video', level: 'Semua' };
+var HB_KUNCI = 'kotoba_hiburan_v1';
+var HB_WARNA = [['#f472b6','#db2777'],['#fb923c','#ea580c'],['#a78bfa','#7c3aed'],['#38bdf8','#2563eb'],['#34d399','#059669']];
+var HB_IKON = { video: '🎬', musik: '🎵', berita: '📰' };
+
+/* item bawaan: tanpa url = contoh tampilan, hanya muncul bila tab masih kosong */
 var HIBURAN_CONTOH = {
   video: [
-    { ikon: '🎬', judul: 'Percakapan di stasiun kereta', lv: 'N5', dur: '3:20', t1: '#f472b6', t2: '#db2777' },
-    { ikon: '🎬', judul: 'Belanja di minimarket', lv: 'N5', dur: '4:05', t1: '#fb923c', t2: '#ea580c' },
-    { ikon: '🎬', judul: 'Memesan makanan di restoran', lv: 'N4', dur: '5:10', t1: '#a78bfa', t2: '#7c3aed' },
-    { ikon: '🎬', judul: 'Wawancara kerja sederhana', lv: 'N3', dur: '6:45', t1: '#38bdf8', t2: '#2563eb' }
+    { judul: 'Percakapan di stasiun kereta', lv: 'N5' },
+    { judul: 'Belanja di minimarket', lv: 'N5' },
+    { judul: 'Memesan makanan di restoran', lv: 'N4' },
+    { judul: 'Wawancara kerja sederhana', lv: 'N3' }
   ],
   musik: [
-    { ikon: '🎵', judul: 'Lagu anak untuk hafal angka', lv: 'N5', dur: '2:30', t1: '#34d399', t2: '#059669' },
-    { ikon: '🎵', judul: 'Lagu musim semi dan hanami', lv: 'N4', dur: '3:15', t1: '#f9a8d4', t2: '#db2777' },
-    { ikon: '🎵', judul: 'Lagu pop pelan, lirik mudah', lv: 'N3', dur: '3:48', t1: '#a78bfa', t2: '#4f46e5' }
+    { judul: 'Lagu anak untuk hafal angka', lv: 'N5' },
+    { judul: 'Lagu musim semi dan hanami', lv: 'N4' },
+    { judul: 'Lagu pop pelan, lirik mudah', lv: 'N3' }
   ],
   berita: [
-    { ikon: '📰', judul: 'Cuaca hari ini (berfurigana)', lv: 'N5', dur: '1 mnt', t1: '#38bdf8', t2: '#0284c7' },
-    { ikon: '📰', judul: 'Festival musim panas dimulai', lv: 'N4', dur: '2 mnt', t1: '#fb923c', t2: '#dc2626' },
-    { ikon: '📰', judul: 'Kereta baru mulai beroperasi', lv: 'N3', dur: '3 mnt', t1: '#34d399', t2: '#0d9488' }
+    { judul: 'NHK News Web Easy (berita berfurigana)', lv: 'N4', url: 'https://www3.nhk.or.jp/news/easy/', bawaan: true },
+    { judul: 'Cuaca hari ini (berfurigana)', lv: 'N5' },
+    { judul: 'Kereta baru mulai beroperasi', lv: 'N3' }
   ]
 };
 var HIBURAN_KETERANGAN = {
@@ -2621,6 +2630,26 @@ var HIBURAN_KETERANGAN = {
   musik: 'Dengarkan lagu sambil mengikuti lirik dan artinya.',
   berita: 'Baca berita mudah dengan furigana, lengkap dengan audio.'
 };
+
+function hbEsc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+  });
+}
+function hbMuat() {
+  try {
+    var d = JSON.parse(localStorage.getItem(HB_KUNCI) || 'null');
+    if (d && d.video && d.musik && d.berita) return d;
+  } catch (e) {}
+  return { video: [], musik: [], berita: [] };
+}
+function hbSimpan(d) { try { localStorage.setItem(HB_KUNCI, JSON.stringify(d)); } catch (e) {} }
+
+function hbYtId(url) {
+  var m = String(url || '').trim().match(/(?:youtu\.be\/|youtube(?:-nocookie)?\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/|live\/|v\/))([A-Za-z0-9_-]{11})/);
+  return m ? m[1] : '';
+}
+function hbUrlValid(u) { return /^https?:\/\/[^\s]+\.[^\s]+$/i.test(String(u || '').trim()); }
 
 function bukaHiburanDariMain(tab) {
   fbBuka('hiburan-page');
@@ -2634,18 +2663,133 @@ function hiburanPilihLevel(l) { hiburanState.level = l; hiburanRender(); }
 function hiburanRender() {
   fbSetAktif('hiburan-seg', hiburanState.tab, 'data-k');
   fbSetAktif('hiburan-level', hiburanState.level, 'data-k');
-  var data = HIBURAN_CONTOH[hiburanState.tab].filter(function (x) {
-    return hiburanState.level === 'Semua' || x.lv === hiburanState.level;
-  });
-  var h = '<div class="fb-info">' + HIBURAN_KETERANGAN[hiburanState.tab] + '</div>';
-  if (!data.length) {
-    h += '<div class="fb-info">Belum ada konten untuk level ' + hiburanState.level + '. Coba pilih level lain.</div>';
+  var tab = hiburanState.tab;
+  var simpan = hbMuat()[tab];
+  var punyaSendiri = simpan.length > 0;
+  var sumber = [];
+  var i;
+  for (i = 0; i < simpan.length; i++) sumber.push({ d: simpan[i], idx: i, milik: true });
+  var contoh = HIBURAN_CONTOH[tab];
+  for (i = 0; i < contoh.length; i++) {
+    if (contoh[i].bawaan || !punyaSendiri) sumber.push({ d: contoh[i], idx: i, milik: false });
   }
-  for (var i = 0; i < data.length; i++) {
-    var d = data[i];
-    h += '<div class="hb-item" role="button" onclick="fbSegera(\'Segera hadir 🚧\', \'Konten ini baru contoh tampilan. Pemutar dan materi lengkapnya sedang disiapkan.\')">' +
-      '<div class="hb-thumb" style="--t1:' + d.t1 + ';--t2:' + d.t2 + ';">' + d.ikon + '<span class="hb-dur">' + d.dur + '</span></div>' +
-      '<div class="hb-body"><b>' + d.judul + '</b><div class="hb-meta"><span class="hb-lv">' + d.lv + '</span><span>Contoh</span></div></div></div>';
+  var data = sumber.filter(function (x) {
+    return hiburanState.level === 'Semua' || x.d.lv === hiburanState.level;
+  });
+
+  var h = '<div class="fb-info">' + HIBURAN_KETERANGAN[tab] + '</div>';
+  h += '<button class="hb-add" onclick="hiburanBukaTambah()">＋ Tambah ' + (tab === 'berita' ? 'link berita' : 'dari link YouTube') + '</button>';
+  if (!data.length) {
+    h += '<div class="fb-info">Belum ada konten untuk level ' + hiburanState.level + '. Coba pilih level lain atau tambahkan sendiri.</div>';
+  }
+  for (i = 0; i < data.length; i++) {
+    var x = data[i], d = x.d, w = HB_WARNA[(x.idx + i) % HB_WARNA.length];
+    var aksi, bg = '', isi = HB_IKON[tab], tag = '';
+    if (x.milik) {
+      aksi = "hiburanBuka(" + x.idx + ")";
+      if (d.yt) { bg = ' background-image:url(https://img.youtube.com/vi/' + hbEsc(d.yt) + '/mqdefault.jpg);'; isi = '<span class="hb-play">▶</span>'; }
+    } else if (d.url) {
+      aksi = "window.open('" + d.url + "','_blank','noopener')";
+      tag = 'Rekomendasi';
+    } else {
+      aksi = "fbSegera('Contoh tampilan 🚧','Ini baru contoh. Tekan tombol ＋ Tambah untuk memasukkan konten sungguhan, lalu contoh ini akan hilang.')";
+      tag = 'Contoh';
+    }
+    h += '<div class="hb-item" role="button" onclick="' + aksi + '">' +
+      '<div class="hb-thumb" style="--t1:' + w[0] + ';--t2:' + w[1] + ';' + bg + '">' + isi + '</div>' +
+      '<div class="hb-body"><b>' + hbEsc(d.judul) + '</b><div class="hb-meta"><span class="hb-lv">' + hbEsc(d.lv) + '</span>' +
+      (tag ? '<span>' + tag + '</span>' : (d.yt ? '<span>YouTube</span>' : '<span>Link</span>')) + '</div></div></div>';
   }
   fbEl('hiburan-isi').innerHTML = h;
 }
+
+/* ---------- putar / buka ---------- */
+var hbAktif = null;   // { tab, idx } yang sedang dibuka
+function hiburanBuka(idx) {
+  var tab = hiburanState.tab, d = hbMuat()[tab][idx];
+  if (!d) return;
+  if (!d.yt) { window.open(d.url, '_blank', 'noopener'); return; }
+  hbAktif = { tab: tab, idx: idx };
+  fbEl('hb-player-judul').textContent = d.judul;
+  fbEl('hb-player-frame').innerHTML = '<iframe src="https://www.youtube-nocookie.com/embed/' + encodeURIComponent(d.yt) +
+    '?rel=0&playsinline=1" title="Pemutar video" allow="accelerometer; autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>';
+  fbEl('hb-player-yt').href = 'https://www.youtube.com/watch?v=' + encodeURIComponent(d.yt);
+  fbEl('hb-player-modal').classList.remove('modal-hidden');
+}
+function hiburanTutupPlayer() {
+  fbEl('hb-player-frame').innerHTML = '';   // hentikan video
+  fbEl('hb-player-modal').classList.add('modal-hidden');
+  hbAktif = null;
+}
+function hiburanHapusAktif() {
+  if (!hbAktif) return;
+  if (!confirm('Hapus item ini dari daftar?')) return;
+  var d = hbMuat();
+  d[hbAktif.tab].splice(hbAktif.idx, 1);
+  hbSimpan(d);
+  hiburanTutupPlayer();
+  hiburanRender();
+}
+
+/* ---------- tambah ---------- */
+var hbJudulOtomatis = '';
+function hiburanBukaTambah() {
+  var berita = hiburanState.tab === 'berita';
+  fbEl('hb-add-judul').textContent = berita ? 'Tambah link berita' : (hiburanState.tab === 'musik' ? 'Tambah lagu' : 'Tambah video');
+  fbEl('hb-add-link').value = '';
+  fbEl('hb-add-link').placeholder = berita ? 'https://...' : 'Tempel link YouTube';
+  fbEl('hb-add-nama').value = '';
+  fbEl('hb-add-nama').placeholder = berita ? 'Judul berita' : 'Judul (terisi otomatis dari YouTube)';
+  fbEl('hb-add-lv').value = hiburanState.level === 'Semua' ? 'N5' : hiburanState.level;
+  fbEl('hb-add-info').textContent = '';
+  fbEl('hb-add-ok').disabled = false;
+  hbJudulOtomatis = '';
+  fbEl('hb-add-modal').classList.remove('modal-hidden');
+}
+function hiburanTutupTambah() { fbEl('hb-add-modal').classList.add('modal-hidden'); }
+
+/* isi judul otomatis saat link YouTube ditempel (oEmbed, tanpa API key) */
+function hiburanLinkBerubah() {
+  if (hiburanState.tab === 'berita') return;
+  var link = fbEl('hb-add-link').value, id = hbYtId(link), info = fbEl('hb-add-info'), nama = fbEl('hb-add-nama');
+  if (!id) { info.textContent = link.trim() ? 'Link YouTube belum dikenali.' : ''; return; }
+  info.textContent = 'Mengambil judul…';
+  fetch('https://www.youtube.com/oembed?format=json&url=' + encodeURIComponent('https://www.youtube.com/watch?v=' + id))
+    .then(function (r) { if (!r.ok) throw new Error('x'); return r.json(); })
+    .then(function (j) {
+      if (hbYtId(fbEl('hb-add-link').value) !== id) return;
+      if (!nama.value.trim() || nama.value === hbJudulOtomatis) { nama.value = j.title || ''; hbJudulOtomatis = nama.value; }
+      info.textContent = '✓ Video ditemukan';
+    })
+    .catch(function () {
+      info.textContent = 'Judul tidak bisa diambil otomatis (video privat atau tidak bisa disematkan?). Isi judul manual.';
+    });
+}
+
+function hiburanSimpanBaru() {
+  var tab = hiburanState.tab, link = fbEl('hb-add-link').value.trim(),
+      nama = fbEl('hb-add-nama').value.trim(), lv = fbEl('hb-add-lv').value, item;
+  if (tab === 'berita') {
+    if (!hbUrlValid(link)) { fbEl('hb-add-info').textContent = 'Masukkan link yang diawali http:// atau https://'; return; }
+    if (!nama) { fbEl('hb-add-info').textContent = 'Judul wajib diisi.'; return; }
+    item = { url: link, judul: nama, lv: lv };
+  } else {
+    var id = hbYtId(link);
+    if (!id) { fbEl('hb-add-info').textContent = 'Link YouTube tidak valid. Contoh: https://youtu.be/xxxxxxxxxxx'; return; }
+    item = { yt: id, url: 'https://www.youtube.com/watch?v=' + id, judul: nama || 'Video YouTube', lv: lv };
+  }
+  var d = hbMuat();
+  var dobel = d[tab].some(function (z) { return (item.yt && z.yt === item.yt) || (!item.yt && z.url === item.url); });
+  if (dobel) { fbEl('hb-add-info').textContent = 'Link ini sudah ada di daftar.'; return; }
+  d[tab].unshift(item);
+  hbSimpan(d);
+  hiburanTutupTambah();
+  hiburanState.level = 'Semua';
+  hiburanRender();
+}
+
+document.addEventListener('keydown', function (e) {
+  if (e.key !== 'Escape') return;
+  if (!fbEl('hb-player-modal').classList.contains('modal-hidden')) hiburanTutupPlayer();
+  else if (!fbEl('hb-add-modal').classList.contains('modal-hidden')) hiburanTutupTambah();
+});
