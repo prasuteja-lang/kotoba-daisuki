@@ -86,13 +86,13 @@ var completionTimeFormatted = "";
 var isStopwatchMode = false;
 
 // ===== INFO UPDATE TERBARU (edit bagian ini setiap ada update baru) =====
-var APP_VERSI = "Versi 2.4.8";
+var APP_VERSI = "Versi 2.4.9";
 var APP_UPDATE_INTRO = "Ada pembaruan baru, silakan dicek ya minna-san";
 // Format: { ico, tag (FIX/NEW/UPDATE/INFO), judul, isi }. Teks biasa "Menu Xxx: ..." juga masih didukung.
 var APP_UPDATE_LIST = [
   { ico: '🔤', tag: 'FIX', judul: 'Contoh kotoba di menu Kana', isi: 'Setiap huruf Kana (Hiragana & Katakana) kini selalu punya contoh kotoba, lengkap dengan cara baca dan arti.' },
   { ico: '🈴', tag: 'FIX', judul: 'Tampilan Kana gabungan', isi: 'Huruf gabungan seperti きゅ kini tampil sejajar, tidak lagi bertumpuk.' },
-  { ico: '🔠', tag: 'NEW', judul: 'Kotoba Katakana', isi: 'Di mode Katakana, contoh kotoba kini ditulis dengan Katakana.' },
+  { ico: '🔠', tag: 'NEW', judul: 'Kotoba Katakana', isi: 'Mode Katakana kini memakai daftar kotoba Katakana asli dari data Gana.' },
   { ico: '🎛️', tag: 'FIX', judul: 'Tombol di lembar Kana', isi: 'Tombol Sebelumnya, Berikutnya, dan Tutup kini rata dan berada di tengah.' }
 ];
 
@@ -2364,7 +2364,7 @@ function kanaKeHira(s) {
   return out;
 }
 // kunci pencarian: NFC + selalu hiragana, jadi Katakana ikut menemukan contoh kotoba
-function kanaNorm(s) { s = String(s || '').trim(); s = s.normalize ? s.normalize('NFC') : s; return kanaKeHira(s); }
+function kanaNorm(s) { s = String(s || '').trim(); return s.normalize ? s.normalize('NFC') : s; }
 
 
 /* ---- contoh kotoba bawaan (dipakai bila sheet "Gana" kosong / server gagal) ---- */
@@ -2421,8 +2421,17 @@ function kanaContohDari(k) {
   var key = kanaNorm(k);
   var l = kanaContoh[key];
   if (l && l.length) return l;
-  var s = KANA_BAWAAN[key]; if (!s) return [];
-  return s.split(';').map(function (t) { var p = t.split('|'); return { kotoba: (kanaState.aksara === 'kata' ? kanaKeKata(p[0]) : p[0]), bacaKotoba: p[1], arti: p[2], kategori: '' }; });
+  // cadangan bila sheet belum termuat: hanya kata asli sesuai aksara
+  var s = KANA_BAWAAN[kanaKeHira(key)]; if (!s) return [];
+  var kata = kanaState.aksara === 'kata';
+  var hasil = [];
+  s.split(';').forEach(function (t) {
+    var p = t.split('|');
+    var punyaHira = /[\u3041-\u3096]/.test(p[0]);
+    if (kata && punyaHira) return;      // mode Katakana: jangan tampilkan tulisan Hiragana
+    hasil.push({ kotoba: p[0], bacaKotoba: p[1], arti: p[2], kategori: '' });
+  });
+  return hasil;
 }
 
 function kanaMuatData() {
