@@ -86,7 +86,7 @@ var completionTimeFormatted = "";
 var isStopwatchMode = false;
 
 // ===== INFO UPDATE TERBARU (edit bagian ini setiap ada update baru) =====
-var APP_VERSI = "Versi 2.4.3";
+var APP_VERSI = "Versi 2.4.5";
 var APP_UPDATE_INTRO = "Sekarang ada Update terbaru, silakan dicek ya minna-san :";
 var APP_UPDATE_LIST = [
   'Menu Kanji: Saat HP dimiringkan, aplikasi tidak lagi keluar sendiri ke halaman utama. Kalau lagi seru main Kanji Challenge lalu layar tidak sengaja berputar, kalian otomatis kembali ke room dan permainan yang sedang berjalan.',
@@ -2278,3 +2278,304 @@ function kembaliDariDokkai() {
   document.addEventListener('visibilitychange', cek);
   setInterval(cek, 60000);
 })();
+
+/* =====================================================================
+   FITUR BARU (tahap 1: tampilan) — Kana, Ujian JFT/JLPT, Hiburan
+   Muat SETELAH Code.js (memakai tampilkanCustomAlert).
+   Data di sini masih contoh/statis. Tahap berikutnya tinggal diganti
+   dengan google.script.run.getXxx() seperti modul Kanji/Bunpou.
+   ===================================================================== */
+
+/* ---------- navigasi umum ---------- */
+function fbEl(id) { return document.getElementById(id); }
+
+function fbBuka(id) {
+  fbEl('main-menu-page').classList.add('hidden');
+  fbEl(id).classList.remove('hidden');
+  window.scrollTo(0, 0);
+}
+function kembaliKeMainDariFitur(id) {
+  fbEl(id).classList.add('hidden');
+  fbEl('main-menu-page').classList.remove('hidden');
+  window.scrollTo(0, 0);
+}
+function fbSegera(judul, pesan) {
+  var teks = pesan || 'Fitur ini sedang disiapkan. Nantikan di update berikutnya ya, minna-san!';
+  if (typeof tampilkanCustomAlert === 'function') tampilkanCustomAlert(judul || 'Segera hadir 🚧', teks);
+  else alert((judul || 'Segera hadir') + '\n' + teks);
+}
+function fbSetAktif(wadahId, kunci, atribut) {
+  var w = fbEl(wadahId); if (!w) return;
+  var kids = w.children;
+  for (var i = 0; i < kids.length; i++) kids[i].classList.toggle('on', kids[i].getAttribute(atribut) === kunci);
+}
+
+/* =====================================================================
+   KANA
+   ===================================================================== */
+var KANA_DASAR = [
+  [['あ','a'],['い','i'],['う','u'],['え','e'],['お','o']],
+  [['か','ka'],['き','ki'],['く','ku'],['け','ke'],['こ','ko']],
+  [['さ','sa'],['し','shi'],['す','su'],['せ','se'],['そ','so']],
+  [['た','ta'],['ち','chi'],['つ','tsu'],['て','te'],['と','to']],
+  [['な','na'],['に','ni'],['ぬ','nu'],['ね','ne'],['の','no']],
+  [['は','ha'],['ひ','hi'],['ふ','fu'],['へ','he'],['ほ','ho']],
+  [['ま','ma'],['み','mi'],['む','mu'],['め','me'],['も','mo']],
+  [['や','ya'],null,['ゆ','yu'],null,['よ','yo']],
+  [['ら','ra'],['り','ri'],['る','ru'],['れ','re'],['ろ','ro']],
+  [['わ','wa'],null,null,null,['を','wo']],
+  [['ん','n'],null,null,null,null]
+];
+var KANA_DAKUTEN = [
+  [['が','ga'],['ぎ','gi'],['ぐ','gu'],['げ','ge'],['ご','go']],
+  [['ざ','za'],['じ','ji'],['ず','zu'],['ぜ','ze'],['ぞ','zo']],
+  [['だ','da'],['ぢ','ji'],['づ','zu'],['で','de'],['ど','do']],
+  [['ば','ba'],['び','bi'],['ぶ','bu'],['べ','be'],['ぼ','bo']],
+  [['ぱ','pa'],['ぴ','pi'],['ぷ','pu'],['ぺ','pe'],['ぽ','po']]
+];
+var KANA_KOMBINASI = [
+  [['きゃ','kya'],['きゅ','kyu'],['きょ','kyo']],
+  [['しゃ','sha'],['しゅ','shu'],['しょ','sho']],
+  [['ちゃ','cha'],['ちゅ','chu'],['ちょ','cho']],
+  [['にゃ','nya'],['にゅ','nyu'],['にょ','nyo']],
+  [['ひゃ','hya'],['ひゅ','hyu'],['ひょ','hyo']],
+  [['みゃ','mya'],['みゅ','myu'],['みょ','myo']],
+  [['りゃ','rya'],['りゅ','ryu'],['りょ','ryo']],
+  [['ぎゃ','gya'],['ぎゅ','gyu'],['ぎょ','gyo']],
+  [['じゃ','ja'],['じゅ','ju'],['じょ','jo']],
+  [['びゃ','bya'],['びゅ','byu'],['びょ','byo']],
+  [['ぴゃ','pya'],['ぴゅ','pyu'],['ぴょ','pyo']]
+];
+var kanaState = { aksara: 'hira', bagian: 'dasar' };
+
+// hiragana -> katakana: geser kode karakter sebesar 0x60
+function kanaKeKata(s) {
+  var out = '';
+  for (var i = 0; i < s.length; i++) {
+    var c = s.charCodeAt(i);
+    out += (c >= 0x3041 && c <= 0x3096) ? String.fromCharCode(c + 0x60) : s.charAt(i);
+  }
+  return out;
+}
+/* ---- data contoh kotoba dari sheet "Gana" (lewat getKana di Code.gs) ---- */
+var kanaContoh = {};            // huruf (NFC) -> [{kotoba, bacaKotoba, arti, kategori}]
+var kanaMuat = 'belum';         // belum | memuat | ok | gagal
+var kanaDaftar = [];            // huruf yang sedang tampil, untuk tombol sebelumnya/berikutnya
+var kanaIdx = -1;
+
+function kanaNorm(s) { s = String(s || '').trim(); return s.normalize ? s.normalize('NFC') : s; }
+
+function kanaMuatData() {
+  if (kanaMuat === 'ok' || kanaMuat === 'memuat') return;
+  kanaMuat = 'memuat';
+  google.script.run
+    .withSuccessHandler(function (rows) {
+      var peta = {};
+      (rows || []).forEach(function (r) {
+        var k = kanaNorm(r.huruf); if (!k) return;
+        if (!r.kotoba) return;
+        (peta[k] = peta[k] || []).push({ kotoba: r.kotoba, bacaKotoba: r.bacaKotoba, arti: r.arti, kategori: r.kategori });
+      });
+      kanaContoh = peta; kanaMuat = 'ok';
+      kanaRender();
+      if (kanaIdx >= 0 && !fbEl('kana-sheet').classList.contains('hidden')) kanaIsiSheet();
+    })
+    .withFailureHandler(function () {
+      kanaMuat = 'gagal';
+      if (kanaIdx >= 0 && !fbEl('kana-sheet').classList.contains('hidden')) kanaIsiSheet();
+    })
+    .getKana();
+}
+
+function bukaKanaDariMain() { fbBuka('kana-page'); kanaRender(); kanaMuatData(); }
+function kanaPilihAksara(a) { kanaState.aksara = a; kanaRender(); }
+function kanaPilihBagian(b) { kanaState.bagian = b; kanaRender(); }
+
+function kanaRender() {
+  fbSetAktif('kana-seg-aksara', kanaState.aksara, 'data-k');
+  fbSetAktif('kana-seg-bagian', kanaState.bagian, 'data-k');
+  var baris = kanaState.bagian === 'dakuten' ? KANA_DAKUTEN : (kanaState.bagian === 'kombinasi' ? KANA_KOMBINASI : KANA_DASAR);
+  var kata = kanaState.aksara === 'kata';
+  var h = '';
+  kanaDaftar = [];
+  for (var r = 0; r < baris.length; r++) {
+    for (var c = 0; c < baris[r].length; c++) {
+      var sel = baris[r][c];
+      if (!sel) { h += '<div class="kn-cell kosong"><span class="kn-kana">あ</span><span class="kn-romaji">a</span></div>'; continue; }
+      var k = kata ? kanaKeKata(sel[0]) : sel[0];
+      var i = kanaDaftar.push({ k: k, r: sel[1] }) - 1;
+      var ada = kanaContoh[kanaNorm(k)] ? ' ada' : '';
+      h += '<div class="kn-cell' + ada + '" role="button" onclick="kanaBuka(' + i + ')"><span class="kn-kana">' + k + '</span><span class="kn-romaji">' + sel[1] + '</span></div>';
+    }
+  }
+  var g = fbEl('kana-grid');
+  g.className = 'kn-grid' + (kanaState.bagian === 'kombinasi' ? ' c3' : '');
+  g.innerHTML = h;
+}
+
+function kanaSuara(teks) {
+  try {
+    if (window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+      var u = new SpeechSynthesisUtterance(teks);
+      u.lang = 'ja-JP'; u.rate = 0.8;
+      window.speechSynthesis.speak(u);
+    }
+  } catch (e) {}
+}
+
+/* ---- lembar contoh kotoba (muncul dari bawah) ---- */
+function kanaBuka(i) {
+  if (i < 0 || i >= kanaDaftar.length) return;
+  kanaIdx = i;
+  fbEl('kana-sheet').classList.remove('hidden');
+  kanaIsiSheet();
+  kanaSuara(kanaDaftar[i].k);
+}
+function kanaTutup(ev) {
+  if (ev && ev.target && ev.target.id !== 'kana-sheet' && ev.target.id !== 'ks-tutup') return;
+  fbEl('kana-sheet').classList.add('hidden');
+  kanaIdx = -1;
+}
+function kanaGeser(arah) {
+  var n = kanaIdx + arah;
+  if (n < 0 || n >= kanaDaftar.length) return;
+  kanaIdx = n; kanaIsiSheet(); kanaSuara(kanaDaftar[n].k);
+}
+function kanaBicara() { if (kanaIdx >= 0) kanaSuara(kanaDaftar[kanaIdx].k); }
+function kanaBicaraKotoba(i) {
+  var l = kanaContoh[kanaNorm(kanaDaftar[kanaIdx].k)] || [];
+  if (l[i]) kanaSuara(l[i].kotoba);
+}
+function kanaIsiSheet() {
+  var d = kanaDaftar[kanaIdx]; if (!d) return;
+  fbEl('ks-kana').textContent = d.k;
+  fbEl('ks-romaji').textContent = d.r;
+  fbEl('ks-prev').classList.toggle('mati', kanaIdx === 0);
+  fbEl('ks-next').classList.toggle('mati', kanaIdx === kanaDaftar.length - 1);
+
+  var list = kanaContoh[kanaNorm(d.k)] || [];
+  var h = '';
+  if (list.length) {
+    h += '<div class="fb-judul-kecil" style="margin-top:0;">Contoh kotoba</div>';
+    for (var i = 0; i < list.length; i++) {
+      var x = list[i];
+      h += '<div class="ks-contoh" role="button" onclick="kanaBicaraKotoba(' + i + ')">' +
+        '<div class="ks-kotoba">' + kanaEsc(x.kotoba) + '</div>' +
+        '<div class="ks-info">' + (x.bacaKotoba ? '<span>' + kanaEsc(x.bacaKotoba) + '</span>' : '') +
+        (x.arti ? '<b>' + kanaEsc(x.arti) + '</b>' : '') + '</div>' +
+        '<span class="ks-spk">🔊</span></div>';
+    }
+  } else if (kanaMuat === 'memuat' || kanaMuat === 'belum') {
+    h = '<div class="fb-info">Memuat contoh kotoba...</div>';
+  } else if (kanaMuat === 'gagal') {
+    h = '<div class="fb-info">Contoh kotoba belum bisa dimuat. Periksa koneksi, lalu buka ulang halaman Kana.</div>';
+  } else {
+    h = '<div class="fb-info">Belum ada contoh kotoba untuk huruf ini.</div>';
+  }
+  fbEl('ks-isi').innerHTML = h;
+}
+function kanaEsc(s) { return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+/* =====================================================================
+   UJIAN (JFT-Basic & JLPT)
+   ===================================================================== */
+var ujianState = { tab: 'jft', level: 'N5' };
+var UJIAN_JFT = [
+  { ico: '字', judul: 'Tulisan & kosakata', ket: 'Script and Vocabulary' },
+  { ico: '話', judul: 'Percakapan & ungkapan', ket: 'Conversation and Expression' },
+  { ico: '聴', judul: 'Mendengarkan', ket: 'Listening Comprehension' },
+  { ico: '読', judul: 'Membaca', ket: 'Reading Comprehension' }
+];
+var UJIAN_JLPT = [
+  { ico: '字', judul: 'Moji & Goi', ket: 'Huruf dan kosakata' },
+  { ico: '文', judul: 'Bunpou', ket: 'Tata bahasa' },
+  { ico: '読', judul: 'Dokkai', ket: 'Membaca' },
+  { ico: '聴', judul: 'Choukai', ket: 'Mendengarkan' }
+];
+
+function bukaUjianDariMain(tab) { fbBuka('ujian-page'); ujianPilihTab(tab === 'jlpt' ? 'jlpt' : 'jft'); }
+function ujianPilihTab(t) { ujianState.tab = t; ujianRender(); }
+function ujianPilihLevel(l) { ujianState.level = l; ujianRender(); }
+
+function ujianBaris(ico, judul, ket, onclick) {
+  return '<div class="fb-row" role="button" onclick="' + onclick + '"><span class="fb-ico">' + ico + '</span>' +
+    '<span class="fb-txt"><b>' + judul + '</b><small>' + ket + '</small></span><span class="fb-soon">Segera</span></div>';
+}
+function ujianRender() {
+  fbSetAktif('ujian-seg', ujianState.tab, 'data-k');
+  var jlpt = ujianState.tab === 'jlpt';
+  var pil = fbEl('ujian-level');
+  pil.classList.toggle('hidden', !jlpt);
+  if (jlpt) fbSetAktif('ujian-level', ujianState.level, 'data-k');
+
+  var daftar = jlpt ? UJIAN_JLPT : UJIAN_JFT;
+  var nama = jlpt ? ('JLPT ' + ujianState.level) : 'JFT-Basic';
+  var h = '<div class="fb-info"><b>' + nama + '</b><br>' +
+    (jlpt ? 'Latihan soal per bagian sesuai level yang dipilih.' : 'Latihan soal untuk ujian bahasa Jepang dasar, tersusun per bagian ujian.') + '</div>';
+
+  h += '<div class="fb-judul-kecil">Latihan per bagian</div>';
+  for (var i = 0; i < daftar.length; i++) {
+    h += ujianBaris(daftar[i].ico, daftar[i].judul, daftar[i].ket, "fbSegera('Latihan " + nama + "')");
+  }
+  h += '<div class="fb-judul-kecil">Simulasi</div>';
+  h += ujianBaris('時', 'Simulasi ujian lengkap', 'Semua bagian dengan batas waktu seperti ujian asli', "fbSegera('Simulasi " + nama + "')");
+  h += ujianBaris('歴', 'Riwayat skor', 'Lihat hasil simulasi sebelumnya', "fbSegera('Riwayat skor')");
+  fbEl('ujian-isi').innerHTML = h;
+}
+
+/* =====================================================================
+   HIBURAN (Video / Musik / Berita) — data contoh untuk tampilan
+   ===================================================================== */
+var hiburanState = { tab: 'video', level: 'Semua' };
+var HIBURAN_CONTOH = {
+  video: [
+    { ikon: '🎬', judul: 'Percakapan di stasiun kereta', lv: 'N5', dur: '3:20', t1: '#f472b6', t2: '#db2777' },
+    { ikon: '🎬', judul: 'Belanja di minimarket', lv: 'N5', dur: '4:05', t1: '#fb923c', t2: '#ea580c' },
+    { ikon: '🎬', judul: 'Memesan makanan di restoran', lv: 'N4', dur: '5:10', t1: '#a78bfa', t2: '#7c3aed' },
+    { ikon: '🎬', judul: 'Wawancara kerja sederhana', lv: 'N3', dur: '6:45', t1: '#38bdf8', t2: '#2563eb' }
+  ],
+  musik: [
+    { ikon: '🎵', judul: 'Lagu anak untuk hafal angka', lv: 'N5', dur: '2:30', t1: '#34d399', t2: '#059669' },
+    { ikon: '🎵', judul: 'Lagu musim semi dan hanami', lv: 'N4', dur: '3:15', t1: '#f9a8d4', t2: '#db2777' },
+    { ikon: '🎵', judul: 'Lagu pop pelan, lirik mudah', lv: 'N3', dur: '3:48', t1: '#a78bfa', t2: '#4f46e5' }
+  ],
+  berita: [
+    { ikon: '📰', judul: 'Cuaca hari ini (berfurigana)', lv: 'N5', dur: '1 mnt', t1: '#38bdf8', t2: '#0284c7' },
+    { ikon: '📰', judul: 'Festival musim panas dimulai', lv: 'N4', dur: '2 mnt', t1: '#fb923c', t2: '#dc2626' },
+    { ikon: '📰', judul: 'Kereta baru mulai beroperasi', lv: 'N3', dur: '3 mnt', t1: '#34d399', t2: '#0d9488' }
+  ]
+};
+var HIBURAN_KETERANGAN = {
+  video: 'Tonton video pendek, lalu cek kosakata dan artinya.',
+  musik: 'Dengarkan lagu sambil mengikuti lirik dan artinya.',
+  berita: 'Baca berita mudah dengan furigana, lengkap dengan audio.'
+};
+
+function bukaHiburanDariMain(tab) {
+  fbBuka('hiburan-page');
+  hiburanState.tab = HIBURAN_CONTOH[tab] ? tab : 'video';
+  hiburanState.level = 'Semua';
+  hiburanRender();
+}
+function hiburanPilihTab(t) { hiburanState.tab = t; hiburanRender(); }
+function hiburanPilihLevel(l) { hiburanState.level = l; hiburanRender(); }
+
+function hiburanRender() {
+  fbSetAktif('hiburan-seg', hiburanState.tab, 'data-k');
+  fbSetAktif('hiburan-level', hiburanState.level, 'data-k');
+  var data = HIBURAN_CONTOH[hiburanState.tab].filter(function (x) {
+    return hiburanState.level === 'Semua' || x.lv === hiburanState.level;
+  });
+  var h = '<div class="fb-info">' + HIBURAN_KETERANGAN[hiburanState.tab] + '</div>';
+  if (!data.length) {
+    h += '<div class="fb-info">Belum ada konten untuk level ' + hiburanState.level + '. Coba pilih level lain.</div>';
+  }
+  for (var i = 0; i < data.length; i++) {
+    var d = data[i];
+    h += '<div class="hb-item" role="button" onclick="fbSegera(\'Segera hadir 🚧\', \'Konten ini baru contoh tampilan. Pemutar dan materi lengkapnya sedang disiapkan.\')">' +
+      '<div class="hb-thumb" style="--t1:' + d.t1 + ';--t2:' + d.t2 + ';">' + d.ikon + '<span class="hb-dur">' + d.dur + '</span></div>' +
+      '<div class="hb-body"><b>' + d.judul + '</b><div class="hb-meta"><span class="hb-lv">' + d.lv + '</span><span>Contoh</span></div></div></div>';
+  }
+  fbEl('hiburan-isi').innerHTML = h;
+}

@@ -11,7 +11,7 @@
     })();
   </script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=2.4.5">
   <link rel="stylesheet" href="kanji.css">
   <link rel="stylesheet" href="bunpou.css">
   <link rel="stylesheet" href="kanji-challenge.css?v=2.4.3">
@@ -126,20 +126,48 @@
       <div class="mq-bar"><i id="mq-bar"></i></div>
     </div>
 
-    <div class="mm-card mm-kotoba" onclick="bukaKotobaDariMain()">
-      <span class="mm-ico">📘</span>
-      <span class="mm-txt"><b>KOTOBA</b><small>Kosakata, tes &amp; flashcard</small></span>
-      <span class="mm-arrow">›</span>
+    <div class="hm-grid">
+      <div class="hm-tile hm-kotoba" role="button" onclick="bukaKotobaDariMain()">
+        <span class="hm-glyph">語</span><span class="hm-go">›</span>
+        <span><b>Kotoba</b><small>Kosakata, tes &amp; flashcard</small></span>
+      </div>
+      <div class="hm-tile hm-kana" role="button" onclick="bukaKanaDariMain()">
+        <span class="hm-glyph">あ</span><span class="hm-go">›</span>
+        <span><b>Kana</b><small>Hiragana &amp; Katakana</small></span>
+      </div>
+      <div class="hm-tile hm-kanji" role="button" onclick="bukaKanjiDariMain()">
+        <span class="hm-glyph">漢</span><span class="hm-go">›</span>
+        <span><b>Kanji</b><small>Belajar kanji &amp; permainan</small></span>
+      </div>
+      <div class="hm-tile hm-bunpou" role="button" onclick="bukaBunpouDariMain()">
+        <span class="hm-glyph">文</span><span class="hm-go">›</span>
+        <span><b>Bunpou</b><small>Pola kalimat &amp; choukai</small></span>
+      </div>
     </div>
-    <div class="mm-card mm-kanji" onclick="bukaKanjiDariMain()">
-      <span class="mm-ico">🈴</span>
-      <span class="mm-txt"><b>KANJI</b><small>Belajar kanji &amp; permainan</small></span>
-      <span class="mm-arrow">›</span>
+
+    <div class="hm-wide hm-ujian" role="button" onclick="bukaUjianDariMain('jft')">
+      <div class="hm-wide-top">
+        <span class="hm-wico">試</span>
+        <span class="hm-wtxt"><b>Ujian</b><small>Latihan soal JFT &amp; JLPT</small></span>
+        <span class="hm-arrow">›</span>
+      </div>
+      <div class="hm-chips">
+        <span class="hm-chip" onclick="event.stopPropagation(); bukaUjianDariMain('jft')">JFT-Basic</span>
+        <span class="hm-chip" onclick="event.stopPropagation(); bukaUjianDariMain('jlpt')">JLPT N5–N1</span>
+      </div>
     </div>
-    <div class="mm-card mm-bunpou" onclick="bukaBunpouDariMain()">
-      <span class="mm-ico">📗</span>
-      <span class="mm-txt"><b>BUNPOU</b><small>Pola kalimat &amp; choukai</small></span>
-      <span class="mm-arrow">›</span>
+
+    <div class="hm-wide hm-hiburan" role="button" onclick="bukaHiburanDariMain('video')">
+      <div class="hm-wide-top">
+        <span class="hm-wico">楽</span>
+        <span class="hm-wtxt"><b>Hiburan</b><small>Belajar santai dari video, musik &amp; berita</small></span>
+        <span class="hm-arrow">›</span>
+      </div>
+      <div class="hm-chips">
+        <span class="hm-chip" onclick="event.stopPropagation(); bukaHiburanDariMain('video')">🎬 Video</span>
+        <span class="hm-chip" onclick="event.stopPropagation(); bukaHiburanDariMain('musik')">🎵 Musik</span>
+        <span class="hm-chip" onclick="event.stopPropagation(); bukaHiburanDariMain('berita')">📰 Berita</span>
+      </div>
     </div>
   </div>
 
@@ -559,7 +587,7 @@
   </div>
 </div>
 
-<script src="Code.js?v=2.4.3"></script>
+<script src="Code.js?v=2.4.5"></script>
 
 <!-- ===== HALAMAN KANJI ===== -->
 <!-- KANJI: Menu Level -->
@@ -746,5 +774,93 @@
 </div>
 
 <script src="bunpou.js"></script>
+
+<!-- ===== HALAMAN BARU: KANA ===== -->
+<div id="kana-page" class="card fb-page hidden">
+  <div class="page-header">
+    <button class="btn-icon-back" onclick="kembaliKeMainDariFitur('kana-page')"><span class="arrow">‹</span> Menu Utama</button>
+    <h3>あ Kana</h3>
+    <button class="btn-icon-back spacer">spacer</button>
+  </div>
+  <div class="fb-seg" id="kana-seg-aksara">
+    <div data-k="hira" onclick="kanaPilihAksara('hira')">Hiragana ひらがな</div>
+    <div data-k="kata" onclick="kanaPilihAksara('kata')">Katakana カタカナ</div>
+  </div>
+  <div class="fb-seg kecil" id="kana-seg-bagian">
+    <div data-k="dasar" onclick="kanaPilihBagian('dasar')">Dasar</div>
+    <div data-k="dakuten" onclick="kanaPilihBagian('dakuten')">Dakuten</div>
+    <div data-k="kombinasi" onclick="kanaPilihBagian('kombinasi')">Kombinasi</div>
+  </div>
+  <div class="kn-hint">Ketuk huruf untuk melihat contoh kotoba</div>
+  <div id="kana-grid" class="kn-grid"></div>
+
+  <div class="fb-judul-kecil">Latihan</div>
+  <div class="fb-row" role="button" onclick="fbSegera('Tebak huruf')"><span class="fb-ico">読</span><span class="fb-txt"><b>Tebak huruf</b><small>Lihat kana, pilih cara bacanya</small></span><span class="fb-soon">Segera</span></div>
+  <div class="fb-row" role="button" onclick="fbSegera('Tebak bunyi')"><span class="fb-ico">聴</span><span class="fb-txt"><b>Tebak bunyi</b><small>Dengar suaranya, pilih hurufnya</small></span><span class="fb-soon">Segera</span></div>
+  <div class="fb-row" role="button" onclick="fbSegera('Tulis kana')"><span class="fb-ico">書</span><span class="fb-txt"><b>Tulis kana</b><small>Jiplak huruf dan cek hasil tulisanmu</small></span><span class="fb-soon">Segera</span></div>
+</div>
+
+
+<!-- Lembar contoh kotoba Kana (di luar .card agar posisi fixed tidak terpotong) -->
+<div id="kana-sheet" class="kn-sheet hidden" onclick="kanaTutup(event)">
+  <div class="kn-sheet-box">
+    <div class="kn-sheet-grip"></div>
+    <div class="ks-head">
+      <div class="ks-kana" id="ks-kana">あ</div>
+      <div class="ks-nama"><b id="ks-romaji">a</b><small>Ketuk kotoba untuk mendengar</small></div>
+      <div class="ks-btn" role="button" aria-label="Dengar huruf" onclick="kanaBicara()">🔊</div>
+    </div>
+    <div id="ks-isi"></div>
+    <div class="ks-nav">
+      <div id="ks-prev" role="button" onclick="kanaGeser(-1)">‹ Sebelumnya</div>
+      <div id="ks-next" role="button" onclick="kanaGeser(1)">Berikutnya ›</div>
+      <div id="ks-tutup" role="button" onclick="kanaTutup(event)">Tutup</div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== HALAMAN BARU: UJIAN (JFT / JLPT) ===== -->
+<div id="ujian-page" class="card fb-page hidden">
+  <div class="page-header">
+    <button class="btn-icon-back" onclick="kembaliKeMainDariFitur('ujian-page')"><span class="arrow">‹</span> Menu Utama</button>
+    <h3>試 Ujian</h3>
+    <button class="btn-icon-back spacer">spacer</button>
+  </div>
+  <div class="fb-seg" id="ujian-seg">
+    <div data-k="jft" onclick="ujianPilihTab('jft')">JFT-Basic</div>
+    <div data-k="jlpt" onclick="ujianPilihTab('jlpt')">JLPT</div>
+  </div>
+  <div class="fb-pills hidden" id="ujian-level">
+    <div class="fb-pill" data-k="N5" onclick="ujianPilihLevel('N5')">N5</div>
+    <div class="fb-pill" data-k="N4" onclick="ujianPilihLevel('N4')">N4</div>
+    <div class="fb-pill" data-k="N3" onclick="ujianPilihLevel('N3')">N3</div>
+    <div class="fb-pill" data-k="N2" onclick="ujianPilihLevel('N2')">N2</div>
+    <div class="fb-pill" data-k="N1" onclick="ujianPilihLevel('N1')">N1</div>
+  </div>
+  <div id="ujian-isi"></div>
+</div>
+
+<!-- ===== HALAMAN BARU: HIBURAN ===== -->
+<div id="hiburan-page" class="card fb-page hidden">
+  <div class="page-header">
+    <button class="btn-icon-back" onclick="kembaliKeMainDariFitur('hiburan-page')"><span class="arrow">‹</span> Menu Utama</button>
+    <h3>楽 Hiburan</h3>
+    <button class="btn-icon-back spacer">spacer</button>
+  </div>
+  <div class="fb-seg" id="hiburan-seg">
+    <div data-k="video" onclick="hiburanPilihTab('video')">🎬 Video</div>
+    <div data-k="musik" onclick="hiburanPilihTab('musik')">🎵 Musik</div>
+    <div data-k="berita" onclick="hiburanPilihTab('berita')">📰 Berita</div>
+  </div>
+  <div class="fb-pills" id="hiburan-level">
+    <div class="fb-pill" data-k="Semua" onclick="hiburanPilihLevel('Semua')">Semua</div>
+    <div class="fb-pill" data-k="N5" onclick="hiburanPilihLevel('N5')">N5</div>
+    <div class="fb-pill" data-k="N4" onclick="hiburanPilihLevel('N4')">N4</div>
+    <div class="fb-pill" data-k="N3" onclick="hiburanPilihLevel('N3')">N3</div>
+  </div>
+  <div id="hiburan-isi"></div>
+  <div class="hb-contoh">Konten di atas masih contoh tampilan.</div>
+</div>
+
 </body>
 </html>
