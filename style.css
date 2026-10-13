@@ -1308,3 +1308,35 @@ html.dark .ks-nav > #ks-tutup { background:var(--glow); border-color:var(--glow)
 html.dark .kn-cell.ada::after { background:var(--glow); }
 
 @media (prefers-reduced-motion: reduce) { .kn-sheet-box { animation:none; } }
+
+
+/* ==== Popup Info Update (Kanji Daisuki) ==== */
+.upd2-box { max-width:400px; padding:0 !important; text-align:left; overflow:hidden; display:flex; flex-direction:column; max-height:92vh; border-radius:26px !important; }
+.upd2-head { position:relative; padding:22px 20px 20px; color:#fff; background:linear-gradient(135deg,#1e1b4b 0%,#4338ca 55%,#db2777 130%); }
+.upd2-x { position:absolute; top:12px; right:12px; width:30px; height:30px; padding:0 !important; margin:0 !important; border:0; border-radius:50% !important; background:rgba(255,255,255,.18) !important; color:#fff !important; font-size:14px !important; cursor:pointer; box-shadow:none !important; display:flex; align-items:center; justify-content:center; }
+.upd2-ver { display:inline-block; background:rgba(255,255,255,.2); border:1px solid rgba(255,255,255,.35); font-size:12px; font-weight:800; padding:3px 12px; border-radius:999px; }
+.upd2-title { margin-top:12px; font-size:21px; font-weight:800; line-height:1.25; }
+.upd2-sub { margin-top:4px; font-size:13px; opacity:.85; }
+.upd2-body { padding:16px 16px 6px; overflow-y:auto; -webkit-overflow-scrolling:touch; flex:1 1 auto; min-height:0; }
+.upd2-label { font-size:11px; font-weight:800; letter-spacing:1.2px; color:#64748b; margin:0 0 10px 2px; }
+.upd2-list { display:flex; flex-direction:column; gap:10px; }
+.upd2-card { --c:#6366f1; display:flex; align-items:center; gap:12px; padding:12px; border-radius:16px; background:color-mix(in srgb, var(--c) 10%, #fff); border:1px solid color-mix(in srgb, var(--c) 28%, transparent); }
+.upd2-hijau { --c:#10b981; } .upd2-oranye { --c:#f59e0b; } .upd2-biru { --c:#3b82f6; } .upd2-ungu { --c:#8b5cf6; }
+.upd2-ico { flex:none; width:42px; height:42px; border-radius:13px; display:flex; align-items:center; justify-content:center; font-size:22px; background:color-mix(in srgb, var(--c) 20%, transparent); }
+.upd2-txt { flex:1; min-width:0; }
+.upd2-txt b { display:block; font-size:14px; color:#1e293b; }
+.upd2-txt span { display:block; margin-top:2px; font-size:12.5px; line-height:1.45; color:#475569; }
+.upd2-pill { flex:none; align-self:flex-start; font-size:10px; font-weight:800; letter-spacing:.5px; padding:3px 8px; border-radius:999px; color:var(--c); background:color-mix(in srgb, var(--c) 16%, transparent); border:1px solid color-mix(in srgb, var(--c) 40%, transparent); }
+.upd2-outro { display:flex; gap:8px; margin:12px 2px 6px; padding:10px 12px; border-radius:12px; background:#fffbeb; border:1px solid #fde68a; font-size:12px; line-height:1.5; color:#92400e; }
+.upd2-foot { padding:10px 16px 16px; display:flex; flex-direction:column; align-items:center; gap:8px; flex:none; }
+.upd2-dl { width:100% !important; max-width:none !important; margin:0 !important; padding:14px !important; border:0; border-radius:16px !important; font-size:16px !important; font-weight:800; color:#fff !important; cursor:pointer; background:linear-gradient(135deg,#4f46e5,#db2777) !important; box-shadow:0 8px 20px rgba(79,70,229,.35) !important; }
+.upd2-later { width:auto !important; margin:0 !important; padding:6px 12px !important; background:transparent !important; box-shadow:none !important; border:0; color:#64748b !important; font-size:13px !important; font-weight:600; cursor:pointer; }
+html.dark .upd2-box { background:#0f172a; }
+html.dark .upd2-card { background:color-mix(in srgb, var(--c) 14%, #0f172a); }
+html.dark .upd2-txt b { color:#f1f5f9; }
+html.dark .upd2-txt span, html.dark .upd2-label, html.dark .upd2-later { color:#94a3b8 !important; }
+html.dark .upd2-outro { background:rgba(245,158,11,.12); border-color:rgba(245,158,11,.3); color:#fcd34d; }
+
+/* ==== Kana: huruf gabungan tidak bertumpuk ==== */
+.ks-kana { width:auto; min-width:76px; padding:0 14px; white-space:nowrap; }
+.ks-kana.dua { font-size:34px; }

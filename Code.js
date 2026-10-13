@@ -86,13 +86,13 @@ var completionTimeFormatted = "";
 var isStopwatchMode = false;
 
 // ===== INFO UPDATE TERBARU (edit bagian ini setiap ada update baru) =====
-var APP_VERSI = "Versi 2.4.5";
-var APP_UPDATE_INTRO = "Sekarang ada Update terbaru, silakan dicek ya minna-san :";
+var APP_VERSI = "Versi 2.4.6";
+var APP_UPDATE_INTRO = "Ada pembaruan baru, silakan dicek ya minna-san";
+// Format: { ico, tag (FIX/NEW/UPDATE/INFO), judul, isi }. Teks biasa "Menu Xxx: ..." juga masih didukung.
 var APP_UPDATE_LIST = [
-  'Menu Kanji: Saat HP dimiringkan, aplikasi tidak lagi keluar sendiri ke halaman utama. Kalau lagi seru main Kanji Challenge lalu layar tidak sengaja berputar, kalian otomatis kembali ke room dan permainan yang sedang berjalan.',
-  'Menu Kanji: Kanji Challenge kini tidak mengulang kotoba yang sudah terjawab, jadi tiap kotoba hanya bisa dijawab satu kali.',
-  'Menu Kanji: Kartu di tangan tidak lagi kembar, dan Random Kanji selalu punya pasangan di kartu kalian supaya poin lebih mudah didapat.',
-  'Menu Kanji: Memilih kartu yang salah kini mengurangi 1 poin, jadi pikirkan dulu sebelum menekan kartu ya.'
+  { ico: '🔤', tag: 'FIX',    judul: 'Contoh kotoba di menu Kana', isi: 'Contoh kotoba pada tiap huruf Kana kini bisa dibaca, termasuk untuk Katakana.' },
+  { ico: '🈴', tag: 'FIX',    judul: 'Tampilan Kana gabungan',      isi: 'Huruf gabungan seperti きゅ kini tampil sejajar di lembar contoh, tidak lagi bertumpuk.' },
+  { ico: '✨', tag: 'NEW',    judul: 'Tampilan info update baru',    isi: 'Info update kini lebih rapi, dengan tombol Download Update langsung di depan.' }
 ];
 
 var APP_UPDATE_OUTRO = "Pastikan Versi-nya sesuai Update terbaru ya minna-san, jika belum silakan untuk refresh kembali. Arigatou ne 🙏";
@@ -112,20 +112,18 @@ function temaSaatIni() {
   return document.documentElement.classList.contains('dark') ? 'dark' : 'light';
 }
 
-// Ikon & warna otomatis dari awalan "Menu Xxx:" pada teks update
-function infoUpdateItem(teks) {
-  var m = teks.match(/^\s*Menu\s+([A-Za-z]+)\s*:\s*([\s\S]*)$/i);
-  var map = {
-    kanji:  { ico: '🈴', kls: 'upd-u-kanji' },
-    bunpou: { ico: '📗', kls: 'upd-u-bunpou' },
-    kotoba: { ico: '📘', kls: 'upd-u-kotoba' }
-  };
-  if (m) {
-    var key = m[1].toLowerCase();
-    var info = map[key] || { ico: '✨', kls: 'upd-u-umum' };
-    return { tag: m[1], isi: m[2], ico: info.ico, kls: info.kls };
+// Warna kartu mengikuti tag: FIX hijau, NEW oranye, UPDATE biru, INFO ungu
+var UPD_WARNA = { FIX: 'hijau', NEW: 'oranye', UPDATE: 'biru', INFO: 'ungu' };
+function infoUpdateItem(it) {
+  if (it && typeof it === 'object') {
+    var t = String(it.tag || 'INFO').toUpperCase();
+    return { ico: it.ico || '✨', tag: t, judul: it.judul || '', isi: it.isi || '', warna: it.warna || UPD_WARNA[t] || 'ungu' };
   }
-  return { tag: 'Info', isi: teks, ico: '✨', kls: 'upd-u-umum' };
+  var teks = String(it || '');
+  var m = teks.match(/^\s*Menu\s+([A-Za-z]+)\s*:\s*([\s\S]*)$/i);
+  var ico = { kanji: '🈴', bunpou: '📗', kotoba: '📘', kana: '🔤' };
+  if (m) return { ico: ico[m[1].toLowerCase()] || '✨', tag: 'UPDATE', judul: 'Menu ' + m[1], isi: m[2], warna: 'biru' };
+  return { ico: '✨', tag: 'INFO', judul: 'Info', isi: teks, warna: 'ungu' };
 }
 
 function tampilkanUpdateTerbaru() {
@@ -134,35 +132,27 @@ function tampilkanUpdateTerbaru() {
   document.getElementById('upd-ver').textContent = APP_VERSI;
   document.getElementById('upd-intro').textContent = APP_UPDATE_INTRO;
   document.getElementById('upd-outro').textContent = APP_UPDATE_OUTRO;
-  var ol = document.getElementById('upd-list');
-  ol.innerHTML = '';
-  APP_UPDATE_LIST.forEach(function(teks) {
-    var d = infoUpdateItem(teks);
-    var li = document.createElement('li');
-    li.className = d.kls;
-
-    var ico = document.createElement('div');
-    ico.className = 'upd-ico';
-    ico.textContent = d.ico;
-
-    var box = document.createElement('div');
-    box.className = 'upd-txt';
-    var tag = document.createElement('span');
-    tag.className = 'upd-tag';
-    tag.textContent = d.tag;
-    var desc = document.createElement('div');
-    desc.className = 'upd-desc';
-    desc.textContent = d.isi;
-    box.appendChild(tag);
-    box.appendChild(desc);
-
-    li.appendChild(ico);
-    li.appendChild(box);
-    ol.appendChild(li);
+  var lb = document.getElementById('upd2-label');
+  if (lb) lb.textContent = 'YANG BARU DI V' + String(APP_VERSI).replace(/^\s*Versi\s*/i, '');
+  var box = document.getElementById('upd-list');
+  box.innerHTML = '';
+  APP_UPDATE_LIST.forEach(function(raw) {
+    var d = infoUpdateItem(raw);
+    var c = document.createElement('div');
+    c.className = 'upd2-card upd2-' + d.warna;
+    var ico = document.createElement('div'); ico.className = 'upd2-ico'; ico.textContent = d.ico;
+    var tx = document.createElement('div'); tx.className = 'upd2-txt';
+    var jd = document.createElement('b'); jd.textContent = d.judul;
+    var ds = document.createElement('span'); ds.textContent = d.isi;
+    tx.appendChild(jd); tx.appendChild(ds);
+    var pill = document.createElement('div'); pill.className = 'upd2-pill'; pill.textContent = d.tag;
+    c.appendChild(ico); c.appendChild(tx); c.appendChild(pill);
+    box.appendChild(c);
   });
   terapkanTema(temaSaatIni());
   document.getElementById('update-modal').classList.remove('modal-hidden');
 }
+function unduhDariInfoUpdate() { tutupUpdate(); cekUpdateAplikasi(); }
 function tutupUpdate() {
   document.getElementById('update-modal').classList.add('modal-hidden');
 }
@@ -2362,8 +2352,18 @@ var kanaContoh = {};            // huruf (NFC) -> [{kotoba, bacaKotoba, arti, ka
 var kanaMuat = 'belum';         // belum | memuat | ok | gagal
 var kanaDaftar = [];            // huruf yang sedang tampil, untuk tombol sebelumnya/berikutnya
 var kanaIdx = -1;
+var kanaGalat = '';
 
-function kanaNorm(s) { s = String(s || '').trim(); return s.normalize ? s.normalize('NFC') : s; }
+function kanaKeHira(s) {
+  var out = '';
+  for (var i = 0; i < s.length; i++) {
+    var c = s.charCodeAt(i);
+    out += (c >= 0x30A1 && c <= 0x30F6) ? String.fromCharCode(c - 0x60) : s.charAt(i);
+  }
+  return out;
+}
+// kunci pencarian: NFC + selalu hiragana, jadi Katakana ikut menemukan contoh kotoba
+function kanaNorm(s) { s = String(s || '').trim(); s = s.normalize ? s.normalize('NFC') : s; return kanaKeHira(s); }
 
 function kanaMuatData() {
   if (kanaMuat === 'ok' || kanaMuat === 'memuat') return;
@@ -2380,14 +2380,15 @@ function kanaMuatData() {
       kanaRender();
       if (kanaIdx >= 0 && !fbEl('kana-sheet').classList.contains('hidden')) kanaIsiSheet();
     })
-    .withFailureHandler(function () {
+    .withFailureHandler(function (err) {
       kanaMuat = 'gagal';
+      kanaGalat = (err && err.message) ? String(err.message) : String(err || '');
       if (kanaIdx >= 0 && !fbEl('kana-sheet').classList.contains('hidden')) kanaIsiSheet();
     })
     .getKana();
 }
 
-function bukaKanaDariMain() { fbBuka('kana-page'); kanaRender(); kanaMuatData(); }
+function bukaKanaDariMain() { fbBuka('kana-page'); kanaRender(); if (kanaMuat === 'gagal') kanaMuat = 'belum'; kanaMuatData(); }
 function kanaPilihAksara(a) { kanaState.aksara = a; kanaRender(); }
 function kanaPilihBagian(b) { kanaState.bagian = b; kanaRender(); }
 
@@ -2449,7 +2450,7 @@ function kanaBicaraKotoba(i) {
 }
 function kanaIsiSheet() {
   var d = kanaDaftar[kanaIdx]; if (!d) return;
-  fbEl('ks-kana').textContent = d.k;
+  var kk = fbEl('ks-kana'); kk.textContent = d.k; kk.classList.toggle('dua', d.k.length > 1);
   fbEl('ks-romaji').textContent = d.r;
   fbEl('ks-prev').classList.toggle('mati', kanaIdx === 0);
   fbEl('ks-next').classList.toggle('mati', kanaIdx === kanaDaftar.length - 1);
@@ -2469,7 +2470,7 @@ function kanaIsiSheet() {
   } else if (kanaMuat === 'memuat' || kanaMuat === 'belum') {
     h = '<div class="fb-info">Memuat contoh kotoba...</div>';
   } else if (kanaMuat === 'gagal') {
-    h = '<div class="fb-info">Contoh kotoba belum bisa dimuat. Periksa koneksi, lalu buka ulang halaman Kana.</div>';
+    h = '<div class="fb-info">Contoh kotoba belum bisa dimuat. Periksa koneksi, lalu <b style="text-decoration:underline;cursor:pointer" onclick="kanaMuat=\'belum\';kanaMuatData();kanaIsiSheet();">coba lagi</b>.' + (kanaGalat ? '<br><small>' + kanaEsc(kanaGalat) + '</small>' : '') + '</div>';
   } else {
     h = '<div class="fb-info">Belum ada contoh kotoba untuk huruf ini.</div>';
   }
