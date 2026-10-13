@@ -11,7 +11,7 @@
     })();
   </script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <link rel="stylesheet" href="style.css?v=2.4.5">
+  <link rel="stylesheet" href="style.css?v=2.4.6">
   <link rel="stylesheet" href="kanji.css">
   <link rel="stylesheet" href="bunpou.css">
   <link rel="stylesheet" href="kanji-challenge.css?v=2.4.3">
@@ -546,23 +546,25 @@
 
 <!-- POP UP KUSTOM: Update Terbaru -->
 <div id="update-modal" class="modal modal-hidden">
-  <div class="custom-alert-box upd-box">
-    <div class="upd-head">
-      <div class="upd-emoji">🎉</div>
-      <div class="upd-title">Update Terbaru!</div>
-      <span class="upd-ver" id="upd-ver"></span>
+  <div class="custom-alert-box upd2-box">
+    <div class="upd2-head">
+      <button type="button" class="upd2-x" onclick="tutupUpdate()" aria-label="Tutup">✕</button>
+      <span class="upd2-ver" id="upd-ver"></span>
+      <div class="upd2-title">Update Terbaru Kanji Daisuki 🌸</div>
+      <div class="upd2-sub" id="upd-intro"></div>
     </div>
-    <div class="upd-body">
-      <div class="upd-intro" id="upd-intro"></div>
-      <ol class="upd-list" id="upd-list"></ol>
-      <div class="upd-outro"><span>💡</span><span id="upd-outro"></span></div>
+    <div class="upd2-body">
+      <div class="upd2-label" id="upd2-label">YANG BARU</div>
+      <div class="upd2-list" id="upd-list"></div>
+      <div class="upd2-outro"><span>💡</span><span id="upd-outro"></span></div>
     </div>
-    <div class="upd-foot">
+    <div class="upd2-foot">
       <div class="tema-switch" role="group" aria-label="Pilih tema">
         <button type="button" data-tema="light" onclick="setTema('light')">☀️ Terang</button>
         <button type="button" data-tema="dark" onclick="setTema('dark')">🌙 Gelap</button>
       </div>
-      <button class="btn-ready" onclick="tutupUpdate()">Siap, Mengerti 👍</button>
+      <button type="button" class="upd2-dl" onclick="unduhDariInfoUpdate()">⬇️ Download Update</button>
+      <button type="button" class="upd2-later" onclick="tutupUpdate()">Nanti saja ›</button>
     </div>
   </div>
 </div>
@@ -587,7 +589,7 @@
   </div>
 </div>
 
-<script src="Code.js?v=2.4.5"></script>
+<script src="Code.js?v=2.4.6"></script>
 
 <!-- ===== HALAMAN KANJI ===== -->
 <!-- KANJI: Menu Level -->
