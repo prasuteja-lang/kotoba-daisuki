@@ -1,0 +1,23 @@
+# OPSIONAL: simpan sebagai  .github/workflows/versi.yml
+# Setiap kamu push ke GitHub, penanda versi (version.json) diperbarui otomatis,
+# sehingga semua HP memuat file terbaru tanpa kamu mengedit apa pun.
+# Ganti "main" bila cabang Pages-mu bernama lain.
+name: Perbarui penanda versi
+on:
+  push:
+    branches: [main]
+    paths-ignore: ['version.json']
+permissions:
+  contents: write
+jobs:
+  versi:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: echo "{\"version\":\"$(date -u +%Y%m%d%H%M%S)\"}" > version.json
+      - run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add version.json
+          git commit -m "versi otomatis [skip ci]" || exit 0
+          git push

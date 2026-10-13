@@ -1,6 +1,30 @@
 <!DOCTYPE html>
 <html>
 <head>
+  <!-- PEMUAT VERSI: satu-satunya sumber versi = version.json. Jangan dipindah dari paling atas <head>. -->
+  <script>
+    (function () {
+      var V = null, ok = false, stop = false, last = null;
+      try {
+        var x = new XMLHttpRequest();
+        x.open('GET', 'version.json?t=' + Date.now(), false);   // selalu ambil yang terbaru, tidak pakai cache
+        x.send();
+        if (x.status === 200) { V = String(JSON.parse(x.responseText).version); ok = true; }
+      } catch (e) {}
+      try { last = localStorage.getItem('app_build'); } catch (e) {}
+      if (!ok) V = last || '0';                                 // offline: pakai versi terakhir yang dikenal
+      if (ok && V !== last) {
+        try { localStorage.setItem('app_build', V); } catch (e) {}
+        if (location.search.indexOf('v=' + V) < 0) {            // ada versi baru: muat ulang index.html dari server (sekali saja)
+          stop = true;
+          location.replace(location.pathname + '?v=' + encodeURIComponent(V) + location.hash);
+        }
+      }
+      window.APP_BUILD = V;
+      window.__css = function (f) { if (!stop) document.write('<link rel="stylesheet" href="' + f + '?v=' + V + '">'); };
+      window.__js  = function (f) { if (!stop) document.write('<script src="' + f + '?v=' + V + '"><\/script>'); };
+    })();
+  </script>
   <base target="_top">
   <script>
     (function () {
@@ -11,10 +35,10 @@
     })();
   </script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <link rel="stylesheet" href="style.css?v=2.4.9">
-  <link rel="stylesheet" href="kanji.css">
-  <link rel="stylesheet" href="bunpou.css">
-  <link rel="stylesheet" href="kanji-challenge.css?v=2.4.3">
+  <script>__css('style.css')</script>
+  <script>__css('kanji.css')</script>
+  <script>__css('bunpou.css')</script>
+  <script>__css('kanji-challenge.css')</script>
 </head>
 <body>
 
@@ -589,7 +613,7 @@
   </div>
 </div>
 
-<script src="Code.js?v=2.4.9"></script>
+<script>__js('Code.js')</script>
 
 <!-- ===== HALAMAN KANJI ===== -->
 <!-- KANJI: Menu Level -->
@@ -762,8 +786,8 @@
   <div id="kc-game-body"></div>
 </div>
 
-<script src="kanji.js"></script>
-<script src="kanji-challenge.js?v=2.4.3"></script>
+<script>__js('kanji.js')</script>
+<script>__js('kanji-challenge.js')</script>
 <!-- ===== HALAMAN BUNPOU ===== -->
 <!-- BUNPOU -->
 <div id="bunpou-page" class="card hidden">
@@ -775,7 +799,7 @@
   <div id="bp-body"></div>
 </div>
 
-<script src="bunpou.js"></script>
+<script>__js('bunpou.js')</script>
 
 <!-- ===== HALAMAN BARU: KANA ===== -->
 <div id="kana-page" class="card fb-page hidden">
