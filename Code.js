@@ -2785,6 +2785,119 @@ function ujianKeluarKuis() { ujianKuis = null; ujianRender(); window.scrollTo(0,
 
 function ujianKunciAsli(s) { return 'ABCD'.indexOf(String(s.jawaban || '').trim().toUpperCase().charAt(0)); }
 
+/* ---------- Furigana (otomatis lewat AI, bisa dimatikan) ----------
+   - Hasil AI disimpan di perangkat (localStorage) supaya soal yang sama tidak diminta lagi.
+   - Bagian Moji/Goi/Kosakata menguji bacaan & penulisan kanji, jadi furigana TIDAK diberikan
+     pada kata di dalam 「」 dan pada pilihan jawaban (supaya jawaban tidak terbongkar). */
+var UJIAN_FURI_BAWAAN = true;              // nyala otomatis saat pertama kali
+var UJIAN_FURI_KUNCI = 'kotoba_furigana_on';
+var UJIAN_FURI_CACHE = 'kotoba_furigana_cache';
+var UJIAN_FURI_PER_PANGGILAN = 14;
+var ujianFuri = { siap: false, on: true, cache: {}, memuat: false, galat: '', gagal: {} };
+
+function ujianFuriInit() {
+  if (ujianFuri.siap) return;
+  ujianFuri.siap = true;
+  var v = null;
+  try { v = localStorage.getItem(UJIAN_FURI_KUNCI); } catch (e) {}
+  ujianFuri.on = (v === null) ? UJIAN_FURI_BAWAAN : (v === '1');
+  try { ujianFuri.cache = JSON.parse(localStorage.getItem(UJIAN_FURI_CACHE) || '{}') || {}; } catch (e) { ujianFuri.cache = {}; }
+}
+function ujianFuriSimpan() {
+  var kunci = Object.keys(ujianFuri.cache);
+  if (kunci.length > 2500) { kunci.slice(0, 800).forEach(function (k) { delete ujianFuri.cache[k]; }); }
+  try { localStorage.setItem(UJIAN_FURI_CACHE, JSON.stringify(ujianFuri.cache)); } catch (e) {}
+}
+function ujianHash(t) {
+  var h = 5381;
+  for (var i = 0; i < t.length; i++) h = ((h << 5) + h + t.charCodeAt(i)) | 0;
+  return (h >>> 0).toString(36) + '.' + t.length;
+}
+var UJIAN_RE_KANJI = /[\u4e00-\u9fff\u3005]/;
+function ujianModeMoji(s) { return /moji|goi|kosakata|vocab|script/i.test(String((s && s.bagian) || '')); }
+
+/* Daftar teks yang perlu furigana untuk satu soal */
+function ujianFuriTeks(s) {
+  var arr = [];
+  if (s.soal) arr.push(s.soal);
+  if (s.teks) arr.push(s.teks);
+  if (!ujianModeMoji(s) && s.opsi) s.opsi.forEach(function (o) { if (o) arr.push(o); });
+  return arr.map(ujianBersih).filter(function (t) { return t && t.length <= 400 && UJIAN_RE_KANJI.test(t); });
+}
+
+/* Ubah teks menjadi HTML; sisipkan <ruby> bila furigana tersedia */
+function ujianTeksFuri(t, lindungiKurung) {
+  var bersih = ujianBersih(t);
+  var html = kanaEsc(bersih);
+  if (ujianFuri.on) {
+    var an = ujianFuri.cache[ujianHash(bersih)];
+    if (an) {
+      var x = kanaEsc(an);
+      if (lindungiKurung) x = x.replace(/「[^」]*」/g, function (m) { return m.replace(/\[[^\]]*\]/g, ''); });
+      html = x.replace(/([\u4e00-\u9fff\u3005\u3006\u30f6]+)\[([^\]]+)\]/g, '<ruby>$1<rt>$2</rt></ruby>');
+    }
+  }
+  return html.replace(/\r?\n/g, '<br>');
+}
+
+function ujianToggleFuri() {
+  ujianFuriInit();
+  ujianFuri.on = !ujianFuri.on;
+  try { localStorage.setItem(UJIAN_FURI_KUNCI, ujianFuri.on ? '1' : '0'); } catch (e) {}
+  ujianFuri.galat = ''; ujianFuri.gagal = {};
+  if (ujianKuis) ujianRenderKuis();
+}
+
+/* Pastikan furigana untuk 8 soal ke depan sudah ada; minta ke server bila belum */
+function ujianFuriPastikan() {
+  ujianFuriInit();
+  var k = ujianKuis;
+  if (!ujianFuri.on || !k || ujianFuri.memuat || ujianFuri.galat) return;
+  var perlu = [], lihat = {};
+  for (var q = k.i; q < Math.min(k.list.length, k.i + 8); q++) {
+    ujianFuriTeks(k.list[q]).forEach(function (t) {
+      var h = ujianHash(t);
+      if (!lihat[h] && !ujianFuri.cache[h] && !ujianFuri.gagal[h]) { lihat[h] = 1; perlu.push(t); }
+    });
+  }
+  if (!perlu.length) return;
+  perlu = perlu.slice(0, UJIAN_FURI_PER_PANGGILAN);
+  ujianFuri.memuat = true;
+  var perbarui = function () {
+    ujianFuri.memuat = false;
+    if (ujianKuis && ujianFuri.on) {
+      if (ujianKuis.i < ujianKuis.list.length) ujianRenderKuis();
+      ujianFuriPastikan();
+    }
+  };
+  google.script.run
+    .withSuccessHandler(function (hasil) {
+      perlu.forEach(function (t, n) {
+        var a = hasil && hasil[n];
+        if (typeof a === 'string' && a.replace(/\[[^\]]*\]/g, '') === t) ujianFuri.cache[ujianHash(t)] = a;
+        else ujianFuri.gagal[ujianHash(t)] = true;
+      });
+      ujianFuriSimpan();
+      perbarui();
+    })
+    .withFailureHandler(function (err) {
+      ujianFuri.galat = (err && err.message) ? err.message : String(err || 'Gagal memuat furigana');
+      perbarui();
+    })
+    .getFurigana(studentName, perlu);
+}
+
+function ujianFuriAlat() {
+  ujianFuriInit();
+  var k = ujianKuis, info = '';
+  if (ujianFuri.on) {
+    if (ujianFuri.galat) info = '<span class="uj-furi-info err">Furigana belum tersedia: ' + kanaEsc(ujianFuri.galat) + '</span>';
+    else if (ujianFuri.memuat) info = '<span class="uj-furi-info">⏳ memuat furigana…</span>';
+  }
+  return '<div class="uj-alat"><button class="uj-furi-btn' + (ujianFuri.on ? ' on' : '') + '" onclick="ujianToggleFuri()">' +
+    '<span class="uj-furi-ico">ふ</span> Furigana <b>' + (ujianFuri.on ? 'ON' : 'OFF') + '</b></button>' + info + '</div>';
+}
+
 function ujianRenderKuis() {
   var k = ujianKuis, wadah = fbEl('ujian-isi');
   var n = k.list.length;
@@ -2795,14 +2908,15 @@ function ujianRenderKuis() {
   var sudah = k.jawab !== null;
   var h = '<div class="uj-top"><button class="uj-btn kecil" onclick="ujianKeluarKuis()">‹ Keluar</button>' +
     '<span class="uj-no">Soal ' + (k.i + 1) + ' / ' + n + '</span><span class="uj-skor">✔ ' + k.skor + '</span></div>';
+  h += ujianFuriAlat();
   h += '<div class="uj-bar"><i style="width:' + Math.round((k.i + (sudah ? 1 : 0)) / n * 100) + '%"></i></div>';
   h += '<div class="uj-judul">' + kanaEsc(k.judul) + '</div>';
   h += '<div class="uj-kartu">';
   if (s.mondai) h += '<div class="uj-tag">' + kanaEsc(s.mondai) + '</div>';
   if (s.audio) h += '<audio class="uj-audio" controls preload="none" src="' + kanaEsc(s.audio) + '"></audio>';
   if (s.gambar) h += '<img class="uj-gambar" src="' + kanaEsc(s.gambar) + '" alt="" onerror="this.style.display=\'none\'">';
-  if (s.teks) h += '<div class="uj-teks">' + ujianNl(s.teks) + '</div>';
-  if (s.soal) h += '<div class="uj-soal">' + ujianNl(s.soal) + '</div>';
+  if (s.teks) h += '<div class="uj-teks">' + ujianTeksFuri(s.teks, false) + '</div>';
+  if (s.soal) h += '<div class="uj-soal">' + ujianTeksFuri(s.soal, ujianModeMoji(s)) + '</div>';
   h += '</div><div class="uj-opsi">';
   for (var p = 0; p < urut.length; p++) {
     var kls = 'uj-op';
@@ -2812,7 +2926,7 @@ function ujianRenderKuis() {
       else kls += ' pudar';
     }
     h += '<button class="' + kls + '"' + (sudah ? ' disabled' : '') + ' onclick="ujianJawab(' + p + ')">' +
-      '<span class="uj-huruf">' + 'ABCD'.charAt(p) + '</span><span class="uj-teks-op">' + kanaEsc(ujianBersih(s.opsi[urut[p]])) + '</span></button>';
+      '<span class="uj-huruf">' + 'ABCD'.charAt(p) + '</span><span class="uj-teks-op">' + (ujianModeMoji(s) ? kanaEsc(ujianBersih(s.opsi[urut[p]])) : ujianTeksFuri(s.opsi[urut[p]], false)) + '</span></button>';
   }
   h += '</div>';
   if (sudah) {
@@ -2822,6 +2936,7 @@ function ujianRenderKuis() {
     h += '<div class="uj-bawah"><button class="uj-btn lebar" onclick="ujianLanjut()">' + (k.i + 1 >= n ? 'Lihat hasil ›' : 'Lanjut ›') + '</button></div>';
   }
   wadah.innerHTML = h;
+  setTimeout(ujianFuriPastikan, 0);
 }
 
 function ujianJawab(p) {
