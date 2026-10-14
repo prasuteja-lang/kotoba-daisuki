@@ -1531,3 +1531,22 @@ html.dark .uj-bahas.no { background:#450a0a; border-color:#991b1b; color:#fecaca
 html.dark .uj-chip, html.dark .uj-hasil-rekor { background:#3a2a14; color:#fcd34d; }
 html.dark .uj-chip.emas { background:linear-gradient(135deg,#b45309,#c2410c); color:#fff; }
 html.dark .uj-bawah { background:rgba(15,23,42,.82); }
+
+/* ---- Ujian: furigana ---- */
+.uj-alat { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin:0 0 10px; }
+.uj-furi-btn { display:inline-flex; align-items:center; gap:6px; width:auto; max-width:none; margin:0; padding:6px 12px; border-radius:999px; font-size:12.5px; font-weight:800; color:#64748b; background:#f1f5f9; box-shadow:none; }
+.uj-furi-btn b { padding:1px 7px; border-radius:999px; font-size:11px; color:#fff; background:#94a3b8; }
+.uj-furi-btn.on { color:var(--ac); background:#eef2ff; }
+.uj-furi-btn.on b { background:var(--ac); }
+.uj-furi-ico { font-size:14px; }
+.uj-furi-info { font-size:12px; font-weight:700; color:#64748b; }
+.uj-furi-info.err { color:#b45309; }
+.uj-kartu ruby, .uj-op ruby { ruby-align:center; }
+.uj-kartu rt, .uj-op rt { font-size:.48em; font-weight:700; color:var(--ac); letter-spacing:0; }
+.uj-soal { line-height:1.9; }
+html.dark .uj-furi-btn { color:#94a3b8; background:#0f172a; }
+html.dark .uj-furi-btn.on { color:var(--glow); }
+html.dark .uj-furi-btn.on b { background:var(--glow); color:#0f172a; }
+html.dark .uj-furi-info { color:#94a3b8; }
+html.dark .uj-furi-info.err { color:#fcd34d; }
+html.dark .uj-kartu rt, html.dark .uj-op rt { color:var(--glow); }
