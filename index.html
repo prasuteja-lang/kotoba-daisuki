@@ -887,33 +887,15 @@
   <div id="hiburan-isi"></div>
 </div>
 
-<!-- Hiburan: pemutar belajar -->
-<div id="lirik-page" class="card lk-page hidden">
-  <div class="lk-top">
-    <button class="lk-ib" onclick="lkTutup()" aria-label="Kembali">←</button>
-    <div class="lk-judul" id="lk-judul"></div>
-    <button class="lk-ib" id="lk-b-cc" onclick="lkTerjemah()" aria-label="Tampilkan terjemahan">💬</button>
-  </div>
-  <div class="lk-video" id="lk-yt-wrap"></div>
-  <div class="lk-info" id="lk-info"></div>
-  <div class="lk-list" id="lk-list"></div>
-  <div class="lk-bar">
-    <div class="lk-seekrow">
-      <span id="lk-t1">0:00</span>
-      <input type="range" id="lk-seek" min="0" max="1" step="0.1" value="0" oninput="lkSeekGeser(this)" onchange="lkSeekLepas(this)">
-      <span id="lk-t2">0:00</span>
-    </div>
-    <div class="lk-ctl">
-      <div class="lk-btn" id="lk-b-pin" role="button" onclick="lkPin()"><span>📌</span><small>Pin</small></div>
-      <div class="lk-btn" id="lk-b-jelas" role="button" onclick="lkJelas()"><span>✨</span><small>Jelas</small></div>
-      <div class="lk-btn" id="lk-b-ulang" role="button" onclick="lkUlang()"><span>🔁</span><small>Ulang</small></div>
-      <div class="lk-btn" role="button" onclick="lkKecepatan()"><span id="lk-kec">1x</span><small>Speed</small></div>
-      <div class="lk-btn" role="button" onclick="lkPlay()"><span id="lk-play-ico">▶</span><small id="lk-play-txt">Play</small></div>
-      <div class="lk-fab" role="button" onclick="lkKotobaBaris()" aria-label="Kotoba di baris ini">📖</div>
+<!-- Hiburan: pemutar -->
+<div id="hb-player-modal" class="hb-modal modal-hidden" onclick="if(event.target===this)hiburanTutupPlayer()">
+  <div class="hb-box">
+    <div class="hb-box-head"><b id="hb-player-judul"></b><button class="hb-x" onclick="hiburanTutupPlayer()" aria-label="Tutup">✕</button></div>
+    <div class="hb-frame" id="hb-player-frame"></div>
+    <div class="hb-box-foot">
+      <a id="hb-player-yt" href="#" target="_blank" rel="noopener">Tidak bisa diputar? Buka di YouTube ↗</a>
     </div>
   </div>
-  <div class="lk-overlay hidden" id="lk-overlay" onclick="lkTutupSheet()"></div>
-  <div class="lk-sheet hidden" id="lk-sheet"></div>
 </div>
 
 </body>

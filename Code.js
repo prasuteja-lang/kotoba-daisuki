@@ -2596,8 +2596,8 @@ function ujianRender() {
 
 /* =====================================================================
    HIBURAN (Video / Musik / Berita)
-   - Daftar video diambil dari Google Spreadsheet (sheet "Hiburan") lewat getHiburan() di server.
-   - Kolom: NO, Level, Link Video, Judul Video, Durasi Video, Subtitle Video (opsional: Kategori).
+   - Video & Musik: daftar diambil dari sheet "Hiburan" (lewat getHiburan() di server),
+     diputar langsung di dalam aplikasi. Hanya menampilkan video.
    ===================================================================== */
 var hiburanState = { tab: 'video', level: 'Semua' };
 var hiburanServer = { video: [], musik: [], berita: [] };   // isi dari spreadsheet
@@ -2655,7 +2655,7 @@ function hiburanMuat() {
       var s = { video: [], musik: [], berita: [] };
       (rows || []).forEach(function (r) {
         var k = (r.kategori === 'musik' || r.kategori === 'berita') ? r.kategori : 'video';
-        s[k].push({ judul: r.judul, lv: r.level || '-', url: r.url, yt: hbYtId(r.url), durasi: r.durasi, subtitle: r.subtitle });
+        s[k].push({ judul: r.judul, lv: r.level || '-', url: r.url, yt: hbYtId(r.url), durasi: r.durasi });
       });
       hiburanServer = s;
       hiburanStatus = 'siap';
@@ -2720,287 +2720,22 @@ function hiburanRender() {
   fbEl('hiburan-isi').innerHTML = h;
 }
 
-/* ---------- buka video ---------- */
+/* ---------- putar / buka ---------- */
 function hiburanBuka(idx) {
   var tab = hiburanState.tab, d = (hiburanServer[tab] || [])[idx];
   if (!d) return;
   if (!d.yt) { window.open(d.url, '_blank', 'noopener'); return; }
-  lkBuka(tab, idx);
+  fbEl('hb-player-judul').textContent = d.judul;
+  fbEl('hb-player-frame').innerHTML = '<iframe src="https://www.youtube-nocookie.com/embed/' + encodeURIComponent(d.yt) +
+    '?rel=0&playsinline=1" title="Pemutar video" allow="accelerometer; autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>';
+  fbEl('hb-player-yt').href = 'https://www.youtube.com/watch?v=' + encodeURIComponent(d.yt);
+  fbEl('hb-player-modal').classList.remove('modal-hidden');
 }
-
-
-/* =====================================================================
-   PEMUTAR BELAJAR (video + subtitle per kata)
-   Subtitle ada di kolom F sheet "Hiburan". Satu baris satu kalimat:
-
-     [0:12.5] 遥|はるか|haruka|jauh 遠い|とおい|tooi|jauh // Terjemahan kalimat
-
-   - [m:dd.d] / [m:dd] / [j:mm:dd]  waktu mulai baris (opsional). Tanpa waktu, baris tidak ikut bergerak.
-   - kata|furigana|romaji|arti       satu kata. Kata kana: です||desu|adalah. Spasi di dalam isi pakai _
-   - // ...                          terjemahan seluruh kalimat (opsional)
-   - Baris biasa tanpa tanda | tetap tampil sebagai teks polos.
-   ===================================================================== */
-var LK_WARNA = ['#eab308', '#a78bfa', '#4ade80', '#38bdf8', '#fb923c', '#f472b6'];
-var LK_KECEPATAN = [0.5, 0.75, 1, 1.25];
-var lkS = { tab: 'video', idx: -1, yt: null, baris: [], adaWaktu: false, aktif: -1, pin: true, jelas: true, tr: true, ulang: -1, kec: 2, geser: false, timer: null, cbApi: null };
-function lkEl(id) { return document.getElementById(id); }
-
-function lkDetik(txt) {
-  var p = String(txt).split(':'), n = p.length, d;
-  if (n === 2) d = parseInt(p[0], 10) * 60 + parseFloat(p[1]);
-  else if (n === 3) d = parseInt(p[0], 10) * 3600 + parseInt(p[1], 10) * 60 + parseFloat(p[2]);
-  else return null;
-  return isNaN(d) ? null : d;
+function hiburanTutupPlayer() {
+  fbEl('hb-player-frame').innerHTML = '';   // hentikan video
+  fbEl('hb-player-modal').classList.add('modal-hidden');
 }
-function lkParse(raw) {
-  var out = [];
-  String(raw || '').split(/\r?\n/).forEach(function (ln) {
-    ln = ln.trim();
-    if (!ln) return;
-    var t = null, m = ln.match(/^\[([\d:.]+)\]\s*(.*)$/);
-    if (m) { t = lkDetik(m[1]); ln = m[2]; }
-    var tr = '', p = ln.indexOf('//');
-    if (p >= 0) { tr = ln.slice(p + 2).trim(); ln = ln.slice(0, p).trim(); }
-    if (!ln && !tr) return;
-    if (ln.indexOf('|') < 0) { out.push({ t: t, polos: true, teks: ln, tokens: [], tr: tr }); return; }
-    var tokens = ln.split(/\s+/).filter(Boolean).map(function (s) {
-      var a = s.split('|').map(function (x) { return x.replace(/_/g, ' '); });
-      return { k: a[0] || '', f: a[1] || '', r: a[2] || '', a: a[3] || '' };
-    });
-    out.push({ t: t, polos: false, teks: '', tokens: tokens, tr: tr });
-  });
-  return out;
-}
-function lkWaktu(s) {
-  s = Math.max(0, s || 0);
-  var m = Math.floor(s / 60), d = Math.floor(s % 60);
-  return m + ':' + (d < 10 ? '0' : '') + d;
-}
-function lkInfo(txt, galat) {
-  var e = lkEl('lk-info');
-  e.textContent = txt || '';
-  e.className = 'lk-info' + (galat ? ' err' : '');
-}
-
-/* ---------- buka / tutup ---------- */
-function lkBuka(tab, idx) {
-  var d = (hiburanServer[tab] || [])[idx];
-  if (!d || !d.yt) return;
-  lkS.tab = tab; lkS.idx = idx; lkS.aktif = -1; lkS.ulang = -1; lkS.geser = false;
-  lkS.baris = lkParse(d.subtitle);
-  lkS.adaWaktu = lkS.baris.some(function (b) { return b.t !== null; });
-  lkEl('lk-judul').textContent = d.judul;
-  lkEl('lk-yt-wrap').innerHTML = '<div id="lk-yt"></div>';
-  lkEl('lk-seek').value = 0;
-  lkEl('lk-t1').textContent = '0:00';
-  lkEl('lk-t2').textContent = d.durasi || '0:00';
-  lkSeekWarna();
-  lkEl('hiburan-page').classList.add('hidden');
-  lkEl('lirik-page').classList.remove('hidden');
-  window.scrollTo(0, 0);
-  lkTutupSheet();
-  lkTampilanKelas();
-  lkRender();
-  if (!lkS.baris.length) lkInfo('Subtitle belum diisi di sheet Hiburan (kolom F).');
-  else if (!lkS.adaWaktu) lkInfo('Subtitle belum bertanda waktu, jadi tidak ikut bergerak. Ketuk sebuah kata untuk melihat artinya.');
-  else lkInfo('');
-  lkMuatApi(function () { lkBuatPlayer(d.yt); });
-}
-function lkTutup() {
-  if (lkS.timer) { clearInterval(lkS.timer); lkS.timer = null; }
-  try { if (lkS.yt && lkS.yt.destroy) lkS.yt.destroy(); } catch (e) {}
-  lkS.yt = null; lkS.cbApi = null;
-  lkEl('lk-yt-wrap').innerHTML = '';
-  lkEl('lirik-page').classList.add('hidden');
-  lkEl('hiburan-page').classList.remove('hidden');
-  lkTutupSheet();
-  hiburanRender();
-  window.scrollTo(0, 0);
-}
-
-/* ---------- YouTube IFrame API ---------- */
-function lkMuatApi(cb) {
-  if (window.YT && YT.Player) { cb(); return; }
-  lkS.cbApi = cb;
-  if (window.__lkApiMuat) return;
-  window.__lkApiMuat = true;
-  window.onYouTubeIframeAPIReady = function () {
-    var f = lkS.cbApi; lkS.cbApi = null;
-    if (f) f();
-  };
-  var s = document.createElement('script');
-  s.src = 'https://www.youtube.com/iframe_api';
-  s.onerror = function () { window.__lkApiMuat = false; lkInfo('Pemutar tidak bisa dimuat. Periksa koneksi internet.', true); };
-  document.head.appendChild(s);
-}
-function lkBuatPlayer(id) {
-  var vars = { playsinline: 1, rel: 0, enablejsapi: 1, modestbranding: 1 };
-  if (/^https?:/.test(location.protocol)) vars.origin = location.origin;
-  lkS.yt = new YT.Player('lk-yt', {
-    videoId: id, width: '100%', height: '100%', host: 'https://www.youtube-nocookie.com', playerVars: vars,
-    events: {
-      onReady: function () {
-        if (lkS.timer) clearInterval(lkS.timer);
-        lkS.timer = setInterval(lkTick, 150);
-        try { lkS.yt.setPlaybackRate(LK_KECEPATAN[lkS.kec]); } catch (e) {}
-      },
-      onStateChange: function (e) {
-        lkEl('lk-play-ico').textContent = (e.data === 1) ? '⏸' : '▶';
-        lkEl('lk-play-txt').textContent = (e.data === 1) ? 'Pause' : 'Play';
-      },
-      onError: function () { lkInfo('Video ini tidak bisa diputar di dalam aplikasi (pemilik video membatasi penyematan).', true); }
-    }
-  });
-}
-
-/* ---------- sinkron subtitle ---------- */
-function lkTick() {
-  var p = lkS.yt;
-  if (!p || !p.getCurrentTime) return;
-  var cur = p.getCurrentTime(), dur = p.getDuration() || 0;
-  if (!lkS.geser) {
-    var sk = lkEl('lk-seek');
-    sk.max = dur || 1; sk.value = cur;
-    lkEl('lk-t1').textContent = lkWaktu(cur);
-    if (dur) lkEl('lk-t2').textContent = lkWaktu(dur);
-    lkSeekWarna();
-  }
-  if (!lkS.adaWaktu) return;
-  var b = lkS.baris, idx = -1, i;
-  for (i = 0; i < b.length; i++) {
-    if (b[i].t === null) continue;
-    if (b[i].t <= cur + 0.05) idx = i; else break;
-  }
-  if (lkS.ulang >= 0 && b[lkS.ulang]) {
-    var akhir = dur;
-    for (i = lkS.ulang + 1; i < b.length; i++) { if (b[i].t !== null) { akhir = b[i].t; break; } }
-    if (cur >= akhir - 0.05) p.seekTo(b[lkS.ulang].t, true);
-    idx = lkS.ulang;
-  }
-  if (idx !== lkS.aktif) lkSetAktif(idx);
-}
-function lkSeekWarna() {
-  var sk = lkEl('lk-seek'), pr = (sk.max > 0) ? (sk.value / sk.max * 100) : 0;
-  sk.style.setProperty('--p', pr + '%');
-}
-function lkSetAktif(idx) {
-  var lama = lkEl('lk-l' + lkS.aktif), baru = lkEl('lk-l' + idx);
-  if (lama) lama.classList.remove('on');
-  lkS.aktif = idx;
-  if (baru) {
-    baru.classList.add('on');
-    if (lkS.pin) baru.scrollIntoView({ block: 'center', behavior: 'smooth' });
-  }
-}
-function lkRender() {
-  var h = '';
-  lkS.baris.forEach(function (b, i) {
-    h += '<div class="lk-line' + (b.t === null ? ' tanpa' : '') + '" id="lk-l' + i + '" onclick="lkLompat(' + i + ')">';
-    if (b.polos) {
-      h += '<div class="lk-polos">' + hbEsc(b.teks) + '</div>';
-    } else {
-      h += '<div class="lk-tokens">';
-      b.tokens.forEach(function (w, j) {
-        h += '<span class="lk-w" style="--c:' + LK_WARNA[j % LK_WARNA.length] + '" onclick="event.stopPropagation();lkKata(' + i + ',' + j + ')">' +
-          '<i>' + (w.f ? hbEsc(w.f) : '&nbsp;') + '</i><b>' + hbEsc(w.k) + '</b><u>' + (w.r ? hbEsc(w.r) : '&nbsp;') + '</u></span>';
-      });
-      h += '</div>';
-    }
-    h += (b.tr ? '<p class="lk-tr">' + hbEsc(b.tr) + '</p>' : '') + '</div>';
-  });
-  lkEl('lk-list').innerHTML = h + '<div class="lk-ruang"></div>';
-}
-function lkLompat(i) {
-  var b = lkS.baris[i];
-  if (!b || b.t === null || !lkS.yt || !lkS.yt.seekTo) return;
-  if (lkS.ulang >= 0) lkS.ulang = i;
-  lkS.yt.seekTo(b.t, true);
-  lkS.yt.playVideo();
-}
-
-/* ---------- kontrol ---------- */
-function lkTampilanKelas() {
-  var pg = lkEl('lirik-page');
-  pg.classList.toggle('lk-tanpa-furi', !lkS.jelas);
-  pg.classList.toggle('lk-tanpa-tr', !lkS.tr);
-  lkEl('lk-b-pin').classList.toggle('on', lkS.pin);
-  lkEl('lk-b-jelas').classList.toggle('on', lkS.jelas);
-  lkEl('lk-b-ulang').classList.toggle('on', lkS.ulang >= 0);
-  lkEl('lk-b-cc').classList.toggle('on', lkS.tr);
-  lkEl('lk-kec').textContent = LK_KECEPATAN[lkS.kec] + 'x';
-}
-function lkPin() {
-  lkS.pin = !lkS.pin;
-  lkTampilanKelas();
-  var e = lkEl('lk-l' + lkS.aktif);
-  if (lkS.pin && e) e.scrollIntoView({ block: 'center', behavior: 'smooth' });
-}
-function lkJelas() { lkS.jelas = !lkS.jelas; lkTampilanKelas(); }
-function lkTerjemah() { lkS.tr = !lkS.tr; lkTampilanKelas(); }
-function lkUlang() {
-  if (lkS.ulang >= 0) lkS.ulang = -1;
-  else if (lkS.aktif >= 0) lkS.ulang = lkS.aktif;
-  else lkInfo(lkS.adaWaktu ? 'Putar videonya dulu sampai ada baris yang menyala, lalu tekan Ulang.' : 'Ulang hanya bisa dipakai kalau subtitle bertanda waktu.');
-  lkTampilanKelas();
-}
-function lkKecepatan() {
-  lkS.kec = (lkS.kec + 1) % LK_KECEPATAN.length;
-  try { if (lkS.yt) lkS.yt.setPlaybackRate(LK_KECEPATAN[lkS.kec]); } catch (e) {}
-  lkTampilanKelas();
-}
-function lkPlay() {
-  var p = lkS.yt;
-  if (!p || !p.getPlayerState) return;
-  if (p.getPlayerState() === 1) p.pauseVideo(); else p.playVideo();
-}
-function lkSeekGeser(el) {
-  lkS.geser = true;
-  lkEl('lk-t1').textContent = lkWaktu(parseFloat(el.value));
-  lkSeekWarna();
-}
-function lkSeekLepas(el) {
-  lkS.geser = false;
-  if (lkS.yt && lkS.yt.seekTo) lkS.yt.seekTo(parseFloat(el.value), true);
-}
-
-/* ---------- belajar per kata ---------- */
-function lkBukaSheet(html) {
-  lkEl('lk-sheet').innerHTML = html;
-  lkEl('lk-sheet').scrollTop = 0;
-  lkEl('lk-overlay').classList.remove('hidden');
-  lkEl('lk-sheet').classList.remove('hidden');
-}
-function lkTutupSheet() {
-  lkEl('lk-overlay').classList.add('hidden');
-  lkEl('lk-sheet').classList.add('hidden');
-}
-function lkKata(i, j) {
-  var b = lkS.baris[i], w = b && b.tokens[j];
-  if (!w) return;
-  var h = '<div class="lk-sh-judul">Kotoba</div>' +
-    '<div class="lk-sh-kata">' + hbEsc(w.k) + '</div>' +
-    (w.f ? '<div class="lk-sh-furi">' + hbEsc(w.f) + '</div>' : '') +
-    (w.r ? '<div class="lk-sh-romaji">' + hbEsc(w.r) + '</div>' : '') +
-    '<div class="lk-sh-arti">' + (w.a ? hbEsc(w.a) : '<span class="lk-kosong">Arti belum diisi</span>') + '</div>';
-  if (b.tr) h += '<div class="lk-sh-kal"><small>Dalam kalimat</small>' + hbEsc(b.tr) + '</div>';
-  h += '<button class="lk-sh-tutup" onclick="lkTutupSheet()">Tutup</button>';
-  lkBukaSheet(h);
-}
-function lkKotobaBaris() {
-  var i = lkS.aktif, b = lkS.baris[i];
-  if (!b || b.polos) {
-    for (i = 0; i < lkS.baris.length; i++) { if (!lkS.baris[i].polos) break; }
-    b = lkS.baris[i];
-  }
-  if (!b || b.polos) { lkBukaSheet('<div class="lk-sh-judul">Kotoba</div><div class="lk-kosong">Belum ada kata berfurigana di subtitle ini.</div><button class="lk-sh-tutup" onclick="lkTutupSheet()">Tutup</button>'); return; }
-  var tanda = /^[、。！？!?,.「」『』（）()…ー〜~・]+$/;
-  var h = '<div class="lk-sh-judul">Kotoba di baris ini</div>';
-  b.tokens.forEach(function (w) {
-    if (tanda.test(w.k) && !w.a) return;
-    h += '<div class="lk-baris"><b>' + hbEsc(w.k) + '</b><div><small>' + hbEsc([w.f, w.r].filter(Boolean).join(' · ')) + '</small>' +
-      '<span>' + (w.a ? hbEsc(w.a) : '<span class="lk-kosong">—</span>') + '</span></div></div>';
-  });
-  if (b.tr) h += '<div class="lk-sh-kal"><small>Terjemahan</small>' + hbEsc(b.tr) + '</div>';
-  h += '<button class="lk-sh-tutup" onclick="lkTutupSheet()">Tutup</button>';
-  lkBukaSheet(h);
-}
+document.addEventListener('keydown', function (e) {
+  if (e.key !== 'Escape') return;
+  if (!fbEl('hb-player-modal').classList.contains('modal-hidden')) hiburanTutupPlayer();
+});
