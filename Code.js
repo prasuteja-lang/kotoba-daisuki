@@ -2596,10 +2596,12 @@ function ujianRender() {
 
 /* =====================================================================
    HIBURAN (Video / Musik / Berita)
-   - Daftar konten diisi manual lewat HIBURAN_CONTOH (item ber-url dibuka di tab baru).
+   - Daftar video diambil dari Google Spreadsheet (sheet "Hiburan") lewat getHiburan() di server.
+   - Kolom: NO, Level, Link Video, Judul Video, Durasi Video, Subtitle Video (opsional: Kategori).
    ===================================================================== */
 var hiburanState = { tab: 'video', level: 'Semua' };
-var HB_KUNCI = 'kotoba_hiburan_v1';
+var hiburanServer = { video: [], musik: [], berita: [] };   // isi dari spreadsheet
+var hiburanStatus = 'belum';                                 // belum | memuat | siap | gagal
 var HB_WARNA = [['#f472b6','#db2777'],['#fb923c','#ea580c'],['#a78bfa','#7c3aed'],['#38bdf8','#2563eb'],['#34d399','#059669']];
 var HB_IKON = { video: '🎬', musik: '🎵', berita: '📰' };
 
@@ -2633,26 +2635,33 @@ function hbEsc(s) {
     return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
   });
 }
-function hbMuat() {
-  try {
-    var d = JSON.parse(localStorage.getItem(HB_KUNCI) || 'null');
-    if (d && d.video && d.musik && d.berita) return d;
-  } catch (e) {}
-  return { video: [], musik: [], berita: [] };
-}
-function hbSimpan(d) { try { localStorage.setItem(HB_KUNCI, JSON.stringify(d)); } catch (e) {} }
-
 function hbYtId(url) {
   var m = String(url || '').trim().match(/(?:youtu\.be\/|youtube(?:-nocookie)?\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/|live\/|v\/))([A-Za-z0-9_-]{11})/);
   return m ? m[1] : '';
 }
-function hbUrlValid(u) { return /^https?:\/\/[^\s]+\.[^\s]+$/i.test(String(u || '').trim()); }
 
 function bukaHiburanDariMain(tab) {
   fbBuka('hiburan-page');
   hiburanState.tab = HIBURAN_CONTOH[tab] ? tab : 'video';
   hiburanState.level = 'Semua';
+  hiburanMuat();
+}
+function hiburanMuat() {
+  hiburanStatus = 'memuat';
   hiburanRender();
+  google.script.run
+    .withSuccessHandler(function (rows) {
+      var s = { video: [], musik: [], berita: [] };
+      (rows || []).forEach(function (r) {
+        var k = (r.kategori === 'musik' || r.kategori === 'berita') ? r.kategori : 'video';
+        s[k].push({ judul: r.judul, lv: r.level || '-', url: r.url, yt: hbYtId(r.url), durasi: r.durasi, subtitle: r.subtitle });
+      });
+      hiburanServer = s;
+      hiburanStatus = 'siap';
+      hiburanRender();
+    })
+    .withFailureHandler(function () { hiburanStatus = 'gagal'; hiburanRender(); })
+    .getHiburan();
 }
 function hiburanPilihTab(t) { hiburanState.tab = t; hiburanRender(); }
 function hiburanPilihLevel(l) { hiburanState.level = l; hiburanRender(); }
@@ -2661,21 +2670,27 @@ function hiburanRender() {
   fbSetAktif('hiburan-seg', hiburanState.tab, 'data-k');
   fbSetAktif('hiburan-level', hiburanState.level, 'data-k');
   var tab = hiburanState.tab;
-  var simpan = hbMuat()[tab];
+  var simpan = hiburanServer[tab] || [];
   var punyaSendiri = simpan.length > 0;
   var sumber = [];
   var i;
   for (i = 0; i < simpan.length; i++) sumber.push({ d: simpan[i], idx: i, milik: true });
   var contoh = HIBURAN_CONTOH[tab];
-  for (i = 0; i < contoh.length; i++) {
-    if (contoh[i].bawaan || !punyaSendiri) sumber.push({ d: contoh[i], idx: i, milik: false });
+  if (hiburanStatus === 'siap') {
+    for (i = 0; i < contoh.length; i++) {
+      if (contoh[i].bawaan || !punyaSendiri) sumber.push({ d: contoh[i], idx: i, milik: false });
+    }
   }
   var data = sumber.filter(function (x) {
     return hiburanState.level === 'Semua' || x.d.lv === hiburanState.level;
   });
 
   var h = '<div class="fb-info">' + HIBURAN_KETERANGAN[tab] + '</div>';
-  if (!data.length) {
+  if (hiburanStatus === 'memuat') {
+    h += '<div class="fb-info">Memuat daftar…</div>';
+  } else if (hiburanStatus === 'gagal') {
+    h += '<div class="fb-info">Daftar belum bisa dimuat. Periksa koneksi internet. <b role="button" onclick="hiburanMuat()" style="text-decoration:underline;cursor:pointer">Coba lagi</b></div>';
+  } else if (!data.length) {
     h += '<div class="fb-info">Belum ada konten untuk level ' + hiburanState.level + '. Coba pilih level lain.</div>';
   }
   for (i = 0; i < data.length; i++) {
@@ -2694,6 +2709,7 @@ function hiburanRender() {
     h += '<div class="hb-item" role="button" onclick="' + aksi + '">' +
       '<div class="hb-thumb" style="--t1:' + w[0] + ';--t2:' + w[1] + ';' + bg + '">' + isi + '</div>' +
       '<div class="hb-body"><b>' + hbEsc(d.judul) + '</b><div class="hb-meta"><span class="hb-lv">' + hbEsc(d.lv) + '</span>' +
+      (d.durasi ? '<span>⏱ ' + hbEsc(d.durasi) + '</span>' : '') +
       (tag ? '<span>' + tag + '</span>' : (d.yt ? '<span>YouTube</span>' : '<span>Link</span>')) + '</div></div></div>';
   }
   fbEl('hiburan-isi').innerHTML = h;
@@ -2702,7 +2718,7 @@ function hiburanRender() {
 /* ---------- putar / buka ---------- */
 var hbAktif = null;   // { tab, idx } yang sedang dibuka
 function hiburanBuka(idx) {
-  var tab = hiburanState.tab, d = hbMuat()[tab][idx];
+  var tab = hiburanState.tab, d = (hiburanServer[tab] || [])[idx];
   if (!d) return;
   if (!d.yt) { window.open(d.url, '_blank', 'noopener'); return; }
   hbAktif = { tab: tab, idx: idx };
@@ -2710,6 +2726,12 @@ function hiburanBuka(idx) {
   fbEl('hb-player-frame').innerHTML = '<iframe src="https://www.youtube-nocookie.com/embed/' + encodeURIComponent(d.yt) +
     '?rel=0&playsinline=1" title="Pemutar video" allow="accelerometer; autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>';
   fbEl('hb-player-yt').href = 'https://www.youtube.com/watch?v=' + encodeURIComponent(d.yt);
+  var sub = String(d.subtitle || '').split('\n').filter(function (x) { return x.trim(); });
+  fbEl('hb-sub').innerHTML = sub.length
+    ? '<div class="hb-sub-judul">字幕 Subtitle</div>' + sub.map(function (x) { return '<p>' + hbEsc(x) + '</p>'; }).join('')
+    : '';
+  fbEl('hb-player-modal').scrollTop = 0;
+  fbEl('hb-box').scrollTop = 0;
   fbEl('hb-player-modal').classList.remove('modal-hidden');
 }
 function hiburanTutupPlayer() {
@@ -2717,16 +2739,6 @@ function hiburanTutupPlayer() {
   fbEl('hb-player-modal').classList.add('modal-hidden');
   hbAktif = null;
 }
-function hiburanHapusAktif() {
-  if (!hbAktif) return;
-  if (!confirm('Hapus item ini dari daftar?')) return;
-  var d = hbMuat();
-  d[hbAktif.tab].splice(hbAktif.idx, 1);
-  hbSimpan(d);
-  hiburanTutupPlayer();
-  hiburanRender();
-}
-
 document.addEventListener('keydown', function (e) {
   if (e.key !== 'Escape') return;
   if (!fbEl('hb-player-modal').classList.contains('modal-hidden')) hiburanTutupPlayer();

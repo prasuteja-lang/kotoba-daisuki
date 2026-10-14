@@ -1368,3 +1368,11 @@ html.dark .hb-box { background:#0f172a; color:#f1f5f9; border:1px solid #334155;
 html.dark .hb-form input, html.dark .hb-form select { background:#1e293b; border-color:#334155; color:#f1f5f9; }
 html.dark .hb-info-kecil { color:#94a3b8; }
 html.dark .hb-box-foot a { color:#60a5fa; }
+
+
+/* Hiburan: video + subtitle */
+.hb-frame { position:sticky; top:0; z-index:2; }
+.hb-sub { padding:4px 16px 18px; font-family:var(--jp, inherit); }
+.hb-sub-judul { margin:6px 0 8px; font-size:12px; font-weight:800; letter-spacing:.04em; color:#64748b; }
+.hb-sub p { margin:0; padding:7px 0; border-bottom:1px solid rgba(148,163,184,.25); font-size:17px; line-height:1.55; }
+html.dark .hb-sub-judul { color:#94a3b8; }

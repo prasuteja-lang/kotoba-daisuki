@@ -889,13 +889,13 @@
 
 <!-- Hiburan: pemutar -->
 <div id="hb-player-modal" class="hb-modal modal-hidden" onclick="if(event.target===this)hiburanTutupPlayer()">
-  <div class="hb-box">
+  <div class="hb-box" id="hb-box">
     <div class="hb-box-head"><b id="hb-player-judul"></b><button class="hb-x" onclick="hiburanTutupPlayer()" aria-label="Tutup">✕</button></div>
     <div class="hb-frame" id="hb-player-frame"></div>
     <div class="hb-box-foot">
       <a id="hb-player-yt" href="#" target="_blank" rel="noopener">Tidak bisa diputar? Buka di YouTube ↗</a>
-      <button class="hb-hapus" onclick="hiburanHapusAktif()">🗑 Hapus</button>
     </div>
+    <div class="hb-sub" id="hb-sub"></div>
   </div>
 </div>
 
