@@ -86,16 +86,17 @@ var completionTimeFormatted = "";
 var isStopwatchMode = false;
 
 // ===== INFO UPDATE TERBARU (edit bagian ini setiap ada update baru) =====
-var APP_VERSI = "Versi 2.5.0";
+var APP_VERSI = "Versi 2.4.9";
 var APP_UPDATE_INTRO = "Ada pembaruan baru, silakan dicek ya minna-san";
 // Format: { ico, tag (FIX/NEW/UPDATE/INFO), judul, isi }. Teks biasa "Menu Xxx: ..." juga masih didukung.
 var APP_UPDATE_LIST = [
-  { ico: '🎬', tag: 'NEW', judul: 'Mode Belajar di Hiburan', isi: 'Putar video/musik dengan subtitle Jepang yang tersinkron: furigana, romaji, dan arti per baris. Ketuk baris untuk lompat ke bagian itu.' },
-  { ico: '🔁', tag: 'NEW', judul: 'Kontrol belajar', isi: 'Ulangi baris, atur kecepatan 1x/0.75x/0.5x, dan geser slider untuk berpindah posisi.' },
-  { ico: '🤖', tag: 'NEW', judul: 'Tanya AI', isi: 'Ketuk tombol AI pada sebuah baris untuk penjelasan terjemahan, kosakata, dan tata bahasa.' }
+  'Menu Kanji: Saat HP dimiringkan, aplikasi tidak lagi keluar sendiri ke halaman utama. Kalau lagi seru main Kanji Challenge lalu layar tidak sengaja berputar, kalian otomatis kembali ke room dan permainan yang sedang berjalan.',
+  'Menu Kanji: Kanji Challenge kini tidak mengulang kotoba yang sudah terjawab, jadi tiap kotoba hanya bisa dijawab satu kali.',
+  'Menu Kanji: Kartu di tangan tidak lagi kembar, dan Random Kanji selalu punya pasangan di kartu kalian supaya poin lebih mudah didapat.',
+  'Menu Kanji: Memilih kartu yang salah kini mengurangi 1 poin, jadi pikirkan dulu sebelum menekan kartu ya.'
 ];
 
-var APP_UPDATE_OUTRO = "Pastikan Versi-nya sesuai Update terbaru ya minna-san, jika belum silakan untuk refresh kembali. Arigatou ne 🙏";
+var APP_UPDATE_OUTRO = "Pastikan Versi-nya sesuai Update terbaru ya minna-san, Semoga makin seru dan lancar belajarnya, ganbatte ne!";
 
 // ===== TEMA TERANG / GELAP =====
 function terapkanTema(tema) {
