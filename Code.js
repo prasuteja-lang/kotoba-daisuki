@@ -96,7 +96,7 @@ var APP_UPDATE_LIST = [
   'Menu Kanji: Memilih kartu yang salah kini mengurangi 1 poin, jadi pikirkan dulu sebelum menekan kartu ya.'
 ];
 
-var APP_UPDATE_OUTRO = "Pastikan Versi-nya sesuai Update terbaru ya minna-san, Semoga makin seru dan lancar belajarnya, ganbatte ne!";
+var APP_UPDATE_OUTRO = "Pastikan Versi-nya sesuai Update terbaru ya minna-san, jika belum silakan untuk refresh kembali. Semoga makin seru dan lancar belajarnya, ganbatte ne! Arigatou ne 🙏";
 
 // ===== TEMA TERANG / GELAP =====
 function terapkanTema(tema) {
@@ -2549,49 +2549,218 @@ function kanaEsc(s) { return String(s == null ? '' : s).replace(/&/g,'&amp;').re
 
 /* =====================================================================
    UJIAN (JFT-Basic & JLPT)
+   - Soal diambil dari spreadsheet "Fitur Tambahan aplikasi" (sheet JFT & JLPT)
+     lewat getUjian() di server (lihat Ujian.gs). Data dimuat ulang setiap
+     halaman Ujian dibuka, jadi perubahan di spreadsheet ikut tersinkron.
+   - Alur: pilih JFT/JLPT (+level) -> pilih bagian -> pilih paket -> kerjakan.
    ===================================================================== */
-var ujianState = { tab: 'jft', level: 'N5' };
-var UJIAN_JFT = [
-  { ico: '字', judul: 'Tulisan & kosakata', ket: 'Script and Vocabulary' },
-  { ico: '話', judul: 'Percakapan & ungkapan', ket: 'Conversation and Expression' },
-  { ico: '聴', judul: 'Mendengarkan', ket: 'Listening Comprehension' },
-  { ico: '読', judul: 'Membaca', ket: 'Reading Comprehension' }
-];
-var UJIAN_JLPT = [
-  { ico: '字', judul: 'Moji & Goi', ket: 'Huruf dan kosakata' },
-  { ico: '文', judul: 'Bunpou', ket: 'Tata bahasa' },
-  { ico: '読', judul: 'Dokkai', ket: 'Membaca' },
-  { ico: '聴', judul: 'Choukai', ket: 'Mendengarkan' }
-];
+var ujianState = { tab: 'jft', level: 'N5', bagian: null };
+var ujianData = { status: 'belum', pesan: '', jft: [], jlpt: [] };
+var ujianKuis = null;    // { list, i, skor, jawab, judul }
+var ujianGrup = [];      // kelompok bagian untuk tampilan saat ini
+var ujianPaket = [];     // kelompok paket untuk bagian yang dipilih
 
-function bukaUjianDariMain(tab) { fbBuka('ujian-page'); ujianPilihTab(tab === 'jlpt' ? 'jlpt' : 'jft'); }
-function ujianPilihTab(t) { ujianState.tab = t; ujianRender(); }
-function ujianPilihLevel(l) { ujianState.level = l; ujianRender(); }
-
-function ujianBaris(ico, judul, ket, onclick) {
-  return '<div class="fb-row" role="button" onclick="' + onclick + '"><span class="fb-ico">' + ico + '</span>' +
-    '<span class="fb-txt"><b>' + judul + '</b><small>' + ket + '</small></span><span class="fb-soon">Segera</span></div>';
+function ujianIkonBagian(nama) {
+  var n = String(nama || '').toLowerCase();
+  if (/moji|goi|kosakata|vocab|script/.test(n)) return '字';
+  if (/bunpou|tata bahasa|grammar/.test(n)) return '文';
+  if (/dokkai|membaca|reading/.test(n)) return '読';
+  if (/choukai|dengar|listening/.test(n)) return '聴';
+  if (/percakapan|conversation|ungkapan|expression/.test(n)) return '話';
+  return '題';
 }
+function ujianNl(t) { return kanaEsc(t).replace(/\r?\n/g, '<br>'); }
+
+function bukaUjianDariMain(tab) {
+  ujianState.tab = (tab === 'jlpt') ? 'jlpt' : 'jft';
+  ujianState.bagian = null;
+  ujianKuis = null;
+  fbBuka('ujian-page');
+  ujianMuat();        // selalu ambil data terbaru dari spreadsheet
+  ujianRender();
+}
+function ujianPilihTab(t) { ujianState.tab = t; ujianState.bagian = null; ujianKuis = null; ujianRender(); }
+function ujianPilihLevel(l) { ujianState.level = l; ujianState.bagian = null; ujianKuis = null; ujianRender(); }
+
+function ujianMuat() {
+  if (ujianData.status === 'memuat') return;
+  var punyaData = ujianData.status === 'siap';
+  if (!punyaData) ujianData.status = 'memuat';
+  google.script.run
+    .withSuccessHandler(function (d) {
+      ujianData.jft = (d && d.jft) || [];
+      ujianData.jlpt = (d && d.jlpt) || [];
+      ujianData.status = 'siap';
+      if (!ujianKuis) ujianRender();    // jangan ganggu soal yang sedang dikerjakan
+    })
+    .withFailureHandler(function (err) {
+      if (punyaData) return;            // pakai data lama kalau gagal menyegarkan
+      ujianData.pesan = (err && err.message) ? err.message : String(err || '');
+      ujianData.status = 'gagal';
+      ujianRender();
+    })
+    .getUjian();
+}
+
+function ujianSoalAktif() {
+  var jlpt = ujianState.tab === 'jlpt';
+  var arr = jlpt ? ujianData.jlpt : ujianData.jft;
+  if (jlpt) arr = arr.filter(function (r) { return String(r.level || '').toUpperCase().replace(/\s/g, '') === ujianState.level; });
+  return arr;
+}
+function ujianKelompok(arr, kunci) {
+  var urut = [], peta = {};
+  arr.forEach(function (r) {
+    var k = String(r[kunci] || '').trim() || '(Tanpa ' + kunci + ')';
+    if (!peta[k]) { peta[k] = []; urut.push(k); }
+    peta[k].push(r);
+  });
+  return urut.map(function (k) { return { nama: k, soal: peta[k] }; });
+}
+
+function ujianBaris(ico, judul, ket, onclick, tanda) {
+  return '<div class="fb-row" role="button" onclick="' + onclick + '"><span class="fb-ico">' + ico + '</span>' +
+    '<span class="fb-txt"><b>' + kanaEsc(judul) + '</b><small>' + kanaEsc(ket) + '</small></span>' +
+    (tanda || '<span class="fb-soon">Segera</span>') + '</div>';
+}
+var UJIAN_PANAH = '<span class="fb-go">›</span>';
+
 function ujianRender() {
   fbSetAktif('ujian-seg', ujianState.tab, 'data-k');
   var jlpt = ujianState.tab === 'jlpt';
   var pil = fbEl('ujian-level');
   pil.classList.toggle('hidden', !jlpt);
   if (jlpt) fbSetAktif('ujian-level', ujianState.level, 'data-k');
-
-  var daftar = jlpt ? UJIAN_JLPT : UJIAN_JFT;
+  var wadah = fbEl('ujian-isi');
   var nama = jlpt ? ('JLPT ' + ujianState.level) : 'JFT-Basic';
+
+  if (ujianKuis) { ujianRenderKuis(); return; }
+
+  if (ujianData.status === 'belum' || ujianData.status === 'memuat') {
+    wadah.innerHTML = '<div class="fb-info">Memuat soal dari server…</div>'; return;
+  }
+  if (ujianData.status === 'gagal') {
+    wadah.innerHTML = '<div class="fb-info"><b>Soal gagal dimuat</b><br>' + kanaEsc(ujianData.pesan || 'Periksa koneksi internet kamu.') + '</div>' +
+      '<div class="uj-aksi"><button class="uj-btn" onclick="ujianData.status=\'belum\';ujianMuat();ujianRender()">Coba lagi</button></div>';
+    return;
+  }
+
+  var arr = ujianSoalAktif();
   var h = '<div class="fb-info"><b>' + nama + '</b><br>' +
     (jlpt ? 'Latihan soal per bagian sesuai level yang dipilih.' : 'Latihan soal untuk ujian bahasa Jepang dasar, tersusun per bagian ujian.') + '</div>';
 
-  h += '<div class="fb-judul-kecil">Latihan per bagian</div>';
-  for (var i = 0; i < daftar.length; i++) {
-    h += ujianBaris(daftar[i].ico, daftar[i].judul, daftar[i].ket, "fbSegera('Latihan " + nama + "')");
+  if (ujianState.bagian === null) {
+    ujianGrup = ujianKelompok(arr, 'bagian');
+    h += '<div class="fb-judul-kecil">Latihan per bagian</div>';
+    if (!ujianGrup.length) {
+      h += '<div class="fb-info">Soal untuk ' + nama + ' belum tersedia.</div>';
+    }
+    for (var i = 0; i < ujianGrup.length; i++) {
+      var g = ujianGrup[i];
+      var jmlPaket = ujianKelompok(g.soal, 'paket').length;
+      h += ujianBaris(ujianIkonBagian(g.nama), g.nama, g.soal.length + ' soal · ' + jmlPaket + ' paket', 'ujianPilihBagian(' + i + ')', UJIAN_PANAH);
+    }
+    h += '<div class="fb-judul-kecil">Simulasi</div>';
+    h += ujianBaris('時', 'Simulasi ujian lengkap', 'Semua bagian dengan batas waktu seperti ujian asli', "fbSegera('Simulasi " + nama + "')");
+    h += ujianBaris('歴', 'Riwayat skor', 'Lihat hasil simulasi sebelumnya', "fbSegera('Riwayat skor')");
+  } else {
+    var gb = ujianGrup[ujianState.bagian];
+    if (!gb) { ujianState.bagian = null; ujianRender(); return; }
+    ujianPaket = ujianKelompok(gb.soal, 'paket');
+    h += '<div class="uj-aksi"><button class="uj-btn kecil" onclick="ujianKembaliDaftar()">‹ Semua bagian</button></div>';
+    h += '<div class="fb-judul-kecil">' + kanaEsc(gb.nama) + ' — pilih paket</div>';
+    h += ujianBaris('全', 'Semua paket', gb.soal.length + ' soal', 'ujianMulai(-1)', UJIAN_PANAH);
+    for (var j = 0; j < ujianPaket.length; j++) {
+      h += ujianBaris(String(j + 1), ujianPaket[j].nama, ujianPaket[j].soal.length + ' soal', 'ujianMulai(' + j + ')', UJIAN_PANAH);
+    }
   }
-  h += '<div class="fb-judul-kecil">Simulasi</div>';
-  h += ujianBaris('時', 'Simulasi ujian lengkap', 'Semua bagian dengan batas waktu seperti ujian asli', "fbSegera('Simulasi " + nama + "')");
-  h += ujianBaris('歴', 'Riwayat skor', 'Lihat hasil simulasi sebelumnya', "fbSegera('Riwayat skor')");
-  fbEl('ujian-isi').innerHTML = h;
+  wadah.innerHTML = h;
+}
+
+function ujianPilihBagian(i) { ujianState.bagian = i; ujianRender(); window.scrollTo(0, 0); }
+function ujianKembaliDaftar() { ujianState.bagian = null; ujianRender(); }
+
+function ujianMulai(idxPaket) {
+  var gb = ujianGrup[ujianState.bagian]; if (!gb) return;
+  var list = (idxPaket < 0) ? gb.soal : ujianPaket[idxPaket].soal;
+  if (!list || !list.length) { fbSegera('Belum ada soal', 'Paket ini belum berisi soal.'); return; }
+  ujianKuis = {
+    list: list, i: 0, skor: 0, jawab: null,
+    judul: gb.nama + (idxPaket < 0 ? '' : ' · ' + ujianPaket[idxPaket].nama)
+  };
+  ujianRender(); window.scrollTo(0, 0);
+}
+function ujianKeluarKuis() { ujianKuis = null; ujianRender(); }
+
+function ujianRenderKuis() {
+  var k = ujianKuis, wadah = fbEl('ujian-isi');
+  var n = k.list.length;
+  if (k.i >= n) { ujianRenderHasil(); return; }
+  var s = k.list[k.i];
+  var kunci = 'ABCD'.indexOf(String(s.jawaban || '').trim().toUpperCase().charAt(0));
+  var h = '<div class="uj-top"><button class="uj-btn kecil" onclick="ujianKeluarKuis()">‹ Keluar</button>' +
+    '<span class="uj-no">Soal ' + (k.i + 1) + ' / ' + n + '</span><span class="uj-skor">Benar ' + k.skor + '</span></div>';
+  h += '<div class="uj-bar"><i style="width:' + Math.round(k.i / n * 100) + '%"></i></div>';
+  h += '<div class="uj-judul">' + kanaEsc(k.judul) + '</div>';
+  h += '<div class="uj-kartu">';
+  if (s.mondai) h += '<div class="uj-tag">' + kanaEsc(s.mondai) + '</div>';
+  if (s.audio) h += '<audio class="uj-audio" controls preload="none" src="' + kanaEsc(s.audio) + '"></audio>';
+  if (s.gambar) h += '<img class="uj-gambar" src="' + kanaEsc(s.gambar) + '" alt="" onerror="this.style.display=\'none\'">';
+  if (s.teks) h += '<div class="uj-teks">' + ujianNl(s.teks) + '</div>';
+  if (s.soal) h += '<div class="uj-soal">' + ujianNl(s.soal) + '</div>';
+  h += '</div><div class="uj-opsi">';
+  for (var i = 0; i < 4; i++) {
+    var t = (s.opsi && s.opsi[i]) || '';
+    if (!String(t).trim()) continue;
+    var kls = 'uj-op';
+    if (k.jawab !== null) {
+      if (i === kunci) kls += ' benar';
+      else if (i === k.jawab) kls += ' salah';
+      else kls += ' pudar';
+    }
+    h += '<button class="' + kls + '"' + (k.jawab !== null ? ' disabled' : '') + ' onclick="ujianJawab(' + i + ')">' +
+      '<span class="uj-huruf">' + 'ABCD'.charAt(i) + '</span><span class="uj-teks-op">' + kanaEsc(t) + '</span></button>';
+  }
+  h += '</div>';
+  if (k.jawab !== null) {
+    var benarHuruf = kunci >= 0 ? 'ABCD'.charAt(kunci) : '';
+    h += '<div class="uj-bahas ' + (k.jawab === kunci ? 'ok' : 'no') + '">' +
+      '<b>' + (kunci < 0 ? 'Kunci jawaban belum diisi' : (k.jawab === kunci ? 'Benar! ✅' : 'Kurang tepat. Jawaban benar: ' + benarHuruf)) + '</b>' +
+      (s.pembahasan ? '<div>' + ujianNl(s.pembahasan) + '</div>' : '') + '</div>';
+    h += '<div class="uj-aksi"><button class="uj-btn" onclick="ujianLanjut()">' + (k.i + 1 >= n ? 'Lihat hasil' : 'Lanjut ›') + '</button></div>';
+  }
+  wadah.innerHTML = h;
+}
+
+function ujianJawab(i) {
+  var k = ujianKuis; if (!k || k.jawab !== null) return;
+  var s = k.list[k.i];
+  var kunci = 'ABCD'.indexOf(String(s.jawaban || '').trim().toUpperCase().charAt(0));
+  k.jawab = i;
+  if (i === kunci) k.skor++;
+  ujianRenderKuis();
+}
+function ujianLanjut() {
+  var k = ujianKuis; if (!k) return;
+  k.i++; k.jawab = null;
+  ujianRender(); window.scrollTo(0, 0);
+}
+function ujianRenderHasil() {
+  var k = ujianKuis, n = k.list.length;
+  var persen = Math.round(k.skor / n * 100);
+  var pesan = persen >= 80 ? 'Sugoi! Hampir sempurna 🎉' : persen >= 60 ? 'Bagus! Terus berlatih ya 💪' : 'Jangan menyerah, coba ulangi lagi ya 🙏';
+  fbEl('ujian-isi').innerHTML =
+    '<div class="uj-hasil"><div class="uj-hasil-skor">' + k.skor + ' / ' + n + '</div>' +
+    '<div class="uj-hasil-persen">' + persen + '%</div>' +
+    '<div class="uj-hasil-pesan">' + pesan + '</div>' +
+    '<div class="uj-judul">' + kanaEsc(k.judul) + '</div></div>' +
+    '<div class="uj-aksi"><button class="uj-btn" onclick="ujianUlangi()">Ulangi</button> ' +
+    '<button class="uj-btn kecil" onclick="ujianKeluarKuis()">Kembali ke daftar</button></div>';
+}
+function ujianUlangi() {
+  var k = ujianKuis; if (!k) return;
+  ujianKuis = { list: k.list, i: 0, skor: 0, jawab: null, judul: k.judul };
+  ujianRender(); window.scrollTo(0, 0);
 }
 
 /* =====================================================================
