@@ -2640,7 +2640,9 @@ function hbYtId(url) {
   return m ? m[1] : '';
 }
 
+var HIBURAN_TAMPIL = false;   // false = menu Hiburan disembunyikan sementara; ubah ke true untuk membuka lagi
 function bukaHiburanDariMain(tab) {
+  if (!HIBURAN_TAMPIL) return;
   fbBuka('hiburan-page');
   hiburanState.tab = HIBURAN_CONTOH[tab] ? tab : 'video';
   hiburanState.level = 'Semua';
