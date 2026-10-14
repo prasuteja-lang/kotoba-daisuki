@@ -2550,12 +2550,13 @@ function kanaEsc(s) { return String(s == null ? '' : s).replace(/&/g,'&amp;').re
 /* =====================================================================
    UJIAN (JFT-Basic & JLPT)
    - Soal diambil dari spreadsheet "Fitur Tambahan aplikasi" (sheet JFT & JLPT)
-     lewat getUjian() di server (lihat Ujian.gs). Data dimuat ulang setiap
-     halaman Ujian dibuka, jadi perubahan di spreadsheet ikut tersinkron.
+     lewat getUjian(tipe, level) di server (lihat Ujian.gs): sheet JFT dan satu
+     sheet per level JLPT (N5-N1). Hanya sheet yang dibuka yang dimuat, dan
+     dimuat ulang setiap dibuka, jadi perubahan di spreadsheet ikut tersinkron.
    - Alur: pilih JFT/JLPT (+level) -> pilih bagian -> pilih paket -> kerjakan.
    ===================================================================== */
 var ujianState = { tab: 'jft', level: 'N5', bagian: null };
-var ujianData = { status: 'belum', pesan: '', jft: [], jlpt: [] };
+var ujianData = { cache: {}, status: {}, pesan: {} };   // per kunci: 'jft' atau 'jlpt:N5'
 var ujianKuis = null;    // { list, i, skor, jawab, judul }
 var ujianGrup = [];      // kelompok bagian untuk tampilan saat ini
 var ujianPaket = [];     // kelompok paket untuk bagian yang dipilih
@@ -2571,6 +2572,8 @@ function ujianIkonBagian(nama) {
 }
 function ujianNl(t) { return kanaEsc(t).replace(/\r?\n/g, '<br>'); }
 
+function ujianKunci() { return ujianState.tab === 'jlpt' ? 'jlpt:' + ujianState.level : 'jft'; }
+
 function bukaUjianDariMain(tab) {
   ujianState.tab = (tab === 'jlpt') ? 'jlpt' : 'jft';
   ujianState.bagian = null;
@@ -2579,33 +2582,33 @@ function bukaUjianDariMain(tab) {
   ujianMuat();        // selalu ambil data terbaru dari spreadsheet
   ujianRender();
 }
-function ujianPilihTab(t) { ujianState.tab = t; ujianState.bagian = null; ujianKuis = null; ujianRender(); }
-function ujianPilihLevel(l) { ujianState.level = l; ujianState.bagian = null; ujianKuis = null; ujianRender(); }
+function ujianPilihTab(t) { ujianState.tab = t; ujianState.bagian = null; ujianKuis = null; ujianMuat(); ujianRender(); }
+function ujianPilihLevel(l) { ujianState.level = l; ujianState.bagian = null; ujianKuis = null; ujianMuat(); ujianRender(); }
 
 function ujianMuat() {
-  if (ujianData.status === 'memuat') return;
-  var punyaData = ujianData.status === 'siap';
-  if (!punyaData) ujianData.status = 'memuat';
+  var kunci = ujianKunci();
+  if (ujianData.status[kunci] === 'memuat') return;
+  var punyaData = ujianData.status[kunci] === 'siap';
+  if (!punyaData) ujianData.status[kunci] = 'memuat';
+  var tipe = ujianState.tab, level = ujianState.level;
   google.script.run
     .withSuccessHandler(function (d) {
-      ujianData.jft = (d && d.jft) || [];
-      ujianData.jlpt = (d && d.jlpt) || [];
-      ujianData.status = 'siap';
-      if (!ujianKuis) ujianRender();    // jangan ganggu soal yang sedang dikerjakan
+      ujianData.cache[kunci] = (d && d.soal) || [];
+      ujianData.status[kunci] = 'siap';
+      if (!ujianKuis && kunci === ujianKunci()) ujianRender();   // jangan ganggu soal yang sedang dikerjakan
     })
     .withFailureHandler(function (err) {
       if (punyaData) return;            // pakai data lama kalau gagal menyegarkan
-      ujianData.pesan = (err && err.message) ? err.message : String(err || '');
-      ujianData.status = 'gagal';
-      ujianRender();
+      ujianData.pesan[kunci] = (err && err.message) ? err.message : String(err || '');
+      ujianData.status[kunci] = 'gagal';
+      if (kunci === ujianKunci()) ujianRender();
     })
-    .getUjian();
+    .getUjian(tipe, level);
 }
 
 function ujianSoalAktif() {
-  var jlpt = ujianState.tab === 'jlpt';
-  var arr = jlpt ? ujianData.jlpt : ujianData.jft;
-  if (jlpt) arr = arr.filter(function (r) { return String(r.level || '').toUpperCase().replace(/\s/g, '') === ujianState.level; });
+  var arr = ujianData.cache[ujianKunci()] || [];
+  if (ujianState.tab === 'jlpt') arr = arr.filter(function (r) { return !r.level || String(r.level).toUpperCase().replace(/\s/g, '') === ujianState.level; });
   return arr;
 }
 function ujianKelompok(arr, kunci) {
@@ -2636,12 +2639,13 @@ function ujianRender() {
 
   if (ujianKuis) { ujianRenderKuis(); return; }
 
-  if (ujianData.status === 'belum' || ujianData.status === 'memuat') {
+  var stat = ujianData.status[ujianKunci()];
+  if (!stat || stat === 'memuat') {
     wadah.innerHTML = '<div class="fb-info">Memuat soal dari server…</div>'; return;
   }
-  if (ujianData.status === 'gagal') {
-    wadah.innerHTML = '<div class="fb-info"><b>Soal gagal dimuat</b><br>' + kanaEsc(ujianData.pesan || 'Periksa koneksi internet kamu.') + '</div>' +
-      '<div class="uj-aksi"><button class="uj-btn" onclick="ujianData.status=\'belum\';ujianMuat();ujianRender()">Coba lagi</button></div>';
+  if (stat === 'gagal') {
+    wadah.innerHTML = '<div class="fb-info"><b>Soal gagal dimuat</b><br>' + kanaEsc(ujianData.pesan[ujianKunci()] || 'Periksa koneksi internet kamu.') + '</div>' +
+      '<div class="uj-aksi"><button class="uj-btn" onclick="ujianData.status[ujianKunci()]=\'\';ujianMuat();ujianRender()">Coba lagi</button></div>';
     return;
   }
 
