@@ -1504,7 +1504,7 @@ html.dark .hbl-ai-load, html.dark .hbl-kosong { color:#94a3b8; }
 .uj-bahas b { display:block; margin:0 0 4px; font-size:15px; }
 .uj-bahas.ok { background:#f0fdf4; border:1px solid #bbf7d0; color:#166534; }
 .uj-bahas.no { background:#fef2f2; border:1px solid #fecaca; color:#991b1b; }
-.uj-bawah { position:sticky; bottom:0; z-index:5; margin:12px -4px 0; padding:10px 4px 6px; background:color-mix(in srgb, var(--bg) 88%, transparent); -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px); }
+.uj-bawah { position:sticky; bottom:0; z-index:5; margin:12px -4px 0; padding:10px 4px 6px; background:rgba(255,255,255,.8); -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px); border-radius:0 0 16px 16px; }
 .uj-chip { flex:none; padding:3px 10px; border-radius:999px; font-size:12.5px; font-weight:800; color:#92400e; background:#fef3c7; white-space:nowrap; }
 .uj-chip.emas { color:#fff; background:linear-gradient(135deg,#f59e0b,#ea580c); }
 .uj-hasil { text-align:center; padding:24px 14px; border:1px solid #e2e8f0; border-radius:18px; background:#fff; }
@@ -1530,3 +1530,4 @@ html.dark .uj-bahas.ok { background:#052e16; border-color:#166534; color:#bbf7d0
 html.dark .uj-bahas.no { background:#450a0a; border-color:#991b1b; color:#fecaca; }
 html.dark .uj-chip, html.dark .uj-hasil-rekor { background:#3a2a14; color:#fcd34d; }
 html.dark .uj-chip.emas { background:linear-gradient(135deg,#b45309,#c2410c); color:#fff; }
+html.dark .uj-bawah { background:rgba(15,23,42,.82); }
