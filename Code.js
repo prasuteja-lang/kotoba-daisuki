@@ -2785,8 +2785,8 @@ function ujianKeluarKuis() { ujianKuis = null; ujianRender(); window.scrollTo(0,
 
 function ujianKunciAsli(s) { return 'ABCD'.indexOf(String(s.jawaban || '').trim().toUpperCase().charAt(0)); }
 
-/* ---------- Furigana (otomatis lewat AI, bisa dimatikan) ----------
-   - Hasil AI disimpan di perangkat (localStorage) supaya soal yang sama tidak diminta lagi.
+/* ---------- Furigana (otomatis di perangkat, bisa dimatikan) ----------
+   - Hasil disimpan di perangkat (localStorage) supaya soal yang sama tidak diproses lagi.
    - Bagian Moji/Goi/Kosakata menguji bacaan & penulisan kanji, jadi furigana TIDAK diberikan
      pada kata di dalam 「」 dan pada pilihan jawaban (supaya jawaban tidak terbongkar). */
 var UJIAN_FURI_BAWAAN = true;              // nyala otomatis saat pertama kali
@@ -2840,15 +2840,114 @@ function ujianTeksFuri(t, lindungiKurung) {
   return html.replace(/\r?\n/g, '<br>');
 }
 
+/* ---------- Mesin furigana di perangkat (Kuromoji, gratis, tanpa server/AI) ----------
+   Kamus (+-17 MB) diunduh sekali dari CDN lalu disimpan oleh browser/WebView. Berjalan di Web Worker
+   supaya layar tidak macet. Hasil berformat  漢字[かんじ]  sama seperti sebelumnya, jadi tampilan
+   <ruby> dan cache localStorage tidak berubah. */
+var UJIAN_KURO_SUMBER = [
+  { js: 'https://cdn.jsdelivr.net/npm/kuromoji@0.1.2/build/kuromoji.js', dic: 'https://cdn.jsdelivr.net/npm/kuromoji@0.1.2/dict/' },
+  { js: 'https://unpkg.com/kuromoji@0.1.2/build/kuromoji.js', dic: 'https://unpkg.com/kuromoji@0.1.2/dict/' }
+];
+var UJIAN_RE_KAN = /[\u4e00-\u9fff\u3400-\u4dbf\u3005\u3006\u30f6]/;
+var UJIAN_RE_KANRUN = /[\u4e00-\u9fff\u3400-\u4dbf\u3005\u3006\u30f6]+|[^\u4e00-\u9fff\u3400-\u4dbf\u3005\u3006\u30f6]+/g;
+var ujianKuro = { status: 'idle', worker: null, tk: null, antre: [], cb: {}, no: 0 };
+
+function ujianKata2Hira(t) {
+  return String(t).replace(/[\u30a1-\u30f6]/g, function (c) { return String.fromCharCode(c.charCodeAt(0) - 0x60); });
+}
+
+/* Satu token Kuromoji -> teks berbracket. Okurigana di awal/akhir dikeluarkan dari kurung. */
+function ujianRubyTeks(sf, rd) {
+  var pre = '', suf = '';
+  while (sf.length > 1 && rd.length > 1 && !UJIAN_RE_KAN.test(sf.charAt(sf.length - 1)) && sf.charAt(sf.length - 1) === rd.charAt(rd.length - 1)) {
+    suf = sf.charAt(sf.length - 1) + suf; sf = sf.slice(0, -1); rd = rd.slice(0, -1);
+  }
+  while (sf.length > 1 && rd.length > 1 && !UJIAN_RE_KAN.test(sf.charAt(0)) && sf.charAt(0) === rd.charAt(0)) {
+    pre += sf.charAt(0); sf = sf.slice(1); rd = rd.slice(1);
+  }
+  var runs = sf.match(UJIAN_RE_KANRUN) || [sf];
+  if (runs.length === 1) return pre + sf + '[' + rd + ']' + suf;
+  // kanji + kana di tengah (mis. 引き出): sejajarkan memakai kana sebagai patokan
+  var pola = '^' + runs.map(function (r) {
+    return UJIAN_RE_KAN.test(r.charAt(0)) ? '(.+?)' : ujianKata2Hira(r).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }).join('') + '$';
+  var m = rd.match(new RegExp(pola));
+  if (!m) return pre + sf + suf;                 // tidak bisa disejajarkan: tanpa furigana
+  var g = 1;
+  return pre + runs.map(function (r) { return UJIAN_RE_KAN.test(r.charAt(0)) ? r + '[' + m[g++] + ']' : r; }).join('') + suf;
+}
+function ujianFuriDariToken(toks) {
+  return toks.map(function (t) {
+    var sf = t[0], rd = t[1];
+    if (!UJIAN_RE_KAN.test(sf) || !rd || rd === '*') return sf;
+    return ujianRubyTeks(sf, ujianKata2Hira(rd));
+  }).join('');
+}
+
+function ujianKuroSelesai(ok) {
+  ujianKuro.status = ok ? 'ready' : 'fail';
+  var a = ujianKuro.antre; ujianKuro.antre = [];
+  a.forEach(function (x) { ujianKuroToken(x.items, x.cb); });
+}
+function ujianKuroMulai() {
+  if (ujianKuro.status === 'loading' || ujianKuro.status === 'ready') return;
+  ujianKuro.status = 'loading';
+  var src = "var S=null,tk=null;function init(i){if(i>=S.length){postMessage({t:'err'});return}" +
+    "try{if(!self.kuromoji)importScripts(S[i].js);kuromoji.builder({dicPath:S[i].dic}).build(function(e,t){if(e||!t){init(i+1);return}tk=t;postMessage({t:'ready'})})}catch(x){init(i+1)}}" +
+    "onmessage=function(e){var m=e.data;if(m.t==='init'){S=m.src;init(0)}else if(m.t==='tok'){var o=m.items.map(function(s){try{return tk.tokenize(s).map(function(x){return [x.surface_form,x.reading]})}catch(x){return null}});postMessage({t:'res',id:m.id,out:o})}};";
+  try {
+    var w = new Worker(URL.createObjectURL(new Blob([src], { type: 'application/javascript' })));
+    ujianKuro.worker = w;
+    w.onmessage = function (e) {
+      var m = e.data;
+      if (m.t === 'ready') ujianKuroSelesai(true);
+      else if (m.t === 'err') ujianKuroSelesai(false);
+      else if (m.t === 'res') { var cb = ujianKuro.cb[m.id]; delete ujianKuro.cb[m.id]; if (cb) cb(m.out); }
+    };
+    w.onerror = function () { ujianKuro.worker = null; ujianKuroMuatBiasa(0); };   // Worker tidak didukung
+    w.postMessage({ t: 'init', src: UJIAN_KURO_SUMBER });
+  } catch (e) { ujianKuro.worker = null; ujianKuroMuatBiasa(0); }
+}
+function ujianKuroMuatBiasa(i) {   // cadangan: jalan di thread utama
+  if (i >= UJIAN_KURO_SUMBER.length) { ujianKuroSelesai(false); return; }
+  var sc = document.createElement('script');
+  sc.src = UJIAN_KURO_SUMBER[i].js;
+  sc.onload = function () {
+    try {
+      kuromoji.builder({ dicPath: UJIAN_KURO_SUMBER[i].dic }).build(function (err, t) {
+        if (err || !t) { ujianKuroMuatBiasa(i + 1); return; }
+        ujianKuro.tk = t; ujianKuroSelesai(true);
+      });
+    } catch (e) { ujianKuroMuatBiasa(i + 1); }
+  };
+  sc.onerror = function () { ujianKuroMuatBiasa(i + 1); };
+  document.head.appendChild(sc);
+}
+/* cb(hasil, galat): hasil = array token per teks (atau null bila gagal) */
+function ujianKuroToken(items, cb) {
+  if (ujianKuro.status === 'fail') { cb(null, 'Kamus furigana gagal dimuat. Periksa koneksi internet lalu aktifkan ulang tombol Furigana.'); return; }
+  if (ujianKuro.status !== 'ready') { ujianKuro.antre.push({ items: items, cb: cb }); return; }
+  if (ujianKuro.worker) {
+    var id = ++ujianKuro.no;
+    ujianKuro.cb[id] = function (out) { cb(out, ''); };
+    ujianKuro.worker.postMessage({ t: 'tok', id: id, items: items });
+  } else if (ujianKuro.tk) {
+    cb(items.map(function (s) {
+      try { return ujianKuro.tk.tokenize(s).map(function (x) { return [x.surface_form, x.reading]; }); } catch (e) { return null; }
+    }), '');
+  }
+}
+
 function ujianToggleFuri() {
   ujianFuriInit();
   ujianFuri.on = !ujianFuri.on;
   try { localStorage.setItem(UJIAN_FURI_KUNCI, ujianFuri.on ? '1' : '0'); } catch (e) {}
   ujianFuri.galat = ''; ujianFuri.gagal = {};
+  if (ujianFuri.on && ujianKuro.status === 'fail') ujianKuro.status = 'idle';   // coba muat ulang kamus
   if (ujianKuis) ujianRenderKuis();
 }
 
-/* Pastikan furigana untuk 8 soal ke depan sudah ada; minta ke server bila belum */
+/* Pastikan furigana untuk 8 soal ke depan sudah ada; dibuat langsung di perangkat */
 function ujianFuriPastikan() {
   ujianFuriInit();
   var k = ujianKuis;
@@ -2861,38 +2960,33 @@ function ujianFuriPastikan() {
     });
   }
   if (!perlu.length) return;
-  perlu = perlu.slice(0, UJIAN_FURI_PER_PANGGILAN);
   ujianFuri.memuat = true;
-  var perbarui = function () {
+  ujianKuroMulai();
+  ujianKuroToken(perlu, function (hasil, galat) {
+    if (galat) {
+      ujianFuri.galat = galat;
+    } else {
+      perlu.forEach(function (t, n) {
+        var a = hasil && hasil[n] ? ujianFuriDariToken(hasil[n]) : '';
+        if (a && a.replace(/\[[^\]]*\]/g, '') === t) ujianFuri.cache[ujianHash(t)] = a;
+        else ujianFuri.gagal[ujianHash(t)] = true;
+      });
+      ujianFuriSimpan();
+    }
     ujianFuri.memuat = false;
     if (ujianKuis && ujianFuri.on) {
       if (ujianKuis.i < ujianKuis.list.length) ujianRenderKuis();
       ujianFuriPastikan();
     }
-  };
-  google.script.run
-    .withSuccessHandler(function (hasil) {
-      perlu.forEach(function (t, n) {
-        var a = hasil && hasil[n];
-        if (typeof a === 'string' && a.replace(/\[[^\]]*\]/g, '') === t) ujianFuri.cache[ujianHash(t)] = a;
-        else ujianFuri.gagal[ujianHash(t)] = true;
-      });
-      ujianFuriSimpan();
-      perbarui();
-    })
-    .withFailureHandler(function (err) {
-      ujianFuri.galat = (err && err.message) ? err.message : String(err || 'Gagal memuat furigana');
-      perbarui();
-    })
-    .getFurigana(studentName, perlu);
+  });
 }
 
 function ujianFuriAlat() {
   ujianFuriInit();
-  var k = ujianKuis, info = '';
+  var info = '';
   if (ujianFuri.on) {
     if (ujianFuri.galat) info = '<span class="uj-furi-info err">Furigana belum tersedia: ' + kanaEsc(ujianFuri.galat) + '</span>';
-    else if (ujianFuri.memuat) info = '<span class="uj-furi-info">⏳ memuat furigana…</span>';
+    else if (ujianFuri.memuat) info = '<span class="uj-furi-info">⏳ ' + (ujianKuro.status === 'ready' ? 'memuat furigana…' : 'menyiapkan kamus furigana (hanya saat pertama kali)…') + '</span>';
   }
   return '<div class="uj-alat"><button class="uj-furi-btn' + (ujianFuri.on ? ' on' : '') + '" onclick="ujianToggleFuri()">' +
     '<span class="uj-furi-ico">ふ</span> Furigana <b>' + (ujianFuri.on ? 'ON' : 'OFF') + '</b></button>' + info + '</div>';
