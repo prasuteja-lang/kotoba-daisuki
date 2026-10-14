@@ -2570,7 +2570,8 @@ function ujianIkonBagian(nama) {
   if (/percakapan|conversation|ungkapan|expression/.test(n)) return '話';
   return '題';
 }
-function ujianNl(t) { return kanaEsc(t).replace(/\r?\n/g, '<br>'); }
+function ujianBersih(t) { return String(t == null ? '' : t).replace(/\s*\[cite:[^\]]*\]/gi, '').trim(); }
+function ujianNl(t) { return kanaEsc(ujianBersih(t)).replace(/\r?\n/g, '<br>'); }
 
 function ujianKunci() { return ujianState.tab === 'jlpt' ? 'jlpt:' + ujianState.level : 'jft'; }
 
@@ -2811,7 +2812,7 @@ function ujianRenderKuis() {
       else kls += ' pudar';
     }
     h += '<button class="' + kls + '"' + (sudah ? ' disabled' : '') + ' onclick="ujianJawab(' + p + ')">' +
-      '<span class="uj-huruf">' + 'ABCD'.charAt(p) + '</span><span class="uj-teks-op">' + kanaEsc(s.opsi[urut[p]]) + '</span></button>';
+      '<span class="uj-huruf">' + 'ABCD'.charAt(p) + '</span><span class="uj-teks-op">' + kanaEsc(ujianBersih(s.opsi[urut[p]])) + '</span></button>';
   }
   h += '</div>';
   if (sudah) {
