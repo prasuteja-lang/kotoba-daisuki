@@ -898,5 +898,45 @@
   </div>
 </div>
 
+<!-- ===== HIBURAN: MODE BELAJAR (video + subtitle sinkron) =====
+     Di luar .card agar position:fixed tidak terpotong oleh backdrop-filter. -->
+<div id="hbl-page" class="hbl hidden" role="dialog" aria-label="Belajar lewat video">
+  <div class="hbl-top">
+    <div class="hbl-back" role="button" tabindex="0" onclick="hblTutup()" aria-label="Kembali">&#8249;</div>
+    <div class="hbl-judul" id="hbl-judul"></div>
+  </div>
+  <div class="hbl-video"><div id="hbl-yt-wrap"></div></div>
+  <div class="hbl-pesan hidden" id="hbl-pesan"></div>
+  <div class="hbl-opsi" id="hbl-opsi"></div>
+  <div class="hbl-list" id="hbl-list" ontouchstart="hbl.sentuh=Date.now()" onwheel="hbl.sentuh=Date.now()" onmousedown="hbl.sentuh=Date.now()"></div>
+  <div class="hbl-ctrl">
+    <div class="hbl-prog">
+      <span id="hbl-t-now">0:00</span>
+      <input type="range" id="hbl-seek" class="hbl-range" min="0" max="100" step="1" value="0" oninput="hblSeekInput(this.value)" onchange="hblSeekSelesai(this.value)">
+      <span id="hbl-t-all">0:00</span>
+    </div>
+    <div class="hbl-btns">
+      <div class="hbl-b" id="hbl-b-prev" role="button" aria-label="Kalimat sebelumnya" onclick="hblLompat(-1)">&#9198;</div>
+      <div class="hbl-b" id="hbl-b-loop" role="button" aria-label="Ulangi kalimat" onclick="hblToggleLoop()">&#128257;</div>
+      <div class="hbl-b main" id="hbl-b-play" role="button" aria-label="Putar atau jeda" onclick="hblPlayPause()">&#9654;</div>
+      <div class="hbl-b" id="hbl-b-next" role="button" aria-label="Kalimat berikutnya" onclick="hblLompat(1)">&#9197;</div>
+      <div class="hbl-b wide" id="hbl-b-speed" role="button" aria-label="Kecepatan" onclick="hblGantiKecepatan()">1&times;</div>
+    </div>
+  </div>
+</div>
+
+<!-- Mode Belajar: panel Tanya AI -->
+<div id="hbl-ai" class="hbl-ai hidden" onclick="if(event.target===this)hblAiTutup()">
+  <div class="hbl-ai-box">
+    <div class="hbl-ai-head"><b>&#10024; Jelaskan kalimat</b><div class="hbl-x" role="button" aria-label="Tutup" onclick="hblAiTutup()">&#10005;</div></div>
+    <div class="hbl-ai-kalimat" id="hbl-ai-kalimat"></div>
+    <div class="hbl-ai-isi" id="hbl-ai-isi"></div>
+    <div class="hbl-ai-form">
+      <input type="text" id="hbl-ai-tanya" maxlength="200" placeholder="Tanya hal lain tentang kalimat ini..." onkeydown="if(event.key==='Enter')hblAiKirim()">
+      <div class="hbl-ai-kirim" id="hbl-ai-kirim" role="button" onclick="hblAiKirim()">Kirim</div>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>

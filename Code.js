@@ -86,14 +86,13 @@ var completionTimeFormatted = "";
 var isStopwatchMode = false;
 
 // ===== INFO UPDATE TERBARU (edit bagian ini setiap ada update baru) =====
-var APP_VERSI = "Versi 2.4.9";
+var APP_VERSI = "Versi 2.5.0";
 var APP_UPDATE_INTRO = "Ada pembaruan baru, silakan dicek ya minna-san";
 // Format: { ico, tag (FIX/NEW/UPDATE/INFO), judul, isi }. Teks biasa "Menu Xxx: ..." juga masih didukung.
 var APP_UPDATE_LIST = [
-  { ico: '🔤', tag: 'FIX', judul: 'Contoh kotoba di menu Kana', isi: 'Setiap huruf Kana (Hiragana & Katakana) kini selalu punya contoh kotoba, lengkap dengan cara baca dan arti.' },
-  { ico: '🈴', tag: 'FIX', judul: 'Tampilan Kana gabungan', isi: 'Huruf gabungan seperti きゅ kini tampil sejajar, tidak lagi bertumpuk.' },
-  { ico: '🔠', tag: 'NEW', judul: 'Kotoba Katakana', isi: 'Mode Katakana kini memakai daftar kotoba Katakana asli dari data Gana.' },
-  { ico: '🎛️', tag: 'FIX', judul: 'Tombol di lembar Kana', isi: 'Tombol Sebelumnya, Berikutnya, dan Tutup kini rata dan berada di tengah.' }
+  { ico: '🎬', tag: 'NEW', judul: 'Mode Belajar di Hiburan', isi: 'Putar video/musik dengan subtitle Jepang yang tersinkron: furigana, romaji, dan arti per baris. Ketuk baris untuk lompat ke bagian itu.' },
+  { ico: '🔁', tag: 'NEW', judul: 'Kontrol belajar', isi: 'Ulangi baris, atur kecepatan 1x/0.75x/0.5x, dan geser slider untuk berpindah posisi.' },
+  { ico: '🤖', tag: 'NEW', judul: 'Tanya AI', isi: 'Ketuk tombol AI pada sebuah baris untuk penjelasan terjemahan, kosakata, dan tata bahasa.' }
 ];
 
 var APP_UPDATE_OUTRO = "Pastikan Versi-nya sesuai Update terbaru ya minna-san, jika belum silakan untuk refresh kembali. Arigatou ne 🙏";
@@ -2655,7 +2654,7 @@ function hiburanMuat() {
       var s = { video: [], musik: [], berita: [] };
       (rows || []).forEach(function (r) {
         var k = (r.kategori === 'musik' || r.kategori === 'berita') ? r.kategori : 'video';
-        s[k].push({ judul: r.judul, lv: r.level || '-', url: r.url, yt: hbYtId(r.url), durasi: r.durasi });
+        s[k].push({ judul: r.judul, lv: r.level || '-', url: r.url, yt: hbYtId(r.url), durasi: r.durasi, no: r.no });
       });
       hiburanServer = s;
       hiburanStatus = 'siap';
@@ -2725,6 +2724,7 @@ function hiburanBuka(idx) {
   var tab = hiburanState.tab, d = (hiburanServer[tab] || [])[idx];
   if (!d) return;
   if (!d.yt) { window.open(d.url, '_blank', 'noopener'); return; }
+  if (d.no) { hblBuka(d); return; }   // punya NO di sheet -> Mode Belajar
   fbEl('hb-player-judul').textContent = d.judul;
   fbEl('hb-player-frame').innerHTML = '<iframe src="https://www.youtube-nocookie.com/embed/' + encodeURIComponent(d.yt) +
     '?rel=0&playsinline=1" title="Pemutar video" allow="accelerometer; autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>';
@@ -2738,4 +2738,444 @@ function hiburanTutupPlayer() {
 document.addEventListener('keydown', function (e) {
   if (e.key !== 'Escape') return;
   if (!fbEl('hb-player-modal').classList.contains('modal-hidden')) hiburanTutupPlayer();
+});
+
+
+
+/* =====================================================================
+   HIBURAN — MODE BELAJAR (video YouTube + subtitle sinkron + Tanya AI)
+   Data: getSubtitle(no) dari server. Pemutar: YouTube IFrame API.
+   Bila IFrame API gagal dimuat, otomatis jatuh ke pemutar biasa tanpa sinkron.
+   ===================================================================== */
+var hbl = {
+  aktif: false, d: null, lines: [], idx: -1,
+  player: null, siap: false, fallback: false, state: -1,
+  timer: null, readyTimer: null,
+  loop: false, speedIdx: 0, seeking: false, durasi: 0, sentuh: 0,
+  ai: false, aiIdx: -1, aiToken: 0, token: 0,
+  opsi: { furi: true, romaji: true, arti: true, fokus: true }
+};
+var HBL_KUNCI_OPSI = 'kotoba_hbl_opsi';
+var HBL_KECEPATAN = [1, 0.75, 0.5];
+var hblApiMenunggu = [], hblApiMemuat = false;
+
+function hblBacaOpsi() {
+  try {
+    var o = JSON.parse(localStorage.getItem(HBL_KUNCI_OPSI) || 'null');
+    if (o && typeof o === 'object') {
+      ['furi', 'romaji', 'arti', 'fokus'].forEach(function (k) { if (typeof o[k] === 'boolean') hbl.opsi[k] = o[k]; });
+      var si = HBL_KECEPATAN.indexOf(Number(o.speed));
+      hbl.speedIdx = si >= 0 ? si : 0;
+    }
+  } catch (e) {}
+}
+function hblSimpanOpsi() {
+  try {
+    var o = {}; for (var k in hbl.opsi) o[k] = hbl.opsi[k];
+    o.speed = HBL_KECEPATAN[hbl.speedIdx];
+    localStorage.setItem(HBL_KUNCI_OPSI, JSON.stringify(o));
+  } catch (e) {}
+}
+
+function hblFmt(t) {
+  t = Math.max(0, Math.floor(Number(t) || 0));
+  var m = Math.floor(t / 60), s = t % 60;
+  if (m >= 60) { var h = Math.floor(m / 60); m = m % 60; return h + ':' + (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s; }
+  return m + ':' + (s < 10 ? '0' : '') + s;
+}
+
+/* ---------- buka / tutup ---------- */
+function hblBuka(d) {
+  if (!d || !d.yt) return;
+  hblBersihkanPlayer();
+  hbl.token++;
+  var token = hbl.token;
+  hbl.d = d; hbl.lines = []; hbl.idx = -1; hbl.loop = false;
+  hbl.siap = false; hbl.fallback = false; hbl.durasi = 0; hbl.state = -1; hbl.seeking = false;
+  hbl.ai = false; hbl.sentuh = 0;
+  hblBacaOpsi();
+
+  fbEl('hiburan-page').classList.add('hidden');
+  fbEl('hbl-page').classList.remove('hidden');
+  document.body.classList.add('hbl-buka');
+  hbl.aktif = true;
+
+  fbEl('hbl-judul').textContent = d.judul || '';
+  hblTampilPesan('');
+  fbEl('hbl-list').className = 'hbl-list';
+  fbEl('hbl-list').innerHTML = '<div class="hbl-kosong">Memuat subtitle…</div>';
+  fbEl('hbl-t-now').textContent = '0:00';
+  fbEl('hbl-t-all').textContent = '0:00';
+  fbEl('hbl-seek').value = 0;
+  hblRenderOpsi();
+  hblRenderKontrol();
+  catatAktivitas('Hiburan', d.judul || '');
+
+  hblMuatSubtitle(token);
+  hblBuatPlayer(token);
+  hbl.timer = setInterval(hblTick, 200);
+}
+
+function hblBersihkanPlayer() {
+  if (hbl.timer) { clearInterval(hbl.timer); hbl.timer = null; }
+  if (hbl.readyTimer) { clearTimeout(hbl.readyTimer); hbl.readyTimer = null; }
+  if (hbl.player) { try { hbl.player.destroy(); } catch (e) {} hbl.player = null; }
+  var w = fbEl('hbl-yt-wrap'); if (w) w.innerHTML = '';
+}
+
+function hblTutup() {
+  hblAiTutup();
+  hblBersihkanPlayer();
+  hbl.aktif = false;
+  hbl.token++;
+  fbEl('hbl-page').classList.add('hidden');
+  document.body.classList.remove('hbl-buka');
+  fbEl('hiburan-page').classList.remove('hidden');
+  window.scrollTo(0, 0);
+}
+
+function hblTampilPesan(html) {
+  var el = fbEl('hbl-pesan');
+  el.innerHTML = html || '';
+  el.classList.toggle('hidden', !html);
+}
+
+/* ---------- subtitle ---------- */
+function hblMuatSubtitle(token) {
+  var d = hbl.d;
+  if (!d.no) { hblTerimaSubtitle({ lines: [], pesan: 'Video ini belum punya nomor (kolom NO di sheet Hiburan), jadi subtitle belum bisa dimuat.' }); return; }
+  google.script.run
+    .withSuccessHandler(function (r) { if (token === hbl.token && hbl.aktif) hblTerimaSubtitle(r || {}); })
+    .withFailureHandler(function (err) {
+      if (token !== hbl.token || !hbl.aktif) return;
+      var pesan = (err && err.message) ? String(err.message) : '';
+      fbEl('hbl-list').innerHTML = '<div class="hbl-kosong">Subtitle belum bisa dimuat.' + (pesan ? '<br><small>' + hbEsc(pesan) + '</small>' : '') +
+        '<br><b role="button" style="text-decoration:underline;cursor:pointer" onclick="hblMuatSubtitle(hbl.token)">Coba lagi</b></div>';
+    })
+    .getSubtitle(d.no);
+}
+
+function hblTerimaSubtitle(r) {
+  var arr = Array.isArray(r.lines) ? r.lines : [];
+  hbl.lines = arr.filter(function (l) { return l && typeof l.mulai === 'number' && !isNaN(l.mulai) && l.tokens && l.tokens.length; });
+  hbl.ai = !!r.ai;
+  hblRenderList(r.pesan);
+  hblRenderKontrol();
+}
+
+function hblHtmlBaris(l, i) {
+  var h = '<div class="hbl-baris' + (hbl.ai ? ' ada-ai' : '') + '" id="hbl-b' + i + '" role="button" onclick="hblKeBaris(' + i + ')">';
+  h += '<div class="hbl-jp">';
+  for (var k = 0; k < l.tokens.length; k++) {
+    var t = l.tokens[k];
+    h += '<span class="hbl-w"><i class="f">' + (t.f ? hbEsc(t.f) : '&nbsp;') + '</i><b class="t">' + hbEsc(t.t) +
+         '</b><i class="r">' + (t.r ? hbEsc(t.r) : '&nbsp;') + '</i></span>';
+  }
+  h += '</div>';
+  if (l.furiBaris) h += '<div class="hbl-fl">' + hbEsc(l.furiBaris) + '</div>';
+  if (l.romajiBaris) h += '<div class="hbl-rl">' + hbEsc(l.romajiBaris) + '</div>';
+  if (l.arti) h += '<div class="hbl-id">' + hbEsc(l.arti) + '</div>';
+  if (hbl.ai) h += '<span class="hbl-ai-btn" role="button" aria-label="Jelaskan kalimat ini" onclick="event.stopPropagation();hblAiBuka(' + i + ')">&#10024;</span>';
+  return h + '</div>';
+}
+
+function hblRenderList(pesan) {
+  var el = fbEl('hbl-list');
+  if (!hbl.lines.length) {
+    el.className = 'hbl-list';
+    el.innerHTML = '<div class="hbl-kosong">' + hbEsc(pesan || 'Subtitle untuk video ini belum tersedia.') +
+      '<br>Video tetap bisa diputar.</div>';
+    return;
+  }
+  var h = '';
+  for (var i = 0; i < hbl.lines.length; i++) h += hblHtmlBaris(hbl.lines[i], i);
+  el.innerHTML = h;
+  hblTerapkanOpsi();
+  hbl.idx = -1;
+  el.scrollTop = 0;
+}
+
+/* ---------- opsi tampilan ---------- */
+var HBL_OPSI_DAFTAR = [['furi', 'Furigana'], ['romaji', 'Romaji'], ['arti', 'Terjemahan'], ['fokus', 'Fokus']];
+function hblRenderOpsi() {
+  var h = '';
+  HBL_OPSI_DAFTAR.forEach(function (o) {
+    h += '<div class="hbl-chip' + (hbl.opsi[o[0]] ? ' on' : '') + '" role="button" onclick="hblToggleOpsi(\'' + o[0] + '\')">' + o[1] + '</div>';
+  });
+  fbEl('hbl-opsi').innerHTML = h;
+}
+function hblTerapkanOpsi() {
+  var el = fbEl('hbl-list'); if (!el) return;
+  var k = 'hbl-list' + (hbl.opsi.furi ? '' : ' no-furi') + (hbl.opsi.romaji ? '' : ' no-romaji') +
+          (hbl.opsi.arti ? '' : ' no-arti') + (hbl.opsi.fokus ? ' fokus' : '');
+  el.className = k;
+}
+function hblToggleOpsi(k) {
+  if (!(k in hbl.opsi)) return;
+  hbl.opsi[k] = !hbl.opsi[k];
+  hblSimpanOpsi(); hblRenderOpsi(); hblTerapkanOpsi();
+}
+
+/* ---------- pemutar YouTube ---------- */
+function hblMuatApiYT(cb) {
+  if (window.YT && window.YT.Player) { cb(true); return; }
+  hblApiMenunggu.push(cb);
+  if (hblApiMemuat) return;
+  hblApiMemuat = true;
+  var sebelumnya = window.onYouTubeIframeAPIReady;
+  window.onYouTubeIframeAPIReady = function () {
+    try { if (typeof sebelumnya === 'function') sebelumnya(); } catch (e) {}
+    var q = hblApiMenunggu; hblApiMenunggu = [];
+    q.forEach(function (f) { try { f(true); } catch (e) {} });
+  };
+  var s = document.createElement('script');
+  s.src = 'https://www.youtube.com/iframe_api';
+  s.async = true;
+  s.onerror = function () {
+    hblApiMemuat = false;
+    var q = hblApiMenunggu; hblApiMenunggu = [];
+    q.forEach(function (f) { try { f(false); } catch (e) {} });
+  };
+  document.head.appendChild(s);
+  setTimeout(function () {                      // batas waktu: dianggap gagal
+    if (window.YT && window.YT.Player) return;
+    hblApiMemuat = false;
+    var q = hblApiMenunggu; hblApiMenunggu = [];
+    q.forEach(function (f) { try { f(false); } catch (e) {} });
+  }, 9000);
+}
+
+function hblBuatPlayer(token) {
+  fbEl('hbl-yt-wrap').innerHTML = '<div id="hbl-yt"></div>';
+  hblMuatApiYT(function (ok) {
+    if (token !== hbl.token || !hbl.aktif || hbl.player || hbl.fallback) return;
+    if (!ok) { hblFallback(); return; }
+    try {
+      var vars = { playsinline: 1, rel: 0, modestbranding: 1, iv_load_policy: 3, cc_load_policy: 0, fs: 1, enablejsapi: 1 };
+      if (/^https?:$/.test(location.protocol)) vars.origin = location.origin;
+      hbl.player = new YT.Player('hbl-yt', {
+        host: 'https://www.youtube-nocookie.com',
+        videoId: hbl.d.yt,
+        playerVars: vars,
+        events: {
+          onReady: function () { if (token === hbl.token) hblPlayerSiap(); },
+          onStateChange: function (e) { if (token === hbl.token) hblStatePlayer(e && e.data); },
+          onError: function (e) { if (token === hbl.token) hblErrorPlayer(e && e.data); }
+        }
+      });
+      hbl.readyTimer = setTimeout(function () {   // onReady tidak datang: pakai pemutar biasa
+        if (token === hbl.token && hbl.aktif && !hbl.siap) hblFallback();
+      }, 12000);
+    } catch (e) { hblFallback(); }
+  });
+}
+
+function hblPlayerSiap() {
+  if (hbl.readyTimer) { clearTimeout(hbl.readyTimer); hbl.readyTimer = null; }
+  hbl.siap = true;
+  try { hbl.player.setPlaybackRate(HBL_KECEPATAN[hbl.speedIdx]); } catch (e) {}
+  try { hbl.durasi = hbl.player.getDuration() || 0; } catch (e) {}
+  hblRenderKontrol();
+}
+
+function hblStatePlayer(s) {
+  hbl.state = s;
+  if (s === 1 || s === 5) {
+    try { var dur = hbl.player.getDuration(); if (dur) hbl.durasi = dur; } catch (e) {}
+    if (s === 1) { try { hbl.player.setPlaybackRate(HBL_KECEPATAN[hbl.speedIdx]); } catch (e) {} }
+  }
+  hblRenderKontrol();
+}
+
+function hblErrorPlayer(kode) {
+  var yt = 'https://www.youtube.com/watch?v=' + encodeURIComponent(hbl.d.yt);
+  hblTampilPesan('Video ini tidak bisa diputar di dalam aplikasi' + (kode ? ' (kode ' + kode + ')' : '') +
+    '. Pemilik video mungkin membatasi pemutaran. <a href="' + yt + '" target="_blank" rel="noopener">Buka di YouTube ↗</a>');
+}
+
+function hblFallback() {
+  if (hbl.fallback) return;
+  hbl.fallback = true;
+  if (hbl.readyTimer) { clearTimeout(hbl.readyTimer); hbl.readyTimer = null; }
+  if (hbl.player) { try { hbl.player.destroy(); } catch (e) {} hbl.player = null; }
+  hbl.siap = false;
+  fbEl('hbl-yt-wrap').innerHTML = '<iframe src="https://www.youtube-nocookie.com/embed/' + encodeURIComponent(hbl.d.yt) +
+    '?rel=0&playsinline=1" title="Pemutar video" allow="accelerometer; autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>';
+  hblTampilPesan('Sinkronisasi subtitle otomatis tidak tersedia di perangkat ini. Video tetap bisa diputar dan subtitle bisa dibaca manual.');
+  hblRenderKontrol();
+}
+
+/* ---------- sinkronisasi ---------- */
+function hblCariBaris(t) {
+  var L = hbl.lines, lo = 0, hi = L.length - 1, r = -1;
+  while (lo <= hi) {
+    var mid = (lo + hi) >> 1;
+    if (L[mid].mulai <= t + 0.05) { r = mid; lo = mid + 1; } else hi = mid - 1;
+  }
+  if (r >= 0 && t >= L[r].selesai + 4) return -1;      // jeda panjang (instrumen): tidak ada kalimat aktif
+  return r;
+}
+
+function hblTick() {
+  if (!hbl.aktif || !hbl.siap || !hbl.player) return;
+  var t;
+  try { t = hbl.player.getCurrentTime(); } catch (e) { return; }
+  if (typeof t !== 'number' || isNaN(t)) return;
+  if (!hbl.durasi) { try { hbl.durasi = hbl.player.getDuration() || 0; } catch (e) {} }
+
+  if (hbl.loop && hbl.idx >= 0 && hbl.lines[hbl.idx]) {
+    var cur = hbl.lines[hbl.idx];
+    if (t >= cur.selesai - 0.05 || t < cur.mulai - 0.8) {
+      try { hbl.player.seekTo(cur.mulai, true); } catch (e) {}
+      return;
+    }
+  } else if (hbl.lines.length) {
+    var i = hblCariBaris(t);
+    if (i !== hbl.idx) hblAktifkan(i);
+  }
+  if (!hbl.seeking) {
+    var sk = fbEl('hbl-seek');
+    if (hbl.durasi && Number(sk.max) !== Math.floor(hbl.durasi)) sk.max = Math.floor(hbl.durasi);
+    sk.value = Math.floor(t);
+    fbEl('hbl-t-now').textContent = hblFmt(t);
+    fbEl('hbl-t-all').textContent = hblFmt(hbl.durasi);
+  }
+}
+
+function hblAktifkan(i) {
+  var lama = fbEl('hbl-b' + hbl.idx);
+  if (lama) lama.classList.remove('aktif');
+  hbl.idx = i;
+  var baru = i >= 0 ? fbEl('hbl-b' + i) : null;
+  if (baru) { baru.classList.add('aktif'); hblGulir(i); }
+}
+
+function hblGulir(i) {
+  var list = fbEl('hbl-list'), el = fbEl('hbl-b' + i);
+  if (!list || !el) return;
+  if (Date.now() - hbl.sentuh < 3500) return;          // pengguna sedang menggulir sendiri
+  var target = Math.max(0, el.offsetTop - (list.clientHeight - el.offsetHeight) / 2);
+  try { list.scrollTo({ top: target, behavior: 'smooth' }); } catch (e) { list.scrollTop = target; }
+}
+
+/* ---------- kontrol ---------- */
+function hblRenderKontrol() {
+  var sinkron = hbl.siap && !hbl.fallback;
+  var play = fbEl('hbl-b-play');
+  play.innerHTML = (hbl.state === 1) ? '&#9208;' : '&#9654;';
+  ['hbl-b-prev', 'hbl-b-next', 'hbl-b-loop', 'hbl-b-play', 'hbl-b-speed'].forEach(function (id) {
+    fbEl(id).classList.toggle('mati', !sinkron);
+  });
+  fbEl('hbl-b-loop').classList.toggle('on', !!hbl.loop);
+  fbEl('hbl-b-speed').innerHTML = HBL_KECEPATAN[hbl.speedIdx] + '&times;';
+  fbEl('hbl-seek').disabled = !sinkron;
+}
+
+function hblSeekKe(t) {
+  if (!hbl.player || !hbl.siap) return;
+  try { hbl.player.seekTo(Math.max(0, t), true); } catch (e) {}
+}
+function hblKeBaris(i) {
+  var l = hbl.lines[i];
+  if (!l || !hbl.siap || hbl.fallback) return;
+  hblAktifkan(i);
+  hblSeekKe(l.mulai);
+  try { hbl.player.playVideo(); } catch (e) {}
+}
+function hblPlayPause() {
+  if (!hbl.siap || !hbl.player) return;
+  try { if (hbl.state === 1) hbl.player.pauseVideo(); else hbl.player.playVideo(); } catch (e) {}
+}
+function hblLompat(arah) {
+  if (!hbl.siap || !hbl.lines.length) return;
+  var i = hbl.idx;
+  if (i < 0) { try { i = hblCariBaris(hbl.player.getCurrentTime()); } catch (e) { i = -1; } }
+  var n = arah > 0 ? Math.min(hbl.lines.length - 1, i + 1) : Math.max(0, i - 1);
+  hblKeBaris(n);
+}
+function hblToggleLoop() {
+  if (!hbl.siap) return;
+  if (!hbl.loop && hbl.idx < 0) {
+    if (typeof questToast === 'function') questToast('Putar dulu sampai muncul kalimat, lalu aktifkan ulang');
+    return;
+  }
+  hbl.loop = !hbl.loop;
+  hblRenderKontrol();
+}
+function hblGantiKecepatan() {
+  if (!hbl.siap) return;
+  hbl.speedIdx = (hbl.speedIdx + 1) % HBL_KECEPATAN.length;
+  try { hbl.player.setPlaybackRate(HBL_KECEPATAN[hbl.speedIdx]); } catch (e) {}
+  hblSimpanOpsi(); hblRenderKontrol();
+}
+function hblSeekInput(v) {
+  hbl.seeking = true;
+  fbEl('hbl-t-now').textContent = hblFmt(v);
+}
+function hblSeekSelesai(v) {
+  hbl.loop = false;
+  hblSeekKe(Number(v));
+  hbl.seeking = false;
+  hblRenderKontrol();
+}
+
+/* ---------- Tanya AI ---------- */
+function hblAiBuka(i) {
+  var l = hbl.lines[i];
+  if (!l) return;
+  try { if (hbl.player && hbl.state === 1) hbl.player.pauseVideo(); } catch (e) {}
+  hbl.aiIdx = i;
+  fbEl('hbl-ai-kalimat').textContent = l.jp + (l.arti ? '\n' + l.arti : '');
+  fbEl('hbl-ai-tanya').value = '';
+  fbEl('hbl-ai').classList.remove('hidden');
+  hblAiPanggil('');
+}
+function hblAiTutup() {
+  hbl.aiToken++;
+  var el = fbEl('hbl-ai'); if (el) el.classList.add('hidden');
+}
+function hblAiKirim() {
+  var t = fbEl('hbl-ai-tanya').value.trim();
+  hblAiPanggil(t);
+}
+function hblAiPanggil(tanya) {
+  var l = hbl.lines[hbl.aiIdx];
+  if (!l) return;
+  var token = ++hbl.aiToken;
+  var isi = fbEl('hbl-ai-isi'), btn = fbEl('hbl-ai-kirim');
+  isi.innerHTML = '<div class="hbl-ai-load">Sensei AI sedang menyusun penjelasan…</div>';
+  btn.classList.add('mati');
+  google.script.run
+    .withSuccessHandler(function (r) {
+      if (token !== hbl.aiToken) return;
+      btn.classList.remove('mati');
+      isi.innerHTML = hblFormatAi(r && r.teks);
+      isi.scrollTop = 0;
+    })
+    .withFailureHandler(function (err) {
+      if (token !== hbl.aiToken) return;
+      btn.classList.remove('mati');
+      var pesan = (err && err.message) ? String(err.message).replace(/^Error:\s*/, '') : 'Terjadi kesalahan. Coba lagi.';
+      isi.innerHTML = '<div class="hbl-ai-err">' + hbEsc(pesan) + '</div>';
+    })
+    .tanyaAI(studentName, l.jp, l.arti || '', (hbl.d && hbl.d.judul) || '', tanya || '');
+}
+function hblFormatAi(teks) {
+  teks = String(teks || '').replace(/\*\*/g, '').replace(/^#+\s*/gm, '');
+  var out = '';
+  teks.split(/\r?\n/).forEach(function (ln) {
+    ln = ln.trim();
+    if (!ln) return;
+    if (/^(Terjemahan|Kosakata|Tata Bahasa|Catatan|Jawaban)\s*:?$/i.test(ln)) {
+      out += '<div class="hbl-ai-h">' + hbEsc(ln.replace(/:\s*$/, '')) + '</div>';
+    } else {
+      out += '<div class="hbl-ai-p">' + hbEsc(ln.replace(/^[-*]\s+/, '• ')) + '</div>';
+    }
+  });
+  return out || '<div class="hbl-ai-err">Jawaban kosong. Coba lagi.</div>';
+}
+
+document.addEventListener('keydown', function (e) {
+  if (e.key !== 'Escape' || !hbl.aktif) return;
+  if (!fbEl('hbl-ai').classList.contains('hidden')) hblAiTutup(); else hblTutup();
 });
