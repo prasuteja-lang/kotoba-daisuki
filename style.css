@@ -1471,41 +1471,52 @@ html.dark .hbl-ai-load, html.dark .hbl-kosong { color:#94a3b8; }
 
 
 /* ==== Ujian: latihan soal dari spreadsheet ==== */
-.uj-aksi { display:flex; gap:8px; flex-wrap:wrap; margin:12px 0; }
-.uj-btn { border:0; border-radius:12px; padding:11px 18px; font-size:14px; font-weight:800; color:#fff; background:var(--ac); cursor:pointer; }
-.uj-btn.kecil { padding:7px 12px; font-size:12.5px; color:var(--ac); background:#eef2ff; }
-.uj-top { display:flex; align-items:center; gap:10px; margin:0 0 8px; }
-.uj-no { flex:1; text-align:center; font-size:13px; font-weight:800; color:#475569; }
-.uj-skor { font-size:12.5px; font-weight:800; color:#16a34a; }
-.uj-bar { height:6px; border-radius:99px; background:#e2e8f0; overflow:hidden; margin:0 0 10px; }
-.uj-bar i { display:block; height:100%; background:var(--ac); border-radius:99px; transition:width .3s; }
-.uj-judul { font-size:12px; font-weight:700; color:#64748b; margin:0 0 8px; }
-.uj-kartu { padding:14px; border:1px solid #e2e8f0; border-radius:14px; background:#fff; margin:0 0 12px; text-align:left; }
-.uj-tag { display:inline-block; padding:2px 10px; margin:0 0 8px; border-radius:999px; font-size:11.5px; font-weight:800; color:var(--ac); background:#eef2ff; }
-.uj-soal { font-size:18px; line-height:1.6; font-weight:700; color:#1e293b; }
-.uj-teks { font-size:15px; line-height:1.7; color:#334155; padding:10px 12px; margin:0 0 10px; border-radius:10px; background:#f8fafc; border:1px solid #e2e8f0; }
-.uj-gambar { display:block; max-width:100%; max-height:260px; margin:0 auto 10px; border-radius:10px; }
-.uj-audio { width:100%; margin:0 0 10px; }
-.uj-opsi { display:flex; flex-direction:column; gap:8px; }
-.uj-op { display:flex; align-items:center; gap:10px; width:100%; padding:11px 12px; border:2px solid #e2e8f0; border-radius:12px; background:#fff; text-align:left; font-size:16px; font-weight:700; color:#1e293b; cursor:pointer; }
-.uj-op:active { border-color:var(--ac); }
-.uj-huruf { flex:none; width:26px; height:26px; line-height:26px; text-align:center; border-radius:50%; font-size:13px; font-weight:800; color:var(--ac); background:#eef2ff; }
+/* Tombol global memakai width:70%/max-width:240px, jadi dinetralkan di sini */
+.uj-btn { display:inline-flex; align-items:center; justify-content:center; width:auto; max-width:none; margin:0; padding:11px 22px; border-radius:14px; font-size:14.5px; font-weight:800; color:#fff; background:var(--ac); }
+.uj-btn.kecil { padding:8px 14px; font-size:13px; color:var(--ac); background:#eef2ff; box-shadow:none; }
+.uj-btn.lebar { width:100%; padding:15px; font-size:16.5px; }
+.uj-aksi { display:flex; gap:10px; flex-wrap:wrap; justify-content:center; margin:14px 0; }
+.uj-aksi.kiri { justify-content:flex-start; margin:4px 0 10px; }
+.uj-top { display:flex; align-items:center; justify-content:space-between; gap:10px; margin:0 0 10px; }
+.uj-no { flex:1; text-align:center; font-size:13.5px; font-weight:800; color:#475569; }
+.uj-skor { min-width:44px; text-align:right; font-size:13.5px; font-weight:800; color:#16a34a; }
+.uj-bar { height:8px; border-radius:99px; background:#e2e8f0; overflow:hidden; margin:0 0 10px; }
+.uj-bar i { display:block; height:100%; background:var(--ac); border-radius:99px; transition:width .35s ease; }
+.uj-judul { font-size:12px; font-weight:700; color:#64748b; margin:0 0 10px; text-align:center; }
+.uj-kartu { padding:16px; border:1px solid #e2e8f0; border-radius:16px; background:#fff; margin:0 0 14px; text-align:left; }
+.uj-tag { display:inline-block; padding:2px 10px; margin:0 0 10px; border-radius:999px; font-size:11.5px; font-weight:800; color:var(--ac); background:#eef2ff; }
+.uj-soal { font-size:21px; line-height:1.65; font-weight:700; color:#1e293b; }
+.uj-teks { font-size:16px; line-height:1.75; color:#334155; padding:11px 13px; margin:0 0 12px; border-radius:12px; background:#f8fafc; border:1px solid #e2e8f0; }
+.uj-gambar { display:block; max-width:100%; max-height:260px; margin:0 auto 12px; border-radius:12px; }
+.uj-audio { display:block; width:100%; margin:0 0 12px; }
+.uj-opsi { display:flex; flex-direction:column; gap:10px; }
+.uj-op { display:flex; align-items:center; gap:12px; width:100%; max-width:none; margin:0; min-height:58px; padding:12px 14px; border:2px solid #e2e8f0; border-radius:14px; background:#fff; text-align:left; font-size:19px; font-weight:700; color:#1e293b; box-shadow:0 2px 0 rgba(15,23,42,.08); }
+.uj-op:active:not(:disabled) { border-color:var(--ac); transform:translateY(1px); }
+.uj-op:disabled { cursor:default; }
+.uj-huruf { flex:none; width:30px; height:30px; line-height:30px; text-align:center; border-radius:50%; font-size:14px; font-weight:800; color:var(--ac); background:#eef2ff; }
+.uj-teks-op { flex:1; }
 .uj-op.benar { border-color:#16a34a; background:#f0fdf4; }
 .uj-op.benar .uj-huruf { color:#fff; background:#16a34a; }
 .uj-op.salah { border-color:#dc2626; background:#fef2f2; }
 .uj-op.salah .uj-huruf { color:#fff; background:#dc2626; }
-.uj-op.pudar { opacity:.55; }
-.uj-bahas { margin:12px 0 0; padding:11px 13px; border-radius:12px; font-size:13.5px; line-height:1.55; text-align:left; }
-.uj-bahas b { display:block; margin:0 0 4px; }
+.uj-op.pudar { opacity:.5; }
+.uj-bahas { margin:14px 0 0; padding:12px 14px; border-radius:14px; font-size:14px; line-height:1.6; text-align:left; }
+.uj-bahas b { display:block; margin:0 0 4px; font-size:15px; }
 .uj-bahas.ok { background:#f0fdf4; border:1px solid #bbf7d0; color:#166534; }
 .uj-bahas.no { background:#fef2f2; border:1px solid #fecaca; color:#991b1b; }
-.uj-hasil { text-align:center; padding:22px 12px; border:1px solid #e2e8f0; border-radius:16px; background:#fff; }
-.uj-hasil-skor { font-size:38px; font-weight:900; color:var(--ac); }
+.uj-bawah { position:sticky; bottom:0; z-index:5; margin:12px -4px 0; padding:10px 4px 6px; background:color-mix(in srgb, var(--bg) 88%, transparent); -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px); }
+.uj-chip { flex:none; padding:3px 10px; border-radius:999px; font-size:12.5px; font-weight:800; color:#92400e; background:#fef3c7; white-space:nowrap; }
+.uj-chip.emas { color:#fff; background:linear-gradient(135deg,#f59e0b,#ea580c); }
+.uj-hasil { text-align:center; padding:24px 14px; border:1px solid #e2e8f0; border-radius:18px; background:#fff; }
+.uj-hasil-bintang { font-size:54px; line-height:1.1; }
+.uj-hasil-judul { font-size:15px; font-weight:800; color:#64748b; margin:4px 0 6px; }
+.uj-hasil-skor { font-size:42px; font-weight:900; color:var(--ac); }
 .uj-hasil-persen { font-size:18px; font-weight:800; color:#475569; margin:2px 0 8px; }
-.uj-hasil-pesan { font-size:14px; font-weight:700; color:#334155; margin:0 0 8px; }
+.uj-hasil-pesan { font-size:14.5px; font-weight:700; color:#334155; margin:0 0 6px; }
+.uj-hasil-rekor { display:inline-block; margin:6px 0 10px; padding:5px 14px; border-radius:999px; font-size:13px; font-weight:800; color:#92400e; background:#fef3c7; }
 html.dark .uj-btn.kecil { background:#0f172a; color:var(--glow); }
 html.dark .uj-btn { background:var(--glow); color:#0f172a; }
-html.dark .uj-no, html.dark .uj-hasil-persen { color:#94a3b8; }
+html.dark .uj-no, html.dark .uj-hasil-persen, html.dark .uj-hasil-judul { color:#94a3b8; }
 html.dark .uj-bar { background:#1e293b; }
 html.dark .uj-bar i { background:var(--glow); }
 html.dark .uj-kartu, html.dark .uj-hasil, html.dark .uj-op { background:#0f172a; border-color:#334155; }
@@ -1517,3 +1528,5 @@ html.dark .uj-op.benar { background:#052e16; border-color:#22c55e; }
 html.dark .uj-op.salah { background:#450a0a; border-color:#ef4444; }
 html.dark .uj-bahas.ok { background:#052e16; border-color:#166534; color:#bbf7d0; }
 html.dark .uj-bahas.no { background:#450a0a; border-color:#991b1b; color:#fecaca; }
+html.dark .uj-chip, html.dark .uj-hasil-rekor { background:#3a2a14; color:#fcd34d; }
+html.dark .uj-chip.emas { background:linear-gradient(135deg,#b45309,#c2410c); color:#fff; }
