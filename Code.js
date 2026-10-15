@@ -3007,15 +3007,17 @@ function ujianRenderKuis() {
   h += '<div class="uj-bar"><i style="width:' + Math.round((k.i + (sudah ? 1 : 0)) / n * 100) + '%"></i></div>';
   h += '<div class="uj-judul">' + kanaEsc(k.judul) + '</div>';
   h += '<div class="uj-kartu">';
-  if (s.mondai) h += '<div class="uj-tag">' + kanaEsc(s.mondai) + '</div>';
+  var noDk = '';
   if (s.dokkai) {
     var anggota = [], posDk = 0;
     for (var q = 0; q < n; q++) if (k.list[q].dokkai === s.dokkai) { if (q === k.i) posDk = anggota.length; anggota.push(q); }
-    h += '<div class="uj-dokkai"><div class="uj-dokkai-judul">📖 Teks Dokkai <span>Pertanyaan ' + (posDk + 1) + ' dari ' + anggota.length + '</span></div>';
+    noDk = '<span class="uj-dokkai-no">Pertanyaan ' + (posDk + 1) + ' dari ' + anggota.length + '</span>';
+  }
+  if (s.mondai || noDk) h += '<div class="uj-tagbaris">' + (s.mondai ? '<span class="uj-tag">' + kanaEsc(s.mondai) + '</span>' : '') + noDk + '</div>';
+  if (s.dokkai) {
     if (s.dokkaiAudio) h += '<audio class="uj-audio" controls preload="none" src="' + kanaEsc(s.dokkaiAudio) + '"></audio>';
     if (s.dokkaiGambar) h += '<img class="uj-dokkai-img" src="' + kanaEsc(s.dokkaiGambar) + '" alt="Teks Dokkai" onclick="this.classList.toggle(\'zoom\')" onerror="this.style.display=\'none\'">';
     if (s.dokkaiTeks) h += '<div class="uj-teks">' + ujianTeksFuri(s.dokkaiTeks, false) + '</div>';
-    h += '</div>';
   }
   if (s.audio) h += '<audio class="uj-audio" controls preload="none" src="' + kanaEsc(s.audio) + '"></audio>';
   if (s.gambar) h += '<img class="uj-gambar" src="' + kanaEsc(s.gambar) + '" alt="" onerror="this.style.display=\'none\'">';
