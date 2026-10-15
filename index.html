@@ -210,8 +210,18 @@
       <div class="pf-streak" id="pf-streak">🔥 Mulai streak-mu hari ini!</div>
       <div class="lv-box" id="pf-level"></div>
     </div>
-    <button type="button" class="btn-ready" onclick="bukaAvatar()">🐱 Ganti Foto Profil</button>
-    <button type="button" class="btn-ready fun-teal" style="margin-top:10px;" onclick="bukaPeringkat()">🏅 Papan Peringkat</button>
+    <div class="pf-aksi-list">
+      <button type="button" class="pf-aksi pf-aksi-foto" onclick="bukaAvatar()">
+        <span class="pf-aksi-ikon">🐱</span>
+        <span class="pf-aksi-teks"><b>Ganti Foto Profil</b><small>Pilih avatar atau unggah fotomu</small></span>
+        <span class="pf-aksi-panah">›</span>
+      </button>
+      <button type="button" class="pf-aksi pf-aksi-rank" onclick="bukaPeringkat()">
+        <span class="pf-aksi-ikon">🏅</span>
+        <span class="pf-aksi-teks"><b>Papan Peringkat</b><small>Lihat posisimu di antara teman</small></span>
+        <span class="pf-aksi-panah">›</span>
+      </button>
+    </div>
   </div>
 
   <!-- TAB: PROGRES (gabungan Daily Quest + Statistik + Achievement) -->
