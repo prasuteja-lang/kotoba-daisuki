@@ -822,11 +822,21 @@
   <div id="kana-grid" class="kn-grid"></div>
 
   <div class="fb-judul-kecil">Latihan</div>
-  <div class="fb-row" role="button" onclick="fbSegera('Tebak huruf')"><span class="fb-ico">読</span><span class="fb-txt"><b>Tebak huruf</b><small>Lihat kana, pilih cara bacanya</small></span><span class="fb-soon">Segera</span></div>
-  <div class="fb-row" role="button" onclick="fbSegera('Tebak bunyi')"><span class="fb-ico">聴</span><span class="fb-txt"><b>Tebak bunyi</b><small>Dengar suaranya, pilih hurufnya</small></span><span class="fb-soon">Segera</span></div>
-  <div class="fb-row" role="button" onclick="fbSegera('Tulis kana')"><span class="fb-ico">書</span><span class="fb-txt"><b>Tulis kana</b><small>Jiplak huruf dan cek hasil tulisanmu</small></span><span class="fb-soon">Segera</span></div>
+  <div class="kl-lemah-info" id="kl-lemah-info"></div>
+  <div class="fb-row" role="button" onclick="kanaBukaLatihan('tebak')"><span class="fb-ico">読</span><span class="fb-txt"><b>Tebak huruf</b><small>Lihat kana, pilih cara bacanya</small></span><span class="fb-go">›</span></div>
+  <div class="fb-row" role="button" onclick="kanaBukaLatihan('tulis')"><span class="fb-ico">書</span><span class="fb-txt"><b>Tulis kana</b><small>Jiplak huruf dan cek hasil tulisanmu</small></span><span class="fb-go">›</span></div>
 </div>
 
+
+<!-- ===== HALAMAN BARU: LATIHAN KANA (Tebak huruf / Tulis kana) ===== -->
+<div id="kana-latih-page" class="card fb-page hidden">
+  <div class="page-header">
+    <button class="btn-icon-back" onclick="kanaLatKeluar()"><span class="arrow">‹</span> Kana</button>
+    <h3 id="kl-judul">Latihan Kana</h3>
+    <button class="btn-icon-back spacer">spacer</button>
+  </div>
+  <div id="kl-isi"></div>
+</div>
 
 <!-- Lembar contoh kotoba Kana (di luar .card agar posisi fixed tidak terpotong) -->
 <div id="kana-sheet" class="kn-sheet hidden" onclick="kanaTutup(event)">
@@ -834,8 +844,7 @@
     <div class="kn-sheet-grip"></div>
     <div class="ks-head">
       <div class="ks-kana" id="ks-kana">あ</div>
-      <div class="ks-nama"><b id="ks-romaji">a</b><small>Ketuk kotoba untuk mendengar</small></div>
-      <div class="ks-btn" role="button" aria-label="Dengar huruf" onclick="kanaBicara()">🔊</div>
+      <div class="ks-nama"><b id="ks-romaji">a</b><small>Contoh kotoba dengan huruf ini</small></div>
     </div>
     <div id="ks-isi"></div>
     <div class="ks-nav">
