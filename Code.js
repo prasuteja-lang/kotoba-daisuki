@@ -91,7 +91,8 @@ var APP_UPDATE_INTRO = "Ada pembaruan baru, silakan dicek ya minna-san";
 // Format: { ico, tag (FIX/NEW/UPDATE/INFO), judul, isi }. Teks biasa "Menu Xxx: ..." juga masih didukung.
 var APP_UPDATE_LIST = [
   { ico: '⭐', tag: 'NEW', judul: 'Sistem Level', isi: 'Sekarang ada Level! XP didapat dari progres belajar, Achievement, dan pengalaman memakai aplikasi (test, ujian, latihan kana, daily quest). Lihat levelmu di menu Profile dan Progres.' },
-  { ico: '🏅', tag: 'NEW', judul: 'Papan Peringkat', isi: 'Bersaing sehat dengan teman! Papan Peringkat menampilkan 20 pelajar dengan XP tertinggi lengkap dengan Group dan Batch. Buka lewat Profile atau Progres > Peringkat.' }
+  { ico: '🏅', tag: 'NEW', judul: 'Papan Peringkat', isi: 'Bersaing sehat dengan teman! Papan Peringkat menampilkan 20 pelajar dengan XP tertinggi lengkap dengan Group dan Batch. Buka lewat Profile atau Progres > Peringkat.' },
+  { ico: '🎵', tag: 'NEW', judul: 'Musik Latar', isi: 'Sekarang ada musik yang mengalun di Menu Utama. Kalau mengganggu, matikan lewat menu Setting > Musik Mati.' }
 ];
 
 var APP_UPDATE_OUTRO = "Pastikan Versi-nya sesuai Update terbaru ya minna-san, jika belum silakan untuk refresh kembali. Semoga makin seru dan lancar belajarnya, ganbatte ne! Arigatou ne 🙏";
@@ -4406,3 +4407,123 @@ document.addEventListener('keydown', function (e) {
   if (e.key !== 'Escape' || !hbl.aktif) return;
   if (!fbEl('hbl-ai').classList.contains('hidden')) hblAiTutup(); else hblTutup();
 });
+
+
+/* =====================================================================
+   MUSIK LATAR (hanya diputar saat Menu Utama tampil)
+   - Berhenti otomatis saat masuk ke halaman belajar/test/video, lanjut lagi saat kembali ke Menu Utama.
+   - Dijeda saat aplikasi ke latar belakang. Pilihan hidup/mati disimpan di perangkat.
+   - Browser/WebView sering menolak suara otomatis: bila ditolak, musik mulai pada sentuhan pertama.
+   ===================================================================== */
+// Sumber dicoba berurutan. Paling andal: unggah file mp3 ke folder aplikasi (sejajar index.html),
+// lalu letakkan namanya paling atas, mis. 'musik-latar.mp3'.
+var MUSIK_SUMBER = [
+  'https://drive.usercontent.google.com/download?id=1AgHsFG641Ru_XK9vO8jD7f1patFCYtZ4&export=download&confirm=t',
+  'https://drive.google.com/uc?export=download&id=1AgHsFG641Ru_XK9vO8jD7f1patFCYtZ4'
+];
+var MUSIK_VOLUME = 0.35;
+var MUSIK_KUNCI = 'kotoba_musik';
+var musik = { el: null, idx: 0, gagal: false, tunggu: false, fade: null };
+
+function musikAktif() {
+  var v = null;
+  try { v = localStorage.getItem(MUSIK_KUNCI); } catch (e) {}
+  return v !== '0';                       // bawaan: hidup
+}
+function musikDiMenuUtama() {
+  var m = document.getElementById('main-menu-page');
+  return !!m && !m.classList.contains('hidden') && !document.hidden;
+}
+function musikKet(teks, galat) {
+  var k = document.getElementById('musik-ket');
+  if (!k) return;
+  k.textContent = teks;
+  k.classList.toggle('galat', !!galat);
+}
+function musikTombol() {
+  var on = musikAktif();
+  document.querySelectorAll('.musik-switch button').forEach(function(b) {
+    b.classList.toggle('aktif', (b.getAttribute('data-musik') === 'on') === on);
+  });
+}
+function musikSiapkan() {
+  if (musik.el) return;
+  var a = new Audio();
+  a.loop = true;
+  a.preload = 'auto';
+  a.volume = 0;
+  a.setAttribute('playsinline', '');
+  a.onerror = function() {              // sumber gagal -> coba sumber berikutnya
+    musik.idx++;
+    if (musik.idx < MUSIK_SUMBER.length) {
+      a.src = MUSIK_SUMBER[musik.idx];
+      if (musikAktif() && musikDiMenuUtama()) musikMain();
+    } else {
+      musik.gagal = true;
+      musikKet('Musik belum bisa dimuat. Periksa internet atau izin berbagi file musik.', true);
+    }
+  };
+  a.src = MUSIK_SUMBER[0];
+  musik.el = a;
+}
+// ubah volume perlahan; selesai() dipanggil di akhir
+function musikFade(target, ms, selesai) {
+  clearInterval(musik.fade);
+  var a = musik.el;
+  if (!a) { if (selesai) selesai(); return; }
+  var awal = a.volume, langkah = 12, n = 0;
+  musik.fade = setInterval(function() {
+    n++;
+    a.volume = Math.max(0, Math.min(1, awal + (target - awal) * (n / langkah)));
+    if (n >= langkah) { clearInterval(musik.fade); if (selesai) selesai(); }
+  }, ms / langkah);
+}
+function musikTungguSentuhan() {
+  if (musik.tunggu) return;
+  musik.tunggu = true;
+  var ev = ['pointerdown', 'touchend', 'keydown'];
+  function mulai() {
+    ev.forEach(function(e) { document.removeEventListener(e, mulai, true); });
+    musik.tunggu = false;
+    musikMain();
+  }
+  ev.forEach(function(e) { document.addEventListener(e, mulai, true); });
+}
+function musikMain() {
+  if (musik.gagal || !musikAktif() || !musikDiMenuUtama()) return;
+  musikSiapkan();
+  var p = null;
+  try { p = musik.el.play(); } catch (e) {}
+  if (p && p.then) {
+    p.then(function() {
+      musikKet('Musik latar diputar di Menu Utama.', false);
+      musikFade(MUSIK_VOLUME, 900);
+    }, function(err) {
+      if (err && err.name === 'NotAllowedError') musikTungguSentuhan();   // belum ada sentuhan: tunggu
+    });
+  }
+}
+function musikHenti() {
+  if (!musik.el || musik.el.paused) return;
+  musikFade(0, 400, function() { try { musik.el.pause(); } catch (e) {} });
+}
+// satu pintu: putar bila hidup & di Menu Utama, selain itu hentikan
+function musikSinkron() {
+  if (musikAktif() && musikDiMenuUtama()) musikMain(); else musikHenti();
+}
+function setMusik(hidup) {
+  try { localStorage.setItem(MUSIK_KUNCI, hidup ? '1' : '0'); } catch (e) {}
+  musikTombol();
+  if (hidup) { musik.gagal = false; musik.idx = 0; if (musik.el) musik.el.src = MUSIK_SUMBER[0]; }
+  musikSinkron();
+  if (typeof questToast === 'function') questToast(hidup ? '🎵 Musik dihidupkan' : '🔇 Musik dimatikan');
+}
+(function() {
+  var m = document.getElementById('main-menu-page');
+  if (m && window.MutationObserver) {
+    new MutationObserver(musikSinkron).observe(m, { attributes: true, attributeFilter: ['class'] });
+  }
+  document.addEventListener('visibilitychange', musikSinkron);
+  musikTombol();
+  musikSinkron();
+})();

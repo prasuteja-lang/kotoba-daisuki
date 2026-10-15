@@ -1716,3 +1716,15 @@ html.dark .lb-rank { color: #94a3b8; }
 html.dark .lb-info b { color: #f1f5f9; }
 html.dark .lb-info small { color: #94a3b8; }
 html.dark .lb-skor b { color: #c4b5fd; }
+
+
+/* ===== MUSIK LATAR: switch Hidup / Mati (gaya sama dengan switch tema) ===== */
+.musik-switch { display:inline-flex; align-self:center; padding:3px; gap:2px; background:#f1f5f9; border:1px solid #e2e8f0; border-radius:999px; }
+.musik-switch button { width:auto !important; max-width:none !important; margin:0 !important; padding:6px 14px !important; border:0 !important; border-radius:999px !important; background:transparent !important; color:#64748b !important; font-size:12px !important; font-weight:700 !important; box-shadow:none !important; cursor:pointer; transition:background .2s, color .2s; }
+.musik-switch button.aktif { background:#7c3aed !important; color:#fff !important; }
+.musik-ket { text-align:center; font-size:11.5px; font-weight:700; color:#94a3b8; margin:0 0 16px; }
+.musik-ket.galat { color:#dc2626; }
+html.dark .musik-switch { background:#0f172a; border-color:#334155; }
+html.dark .musik-switch button { color:#94a3b8 !important; }
+html.dark .musik-switch button.aktif { background:#8b5cf6 !important; color:#fff !important; }
+html.dark .musik-ket.galat { color:#f87171; }
