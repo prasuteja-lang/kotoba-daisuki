@@ -208,8 +208,10 @@
       <div class="pf-nama" id="pf-nama">-</div>
       <div class="pf-kelas" id="pf-kelas">-</div>
       <div class="pf-streak" id="pf-streak">🔥 Mulai streak-mu hari ini!</div>
+      <div class="lv-box" id="pf-level"></div>
     </div>
     <button type="button" class="btn-ready" onclick="bukaAvatar()">🐱 Ganti Foto Profil</button>
+    <button type="button" class="btn-ready fun-teal" style="margin-top:10px;" onclick="bukaPeringkat()">🏅 Papan Peringkat</button>
   </div>
 
   <!-- TAB: PROGRES (gabungan Daily Quest + Statistik + Achievement) -->
@@ -220,6 +222,7 @@
       <div class="qst-tab aktif" id="pg-tab-hari" onclick="progTab('hari')">⚔️ Hari Ini</div>
       <div class="qst-tab" id="pg-tab-belajar" onclick="progTab('belajar')">📊 Belajar</div>
       <div class="qst-tab" id="pg-tab-capai" onclick="progTab('capai')">🏆 Pencapaian</div>
+      <div class="qst-tab" id="pg-tab-peringkat" onclick="progTab('peringkat')">🏅 Peringkat</div>
     </div>
 
     <!-- Hari Ini: Daily Quest -->
@@ -238,6 +241,9 @@
 
     <!-- Pencapaian: lencana -->
     <div id="pg-pane-capai" class="hidden" style="text-align:left;"></div>
+
+    <!-- Peringkat: 20 XP tertinggi -->
+    <div id="pg-pane-peringkat" class="hidden" style="text-align:left;"></div>
   </div>
 
   <!-- TAB: PESAN -->

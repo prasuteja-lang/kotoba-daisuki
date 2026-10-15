@@ -86,14 +86,12 @@ var completionTimeFormatted = "";
 var isStopwatchMode = false;
 
 // ===== INFO UPDATE TERBARU (edit bagian ini setiap ada update baru) =====
-var APP_VERSI = "Versi 2.4.9";
+var APP_VERSI = "Versi 2.5.0";
 var APP_UPDATE_INTRO = "Ada pembaruan baru, silakan dicek ya minna-san";
 // Format: { ico, tag (FIX/NEW/UPDATE/INFO), judul, isi }. Teks biasa "Menu Xxx: ..." juga masih didukung.
 var APP_UPDATE_LIST = [
-  'Menu Kanji: Saat HP dimiringkan, aplikasi tidak lagi keluar sendiri ke halaman utama. Kalau lagi seru main Kanji Challenge lalu layar tidak sengaja berputar, kalian otomatis kembali ke room dan permainan yang sedang berjalan.',
-  'Menu Kanji: Kanji Challenge kini tidak mengulang kotoba yang sudah terjawab, jadi tiap kotoba hanya bisa dijawab satu kali.',
-  'Menu Kanji: Kartu di tangan tidak lagi kembar, dan Random Kanji selalu punya pasangan di kartu kalian supaya poin lebih mudah didapat.',
-  'Menu Kanji: Memilih kartu yang salah kini mengurangi 1 poin, jadi pikirkan dulu sebelum menekan kartu ya.'
+  { ico: '⭐', tag: 'NEW', judul: 'Sistem Level', isi: 'Sekarang ada Level! XP didapat dari progres belajar, Achievement, dan pengalaman memakai aplikasi (test, ujian, latihan kana, daily quest). Lihat levelmu di menu Profile dan Progres.' },
+  { ico: '🏅', tag: 'NEW', judul: 'Papan Peringkat', isi: 'Bersaing sehat dengan teman! Papan Peringkat menampilkan 20 pelajar dengan XP tertinggi lengkap dengan Group dan Batch. Buka lewat Profile atau Progres > Peringkat.' }
 ];
 
 var APP_UPDATE_OUTRO = "Pastikan Versi-nya sesuai Update terbaru ya minna-san, jika belum silakan untuk refresh kembali. Semoga makin seru dan lancar belajarnya, ganbatte ne! Arigatou ne 🙏";
@@ -472,6 +470,7 @@ function questCekSelesai() {
     questState.lastDone = questTanggal(0);
     questSimpan();
     questToast('🎉 Daily Quest hari ini sudah selesai ya!');
+    xpTambah(50, 'Daily Quest', true);
   }
   achCek(true, barusSelesai ? 3800 : 0);
   renderQuest();
@@ -540,6 +539,7 @@ function achSiap() {
     if (!st || typeof st !== 'object') st = {};
     st.kanji = st.kanji || {}; st.tier = st.tier || {};
     st.test = st.test || 0; st.bestStreak = st.bestStreak || 0;
+    st.xpAkt = st.xpAkt || 0; st.xpMax = st.xpMax || 0; st.lvl = st.lvl || 0;
     achState = st;
   }
   return true;
@@ -569,6 +569,7 @@ function achCek(toast, tunda) {
   if (toast && baru.length) {
     setTimeout(function() { questToast('🏆 Achievement baru! ' + baru.join(' & ')); }, tunda || 0);
   }
+  xpCekLevel(toast, (tunda || 0) + (baru.length ? 2600 : 0));
 }
 function achCard(ico, judul, lv, ket, pr, angka, selesai, terkunci, dots) {
   var item = elDiv('qst-item' + (selesai ? ' selesai' : '') + (terkunci ? ' terkunci' : ''));
@@ -603,6 +604,7 @@ function renderHero() {
   var jenis = Object.keys(NAMA_JENIS_KOTOBA), jumlah = 0, total = jenis.length;
   ACH_GRUP.forEach(function(g) { jumlah += achLevelSekarang(g); total += g.target.length; });
   jenis.forEach(function(k) { if (lencanaKotoba[k]) jumlah++; });
+  el.appendChild(elDiv('pg-chip lv', '⭐ Level ' + levelInfo().level));
   el.appendChild(elDiv('pg-chip b', '🏆 ' + jumlah + '/' + total + ' lencana'));
 }
 // Sub-tab BELAJAR: angka progres + level berikutnya (data sama dengan Pencapaian)
@@ -612,6 +614,8 @@ function renderBelajarLevel() {
   pane.innerHTML = '';
   if (!achSiap()) { pane.appendChild(elDiv('qst-kosong', 'Silakan login dulu untuk melihat progres belajar.')); return; }
   achCek(false);
+  pane.appendChild(elDiv('ach-label', 'LEVEL & XP'));
+  pane.appendChild(xpKartuBelajar());
   pane.appendChild(elDiv('ach-label', 'PROGRES & LEVEL'));
   ACH_GRUP.forEach(function(g) {
     var tier = achLevelSekarang(g);
@@ -666,6 +670,170 @@ function renderCapai() {
   pane.appendChild(achCard('🌟', 'Kolektor Bintang', '', 'Tuntaskan Test Pilihan Ganda (semua bab · semua soal) tiap jenis kotoba', Math.round(jumlah / semuaJenis.length * 100), semua ? '✅ Selesai' : (jumlah + '/' + semuaJenis.length), semua, jumlah === 0, null));
 }
 
+// ===== SISTEM LEVEL & XP =====
+// XP total = (1) progres belajar + (2) achievement + (3) pengalaman memakai aplikasi.
+//  (1) hafal, bunpou, kanji, test, streak  -> dihitung dari data yang sudah ada (ikut tersinkron ke server)
+//  (2) tiap tingkat Achievement & Bintang Kotoba
+//  (3) xpTambah(): test, ujian, latihan kana, daily quest. Dibatasi per hari supaya tidak bisa dikebut.
+// XP tidak pernah turun (xpMax), walau siswa membatalkan centang hafal.
+// Modul lain (mis. kanji-challenge.js) cukup memanggil: xpTambah(jumlah, 'Keterangan')
+var XP_BOBOT = { hafal: 5, bunpou: 20, kanji: 15, test: 30, streak: 10, tier: 100, bintang: 200 };
+var XP_LIMIT_HARIAN = 400;
+var LV_JUDUL = [
+  [1, '🌱 Pemula (初心者)'], [5, '📖 Murid Rajin (見習い)'], [10, '🎓 Pelajar (学生)'],
+  [20, '⚔️ Ahli (達人)'], [35, '🏯 Senpai (先輩)'], [50, '👑 Shihan (師範)']
+];
+function fmtAngka(n) { return String(Math.round(n || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, '.'); }
+function levelJudul(L) {
+  var j = LV_JUDUL[0][1];
+  LV_JUDUL.forEach(function(x) { if (L >= x[0]) j = x[1]; });
+  return j;
+}
+// total XP yang dibutuhkan untuk mencapai level L  (L2=100, L3=300, L4=600, L5=1000 ...)
+function xpUntukLevel(L) { return 50 * (L - 1) * L; }
+function levelDariXp(xp) {
+  var L = Math.max(1, Math.floor((1 + Math.sqrt(1 + 4 * xp / 50)) / 2));
+  while (xpUntukLevel(L + 1) <= xp) L++;
+  while (L > 1 && xpUntukLevel(L) > xp) L--;
+  return L;
+}
+function xpHitung() {
+  if (!achSiap()) return { dasar: 0, ach: 0, akt: 0, total: 0 };
+  var p = hitungProgres();
+  var dasar = p.hafal * XP_BOBOT.hafal + p.bunpou * XP_BOBOT.bunpou + p.kanji * XP_BOBOT.kanji +
+              p.test * XP_BOBOT.test + p.streak * XP_BOBOT.streak;
+  var ach = 0;
+  ACH_GRUP.forEach(function(g) { ach += achLevelSekarang(g) * XP_BOBOT.tier; });
+  ach += Object.keys(lencanaKotoba).length * XP_BOBOT.bintang;
+  var akt = achState.xpAkt || 0;
+  var total = dasar + ach + akt;
+  if (total > (achState.xpMax || 0)) achState.xpMax = total;   // disimpan pada achSimpan berikutnya
+  return { dasar: dasar, ach: ach, akt: akt, total: achState.xpMax || 0 };
+}
+function levelInfo() {
+  var x = xpHitung(), L = levelDariXp(x.total);
+  var a = xpUntukLevel(L), b = xpUntukLevel(L + 1);
+  return {
+    xp: x.total, level: L, judul: levelJudul(L), dasar: x.dasar, ach: x.ach, akt: x.akt,
+    persen: Math.max(0, Math.min(100, Math.round((x.total - a) / (b - a) * 100))), sisa: Math.max(0, b - x.total)
+  };
+}
+// tambah XP pengalaman. Mengembalikan XP yang benar-benar didapat (0 bila batas harian tercapai)
+function xpTambah(n, ket, diam) {
+  if (!achSiap() || !(n > 0)) return 0;
+  var hari = questTanggal(0);
+  if (!achState.xpHari || achState.xpHari.tgl !== hari) achState.xpHari = { tgl: hari, n: 0 };
+  var dapat = Math.max(0, Math.min(Math.round(n), XP_LIMIT_HARIAN - achState.xpHari.n));
+  if (!dapat) return 0;
+  achState.xpHari.n += dapat;
+  achState.xpAkt = (achState.xpAkt || 0) + dapat;
+  achSimpan();
+  if (!diam) {
+    questToast('✨ +' + dapat + ' XP' + (ket ? ' · ' + ket : ''));
+    achCek(true, 2600);
+  }
+  renderLevel();
+  return dapat;
+}
+// bila level naik -> beri tahu. Pencatatan pertama dilakukan diam-diam.
+function xpCekLevel(toast, tunda) {
+  if (!achSiap()) return;
+  var xpLama = achState.xpMax || 0;
+  var li = levelInfo();
+  var ubah = (achState.xpMax || 0) !== xpLama;
+  if (!achState.lvl) { achState.lvl = li.level; ubah = true; }
+  else if (li.level > achState.lvl) {
+    achState.lvl = li.level; ubah = true;
+    if (toast) setTimeout(function() { questToast('🎉 Naik level! Kamu sekarang Level ' + li.level + ' · ' + li.judul); }, tunda || 0);
+  }
+  if (ubah) achSimpan();
+}
+function levelHtml(li) {
+  return '<div class="lv-top"><span class="lv-badge">Lv ' + li.level + '</span><span class="lv-judul">' + kanaEsc(li.judul) +
+    '</span><span class="lv-xp">' + fmtAngka(li.xp) + ' XP</span></div>' +
+    '<div class="lv-bar"><i style="width:' + li.persen + '%"></i></div>' +
+    '<div class="lv-ket">' + fmtAngka(li.sisa) + ' XP lagi menuju Level ' + (li.level + 1) + '</div>';
+}
+function renderLevel() {
+  var el = document.getElementById('pf-level');
+  if (!el) return;
+  if (!achSiap()) { el.innerHTML = ''; return; }
+  el.innerHTML = levelHtml(levelInfo());
+}
+function xpKartuBelajar() {
+  var li = levelInfo(), box = elDiv('lv-box lebar');
+  box.innerHTML = levelHtml(li) +
+    '<div class="lv-rinci"><span>📚 Progres belajar</span><b>' + fmtAngka(li.dasar) + '</b></div>' +
+    '<div class="lv-rinci"><span>🏆 Achievement &amp; Bintang</span><b>' + fmtAngka(li.ach) + '</b></div>' +
+    '<div class="lv-rinci"><span>✨ Pengalaman memakai aplikasi</span><b>' + fmtAngka(li.akt) + '</b></div>' +
+    '<div class="lv-cat">Pengalaman dibatasi ' + XP_LIMIT_HARIAN + ' XP per hari.</div>';
+  return box;
+}
+
+// ===== PAPAN PERINGKAT (20 XP tertinggi; data dari sheet "Peringkat" lewat Peringkat.gs) =====
+var lbState = { status: 'idle', data: null, t: 0 };
+function muatPeringkat(paksa) {
+  if (!studentName) { renderPeringkat(); return; }
+  if (!paksa && lbState.data && Date.now() - lbState.t < 60000) { renderPeringkat(); return; }
+  if (lbState.status === 'memuat') return;
+  lbState.status = 'memuat';
+  renderPeringkat();
+  var nama = studentName, li = levelInfo();
+  function ambil() {
+    google.script.run
+      .withSuccessHandler(function(r) {
+        if (nama !== studentName) return;
+        lbState = { status: 'siap', data: r || { top: [] }, t: Date.now() };
+        // bila server mencatat XP-mu lebih tinggi (mis. pindah perangkat), pakai angka itu
+        if (r && r.saya && achSiap() && Number(r.saya.xp) > (achState.xpMax || 0)) {
+          achState.xpMax = Number(r.saya.xp);
+          achState.lvl = levelInfo().level;
+          achSimpan(); renderLevel(); renderHero();
+        }
+        renderPeringkat();
+      })
+      .withFailureHandler(function(err) {
+        lbState = { status: 'gagal', data: lbState.data, t: 0, pesan: (err && err.message) ? err.message : '' };
+        renderPeringkat();
+      })
+      .getPapanPeringkat(nama);
+  }
+  // kirim skor terbaru lebih dulu supaya posisimu akurat, apa pun hasilnya lanjut ambil papan
+  google.script.run.withSuccessHandler(ambil).withFailureHandler(ambil).simpanSkor(nama, studentClass, li.xp, li.level);
+}
+function renderPeringkat() {
+  var pane = document.getElementById('pg-pane-peringkat');
+  if (!pane) return;
+  var s = lbState, d = s.data;
+  if (!studentName) { pane.innerHTML = '<div class="qst-kosong">Silakan login dulu untuk melihat peringkat.</div>'; return; }
+  if (!d) {
+    pane.innerHTML = (s.status === 'gagal')
+      ? '<div class="qst-kosong">Papan peringkat belum bisa dimuat.' + (s.pesan ? '<br><small>' + kanaEsc(s.pesan) + '</small>' : '') +
+        '<br><b role="button" style="text-decoration:underline;cursor:pointer" onclick="muatPeringkat(true)">Coba lagi</b></div>'
+      : '<div class="qst-kosong">Memuat papan peringkat…</div>';
+    return;
+  }
+  var top = d.top || [], me = String(studentName).toLowerCase();
+  var h = '<div class="lb-head"><div class="ach-label" style="margin:0;">🏅 TOP 20 PELAJAR</div>' +
+    '<button type="button" class="lb-refresh" onclick="muatPeringkat(true)">' + (s.status === 'memuat' ? '⏳ Memuat…' : '↻ Segarkan') + '</button></div>';
+  if (d.saya) {
+    h += '<div class="lb-saya">Posisimu: <b>#' + d.saya.rank + '</b> dari ' + (d.total || top.length) + ' pelajar · <b>' +
+      fmtAngka(d.saya.xp) + ' XP</b> · Lv ' + d.saya.level + '</div>';
+  }
+  if (!top.length) h += '<div class="qst-kosong">Belum ada data peringkat. Jadilah yang pertama! 💪</div>';
+  var medali = ['🥇', '🥈', '🥉'];
+  top.forEach(function(r, i) {
+    var aku = String(r.nama).toLowerCase() === me;
+    var info = [r.kelas, r.batch].filter(function(x) { return x; }).map(kanaEsc).join(' · ');
+    h += '<div class="lb-row' + (i < 3 ? ' t' + (i + 1) : '') + (aku ? ' me' : '') + '">' +
+      '<div class="lb-rank">' + (i < 3 ? medali[i] : r.rank) + '</div>' +
+      '<div class="lb-info"><b>' + kanaEsc(r.nama) + (aku ? ' (Kamu)' : '') + '</b><small>' + (info || '-') + '</small></div>' +
+      '<div class="lb-skor"><b>' + fmtAngka(r.xp) + '</b><small>XP · Lv ' + r.level + '</small></div></div>';
+  });
+  h += '<div class="lv-cat">XP dari progres belajar, Achievement, dan pengalaman memakai aplikasi.</div>';
+  pane.innerHTML = h;
+}
+
 // ===== Sinkron Daily Quest (streak) & Achievement ke server, agar tidak hilang saat ganti perangkat =====
 var capaiTimer = null;
 function pencapaianKeServer() {
@@ -679,9 +847,12 @@ function pencapaianKeServer() {
       test: achState.test || 0,
       bestStreak: achState.bestStreak || 0,
       streak: questState.streak || 0,
-      lastDone: questState.lastDone || ''
+      lastDone: questState.lastDone || '',
+      xpAkt: achState.xpAkt || 0,
+      xpMax: levelInfo().xp
     };
     try { google.script.run.withFailureHandler(function() {}).simpanPencapaian(nama, JSON.stringify(data)); } catch (e) {}
+    try { google.script.run.withFailureHandler(function() {}).simpanSkor(nama, studentClass, data.xpMax, levelInfo().level); } catch (e) {}
   }, 1500);
 }
 // Gabungkan data server ke data perangkat (ambil yang terbesar / terbaru; tidak ada yang berkurang)
@@ -690,6 +861,8 @@ function gabungPencapaian(c) {
   c = (c && typeof c === 'object') ? c : {};
   (c.kanji || []).forEach(function(ch) { if (ch) achState.kanji[ch] = 1; });
   achState.test = Math.max(achState.test || 0, Number(c.test) || 0);
+  achState.xpAkt = Math.max(achState.xpAkt || 0, Number(c.xpAkt) || 0);
+  achState.xpMax = Math.max(achState.xpMax || 0, Number(c.xpMax) || 0);
   achState.bestStreak = Math.max(achState.bestStreak || 0, Number(c.bestStreak) || 0, Number(c.streak) || 0);
   var ld = String(c.lastDone || '');
   if (ld && ld > (questState.lastDone || '')) { questState.lastDone = ld; questState.streak = Number(c.streak) || 0; }
@@ -743,9 +916,9 @@ function renderQuest() {
 // ===== TAB PROGRES: Hari Ini (Daily Quest) | Belajar (statistik + level) | Pencapaian (lencana) =====
 var progTabAktif = 'hari';
 function progTab(nama) {
-  if (['hari', 'belajar', 'capai'].indexOf(nama) === -1) nama = 'hari';
+  if (['hari', 'belajar', 'capai', 'peringkat'].indexOf(nama) === -1) nama = 'hari';
   progTabAktif = nama;
-  ['hari', 'belajar', 'capai'].forEach(function(t) {
+  ['hari', 'belajar', 'capai', 'peringkat'].forEach(function(t) {
     var tb = document.getElementById('pg-tab-' + t), pn = document.getElementById('pg-pane-' + t);
     if (tb) tb.classList.toggle('aktif', t === nama);
     if (pn) pn.classList.toggle('hidden', t !== nama);
@@ -753,11 +926,14 @@ function progTab(nama) {
   renderHero();
   if (nama === 'hari') renderQuest();
   else if (nama === 'belajar') { renderBelajarLevel(); bukaRiwayat(); }
+  else if (nama === 'peringkat') muatPeringkat(false);
   else renderCapai();
 }
 function bukaProgres() { progTab(progTabAktif); }
 // banner Quest di Home -> langsung ke Progres > Hari Ini
 function bukaQuest() { progTabAktif = 'hari'; pindahTab('statistik'); }
+// tombol Papan Peringkat di Profile -> Progres > Peringkat
+function bukaPeringkat() { progTabAktif = 'peringkat'; pindahTab('statistik'); }
 
 // ===== MENU BAR BAWAH (Home, Profile, Statistik, Pesan, Setting) =====
 var tabAktif = 'home';
@@ -783,6 +959,7 @@ function renderProfil() {
   document.getElementById('pf-kelas').textContent = studentClass ? '🎓 Kelas ' + studentClass : '-';
   var st = (typeof QUEST !== 'undefined' && QUEST.streak) ? QUEST.streak : 0;
   document.getElementById('pf-streak').textContent = st > 0 ? '🔥 ' + st + ' Hari Berturut-turut!' : '🔥 Mulai streak-mu hari ini!';
+  renderLevel();
 }
 
 // ===== Sapaan di Menu Utama =====
@@ -979,6 +1156,7 @@ function resetProgressLokal() {
   progressUser = '';
   questState = null; questUser = '';
   achState = null; achUser = '';
+  lbState = { status: 'idle', data: null, t: 0 };
   lencanaKotoba = {};
   perbaruiLencana();
   avatarId = '';
@@ -1835,6 +2013,13 @@ function selesaikanTestOtomatis() {
   var keteranganJenisTest = currentMenu + ", " + selectedBabForTest + " (" + jenisTestNama + ")";
   var rankUnik = getRankTitle(quizScore);
 
+  // XP pengalaman: tiap jawaban benar bernilai 2 XP + 5 XP karena menyelesaikan test
+  var xpDapat = 0;
+  if ((currentTestMode === 'pg' || currentTestMode === 'tulis') && totalSoal > 0) {
+    xpDapat = xpTambah(5 + jumlahBenar * 2, 'Test', true);
+    achCek(true, 900);
+  }
+
   // Quest harian: Test Pilihan Ganda dikerjakan sampai semua soal terjawab
   if (currentTestMode === 'pg' && totalSoal > 0 && currentQuizIndex >= totalSoal) questCatatTest();
 
@@ -1859,7 +2044,7 @@ function selesaikanTestOtomatis() {
     "Jumlah Soal: " + totalSoal + " Soal\n" +
     barisBenarSalah +
     "Waktu Pengerjaan: " + completionTimeFormatted + "\n" +
-    "Skor Akhir: " + quizScore + "\n\n" +
+    "Skor Akhir: " + quizScore + (xpDapat ? "\n✨ XP didapat: +" + xpDapat : "") + "\n\n" +
     "Your Rank: " + rankUnik + teksLencana,
     function() {
       document.getElementById('data-page').classList.remove('hidden');
@@ -2668,7 +2853,12 @@ function kanaLatSiapSoal() {
 function kanaLatLanjut() {
   var l = kanaLat;
   l.i++;
-  if (l.i >= l.antrian.length) { l.tahap = 'hasil'; l.token++; kanaLatRender(); window.scrollTo(0, 0); return; }
+  if (l.i >= l.antrian.length) {
+    l.tahap = 'hasil'; l.token++;
+    var bnr = 0; Object.keys(l.pertama).forEach(function (k) { if (l.pertama[k]) bnr++; });
+    xpTambah(5 + bnr, 'Latihan Kana');
+    kanaLatRender(); window.scrollTo(0, 0); return;
+  }
   kanaLatSiapSoal();
   kanaLatRender(); window.scrollTo(0, 0);
 }
@@ -3051,6 +3241,7 @@ function ujianTanggal(t) {
 function ujianCatatHasil() {
   var k = ujianKuis; if (!k || k.tercatat) return;
   k.tercatat = true;
+  xpTambah(10 + (k.skor || 0) * 2, 'Ujian');
   var d = ujianMuatSkor(), n = k.list.length;
   var lama = d.best[k.kunciSkor];
   k.rekorLama = lama || null;
