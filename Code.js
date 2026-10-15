@@ -4418,12 +4418,14 @@ document.addEventListener('keydown', function (e) {
 // Sumber dicoba berurutan. Paling andal: unggah file mp3 ke folder aplikasi (sejajar index.html),
 // lalu letakkan namanya paling atas, mis. 'musik-latar.mp3'.
 var MUSIK_SUMBER = [
+  'musik-latar.mp3',
   'https://drive.usercontent.google.com/download?id=1AgHsFG641Ru_XK9vO8jD7f1patFCYtZ4&export=download&confirm=t',
   'https://drive.google.com/uc?export=download&id=1AgHsFG641Ru_XK9vO8jD7f1patFCYtZ4'
 ];
+var MUSIK_DRIVE_ID = '1AgHsFG641Ru_XK9vO8jD7f1patFCYtZ4';
 var MUSIK_VOLUME = 0.35;
 var MUSIK_KUNCI = 'kotoba_musik';
-var musik = { el: null, idx: 0, gagal: false, tunggu: false, fade: null };
+var musik = { el: null, idx: 0, gagal: false, tunggu: false, fade: null, server: false };
 
 function musikAktif() {
   var v = null;
@@ -4458,7 +4460,33 @@ function musikSiapkan() {
     if (musik.idx < MUSIK_SUMBER.length) {
       a.src = MUSIK_SUMBER[musik.idx];
       if (musikAktif() && musikDiMenuUtama()) musikMain();
+    } else if (!musik.server) {           // semua alamat gagal -> ambil file lewat Apps Script (base64)
+      musik.server = true;
+      musikViaServer(a);
     } else {
+      musikGagal(a);
+    }
+  };
+  a.src = MUSIK_SUMBER[0];
+  musik.el = a;
+}
+function musikViaServer(a) {
+  var ok = false;
+  try { ok = !!(window.google && google.script && google.script.run); } catch (e) {}
+  if (!ok) { musikGagal(a); return; }
+  musikKet('Memuat musik lewat server…', false);
+  google.script.run
+    .withSuccessHandler(function(d) {
+      if (!d || !d.data) { musikGagal(a); return; }
+      a.src = 'data:' + (d.mime || 'audio/mpeg') + ';base64,' + d.data;   // jika gagal lagi, onerror -> musikGagal
+      if (musikAktif() && musikDiMenuUtama()) musikMain();
+    })
+    .withFailureHandler(function() { musikGagal(a); })
+    .getChoukaiAudio(MUSIK_DRIVE_ID);
+}
+function musikGagal(a) {
+  {
+    {
       musik.gagal = true;
       var kode = a.error ? a.error.code : 0;          // 2 = jaringan, 3 = gagal diputar, 4 = alamat/format tidak didukung
       try { console.warn('[musik] gagal dimuat, kode MediaError =', kode, MUSIK_SUMBER); } catch (e) {}
@@ -4466,9 +4494,7 @@ function musikSiapkan() {
         ? 'Alamat tidak bisa diputar: cek izin berbagi file, atau pakai file mp3 di folder aplikasi.'
         : 'Periksa koneksi internet.'), true);
     }
-  };
-  a.src = MUSIK_SUMBER[0];
-  musik.el = a;
+  }
 }
 // ubah volume perlahan; selesai() dipanggil di akhir
 function musikFade(target, ms, selesai) {
@@ -4518,7 +4544,7 @@ function musikSinkron() {
 function setMusik(hidup) {
   try { localStorage.setItem(MUSIK_KUNCI, hidup ? '1' : '0'); } catch (e) {}
   musikTombol();
-  if (hidup) { musik.gagal = false; musik.idx = 0; if (musik.el) musik.el.src = MUSIK_SUMBER[0]; }
+  if (hidup) { musik.gagal = false; musik.idx = 0; musik.server = false; if (musik.el) musik.el.src = MUSIK_SUMBER[0]; }
   musikSinkron();
   if (typeof questToast === 'function') questToast(hidup ? '🎵 Musik dihidupkan' : '🔇 Musik dimatikan');
 }
@@ -4562,7 +4588,30 @@ function ttsPesan() {
   var teks = 'Suara bahasa Jepang belum tersedia di perangkat ini. Pasang suara "Japanese" di pengaturan Text-to-speech, atau periksa koneksi internet.';
   if (typeof tampilkanCustomAlert === 'function') tampilkanCustomAlert('Suara belum tersedia 🔇', teks);
 }
+function ttsPutar(src, gagal) {
+  try {
+    var a = new Audio(src);
+    tts.audio = a;
+    a.onerror = gagal;
+    var p = a.play();
+    if (p && p.catch) p.catch(gagal);
+  } catch (e) { gagal(); }
+}
 function ttsCadangan(t) {
+  var langsung = function() { ttsLangsung(t); };
+  var ok = false;
+  try { ok = !!(window.google && google.script && google.script.run); } catch (e) {}
+  if (!ok) { langsung(); return; }
+  // lewat server Apps Script (fungsi getTtsAudio di Code.gs); browser sering memblokir Google Translate langsung
+  google.script.run
+    .withSuccessHandler(function(d) {
+      if (!d || !d.data) { langsung(); return; }
+      ttsPutar('data:' + (d.mime || 'audio/mpeg') + ';base64,' + d.data, langsung);
+    })
+    .withFailureHandler(langsung)
+    .getTtsAudio(t);
+}
+function ttsLangsung(t) {
   try {
     var a = new Audio('https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=ja&q=' + encodeURIComponent(t));
     tts.audio = a;
