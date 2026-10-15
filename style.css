@@ -1730,37 +1730,11 @@ html.dark .musik-switch button.aktif { background:#8b5cf6 !important; color:#fff
 html.dark .musik-ket.galat { color:#f87171; }
 
 
-/* ===== Tab Profil: poles tampilan ===== */
-.pf-card { position: relative; overflow: hidden; }
-.pf-card::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 74px; z-index: 0;
-  background: linear-gradient(120deg, #60a5fa 0%, #818cf8 50%, #f472b6 100%); opacity: .9; }
-.pf-card > * { position: relative; z-index: 1; }
-#pf-avatar { border-color: #fff !important; box-shadow: 0 6px 18px rgba(37, 99, 235, .35) !important; }
-html.dark .pf-card::before { background: linear-gradient(120deg, #1e3a8a 0%, #4338ca 50%, #9d174d 100%); opacity: .95; }
-html.dark #pf-avatar { border-color: #0f172a !important; box-shadow: 0 0 0 2px #60a5fa, 0 0 18px rgba(96, 165, 250, .55) !important; }
-.pf-nama { margin-top: 2px; letter-spacing: .2px; }
-@keyframes pfApi { 0%, 100% { box-shadow: 0 0 0 rgba(251, 146, 60, 0); } 50% { box-shadow: 0 0 14px rgba(251, 146, 60, .45); } }
-.pf-streak { animation: pfApi 2.8s ease-in-out infinite; }
-@media (prefers-reduced-motion: reduce) { .pf-streak { animation: none; } }
-
-/* Tombol aksi (Ganti Foto & Papan Peringkat): kartu selaras dengan kartu profil */
-.pf-aksi-list { display: flex; flex-direction: column; gap: 10px; }
-button.pf-aksi { display: flex !important; flex-direction: row !important; align-items: center; gap: 12px; width: 100% !important; max-width: 100% !important; margin: 0 !important; padding: 12px 14px !important;
-  border-radius: 16px !important; text-align: left; cursor: pointer; font-family: inherit; letter-spacing: 0;
-  background: #fff !important; color: #1e293b !important; border: 1px solid #e2e8f0 !important; box-shadow: 0 4px 14px rgba(15, 23, 42, .07) !important; }
-button.pf-aksi:active { transform: scale(.98); filter: none; box-shadow: 0 2px 8px rgba(15, 23, 42, .08) !important; }
-.pf-aksi-ikon { flex: 0 0 auto; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; font-size: 22px; border-radius: 13px; }
-.pf-aksi-foto .pf-aksi-ikon { background: #eff6ff; border: 1px solid #bfdbfe; }
-.pf-aksi-rank .pf-aksi-ikon { background: #fffbeb; border: 1px solid #fde68a; }
-.pf-aksi-teks { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.pf-aksi-teks b { display: block; font-size: 15px; font-weight: 800; color: #1e293b; }
-.pf-aksi-teks small { display: block; font-size: 12px; font-weight: 600; color: #64748b; }
-.pf-aksi-panah { flex: 0 0 auto; font-size: 24px; font-weight: 700; color: #94a3b8; line-height: 1; }
-html.dark button.pf-aksi { background: #0f172a !important; color: #f1f5f9 !important; border-color: #334155 !important; box-shadow: 0 2px 8px rgba(0, 0, 0, .35) !important; }
-html.dark button.pf-aksi-foto { border-color: rgba(96, 165, 250, .45) !important; }
-html.dark button.pf-aksi-rank { border-color: rgba(251, 191, 36, .4) !important; }
-html.dark .pf-aksi-foto .pf-aksi-ikon { background: rgba(59, 130, 246, .18); border-color: rgba(96, 165, 250, .4); }
-html.dark .pf-aksi-rank .pf-aksi-ikon { background: rgba(251, 191, 36, .14); border-color: rgba(251, 191, 36, .4); }
-html.dark .pf-aksi-teks b { color: #f1f5f9; }
-html.dark .pf-aksi-teks small { color: #94a3b8; }
-html.dark .pf-aksi-panah { color: #64748b; }
+/* ===== TOKO (placeholder) ===== */
+.toko-kosong { margin: 10px 0; padding: 36px 20px; text-align: center; border-radius: 18px; background: #f5f3ff; border: 2px dashed #c4b5fd; }
+.toko-ico { font-size: 52px; line-height: 1.1; }
+.toko-judul { margin-top: 10px; font-size: 18px; font-weight: 800; color: #5b21b6; }
+.toko-ket { margin-top: 6px; font-size: 13px; font-weight: 600; color: #6b7280; }
+html.dark .toko-kosong { background: #1a1533; border-color: #4c1d95; }
+html.dark .toko-judul { color: #c4b5fd; }
+html.dark .toko-ket { color: #94a3b8; }

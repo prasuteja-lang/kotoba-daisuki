@@ -92,7 +92,8 @@ var APP_UPDATE_INTRO = "Ada pembaruan baru, silakan dicek ya minna-san";
 var APP_UPDATE_LIST = [
   { ico: '⭐', tag: 'NEW', judul: 'Sistem Level', isi: 'Sekarang ada Level! XP didapat dari progres belajar, Achievement, dan pengalaman memakai aplikasi (test, ujian, latihan kana, daily quest). Lihat levelmu di menu Profile dan Progres.' },
   { ico: '🏅', tag: 'NEW', judul: 'Papan Peringkat', isi: 'Bersaing sehat dengan teman! Papan Peringkat menampilkan 20 pelajar dengan XP tertinggi lengkap dengan Group dan Batch. Buka lewat Profile atau Progres > Peringkat.' },
-  { ico: '🎵', tag: 'NEW', judul: 'Musik Latar', isi: 'Sekarang ada musik yang mengalun di Menu Utama. Kalau mengganggu, matikan lewat menu Setting > Musik Mati.' }
+  { ico: '🎵', tag: 'NEW', judul: 'Musik Latar', isi: 'Sekarang ada musik yang mengalun selama kamu belajar. Kalau mengganggu, matikan lewat menu Setting > Musik Mati.' },
+  { ico: '🛒', tag: 'NEW', judul: 'Menu Toko & Tata Letak Baru', isi: 'Menu bawah kini punya Toko (isinya menyusul). Tombol Progres pindah ke menu Profile, dan foto profil bisa diganti langsung dengan mengetuk fotonya.' }
 ];
 
 var APP_UPDATE_OUTRO = "Pastikan Versi-nya sesuai Update terbaru ya minna-san, jika belum silakan untuk refresh kembali. Semoga makin seru dan lancar belajarnya, ganbatte ne! Arigatou ne 🙏";
@@ -936,9 +937,9 @@ function bukaQuest() { progTabAktif = 'hari'; pindahTab('statistik'); }
 // tombol Papan Peringkat di Profile -> Progres > Peringkat
 function bukaPeringkat() { progTabAktif = 'peringkat'; pindahTab('statistik'); }
 
-// ===== MENU BAR BAWAH (Home, Profile, Statistik, Pesan, Setting) =====
+// ===== MENU BAR BAWAH (Home, Profile, Toko, Pesan, Setting) — Progres ('statistik') dibuka dari Profile =====
 var tabAktif = 'home';
-var TAB_NAMA = ['home', 'profile', 'statistik', 'pesan', 'setting'];
+var TAB_NAMA = ['home', 'profile', 'statistik', 'toko', 'pesan', 'setting'];
 function pindahTab(nama) {
   if (TAB_NAMA.indexOf(nama) === -1) nama = 'home';
   tabAktif = nama;
@@ -946,7 +947,8 @@ function pindahTab(nama) {
     var pane = document.getElementById('tab-' + t);
     if (pane) pane.classList.toggle('hidden', t !== nama);
     var btn = document.getElementById(t === 'pesan' ? 'mm-bell' : 'bn-' + t);
-    if (btn) btn.classList.toggle('aktif', t === nama);
+    // Progres tidak punya tombol di menu bawah; saat Progres terbuka, tombol Profile yang menyala
+    if (btn) btn.classList.toggle('aktif', t === nama || (t === 'profile' && nama === 'statistik'));
   });
   if (nama === 'profile') renderProfil();
   else if (nama === 'statistik') bukaProgres();
@@ -4410,31 +4412,30 @@ document.addEventListener('keydown', function (e) {
 
 
 /* =====================================================================
-   MUSIK LATAR (hanya diputar saat Menu Utama tampil)
-   - Berhenti otomatis saat masuk ke halaman belajar/test/video, lanjut lagi saat kembali ke Menu Utama.
-   - Dijeda saat aplikasi ke latar belakang. Pilihan hidup/mati disimpan di perangkat.
+   MUSIK LATAR (mulai saat masuk Menu Utama, terus memutar di semua halaman selama sudah login)
+   - Berhenti saat logout & saat aplikasi ke latar belakang. Pilihan hidup/mati disimpan di perangkat.
+   - Otomatis dijeda saat ada audio lain (Choukai, audio Ujian, suara cadangan) lalu lanjut lagi;
+     saat suara bacaan 🔊 berbunyi, volume musik diturunkan sebentar.
    - Browser/WebView sering menolak suara otomatis: bila ditolak, musik mulai pada sentuhan pertama.
    ===================================================================== */
 // Sumber dicoba berurutan. Paling andal: unggah file mp3 ke folder aplikasi (sejajar index.html),
 // lalu letakkan namanya paling atas, mis. 'musik-latar.mp3'.
 var MUSIK_SUMBER = [
-  'musik-latar.mp3',
   'https://drive.usercontent.google.com/download?id=1AgHsFG641Ru_XK9vO8jD7f1patFCYtZ4&export=download&confirm=t',
   'https://drive.google.com/uc?export=download&id=1AgHsFG641Ru_XK9vO8jD7f1patFCYtZ4'
 ];
-var MUSIK_DRIVE_ID = '1AgHsFG641Ru_XK9vO8jD7f1patFCYtZ4';
 var MUSIK_VOLUME = 0.35;
 var MUSIK_KUNCI = 'kotoba_musik';
-var musik = { el: null, idx: 0, gagal: false, tunggu: false, fade: null, server: false };
+var musik = { el: null, idx: 0, gagal: false, tunggu: false, fade: null, sesi: false, dijeda: false, lain: [] };
 
 function musikAktif() {
   var v = null;
   try { v = localStorage.getItem(MUSIK_KUNCI); } catch (e) {}
   return v !== '0';                       // bawaan: hidup
 }
-function musikDiMenuUtama() {
-  var m = document.getElementById('main-menu-page');
-  return !!m && !m.classList.contains('hidden') && !document.hidden;
+// boleh memutar bila: musik hidup, sudah masuk aplikasi (sesi), aplikasi tampil, dan tidak sedang dijeda audio lain
+function musikBoleh() {
+  return musikAktif() && musik.sesi && !document.hidden && !musik.dijeda;
 }
 function musikKet(teks, galat) {
   var k = document.getElementById('musik-ket');
@@ -4459,34 +4460,8 @@ function musikSiapkan() {
     musik.idx++;
     if (musik.idx < MUSIK_SUMBER.length) {
       a.src = MUSIK_SUMBER[musik.idx];
-      if (musikAktif() && musikDiMenuUtama()) musikMain();
-    } else if (!musik.server) {           // semua alamat gagal -> ambil file lewat Apps Script (base64)
-      musik.server = true;
-      musikViaServer(a);
+      if (musikBoleh()) musikMain();
     } else {
-      musikGagal(a);
-    }
-  };
-  a.src = MUSIK_SUMBER[0];
-  musik.el = a;
-}
-function musikViaServer(a) {
-  var ok = false;
-  try { ok = !!(window.google && google.script && google.script.run); } catch (e) {}
-  if (!ok) { musikGagal(a); return; }
-  musikKet('Memuat musik lewat server…', false);
-  google.script.run
-    .withSuccessHandler(function(d) {
-      if (!d || !d.data) { musikGagal(a); return; }
-      a.src = 'data:' + (d.mime || 'audio/mpeg') + ';base64,' + d.data;   // jika gagal lagi, onerror -> musikGagal
-      if (musikAktif() && musikDiMenuUtama()) musikMain();
-    })
-    .withFailureHandler(function() { musikGagal(a); })
-    .getChoukaiAudio(MUSIK_DRIVE_ID);
-}
-function musikGagal(a) {
-  {
-    {
       musik.gagal = true;
       var kode = a.error ? a.error.code : 0;          // 2 = jaringan, 3 = gagal diputar, 4 = alamat/format tidak didukung
       try { console.warn('[musik] gagal dimuat, kode MediaError =', kode, MUSIK_SUMBER); } catch (e) {}
@@ -4494,7 +4469,9 @@ function musikGagal(a) {
         ? 'Alamat tidak bisa diputar: cek izin berbagi file, atau pakai file mp3 di folder aplikasi.'
         : 'Periksa koneksi internet.'), true);
     }
-  }
+  };
+  a.src = MUSIK_SUMBER[0];
+  musik.el = a;
 }
 // ubah volume perlahan; selesai() dipanggil di akhir
 function musikFade(target, ms, selesai) {
@@ -4520,13 +4497,13 @@ function musikTungguSentuhan() {
   ev.forEach(function(e) { document.addEventListener(e, mulai, true); });
 }
 function musikMain() {
-  if (musik.gagal || !musikAktif() || !musikDiMenuUtama()) return;
+  if (musik.gagal || !musikBoleh()) return;
   musikSiapkan();
   var p = null;
   try { p = musik.el.play(); } catch (e) {}
   if (p && p.then) {
     p.then(function() {
-      musikKet('Musik latar diputar di Menu Utama.', false);
+      musikKet('Musik latar diputar selama kamu memakai aplikasi.', false);
       musikFade(MUSIK_VOLUME, 900);
     }, function(err) {
       if (err && err.name === 'NotAllowedError') musikTungguSentuhan();   // belum ada sentuhan: tunggu
@@ -4539,23 +4516,70 @@ function musikHenti() {
 }
 // satu pintu: putar bila hidup & di Menu Utama, selain itu hentikan
 function musikSinkron() {
-  if (musikAktif() && musikDiMenuUtama()) musikMain(); else musikHenti();
+  if (musikBoleh()) musikMain(); else musikHenti();
 }
 function setMusik(hidup) {
   try { localStorage.setItem(MUSIK_KUNCI, hidup ? '1' : '0'); } catch (e) {}
   musikTombol();
-  if (hidup) { musik.gagal = false; musik.idx = 0; musik.server = false; if (musik.el) musik.el.src = MUSIK_SUMBER[0]; }
+  if (hidup) { musik.gagal = false; musik.idx = 0; if (musik.el) musik.el.src = MUSIK_SUMBER[0]; }
   musikSinkron();
   if (typeof questToast === 'function') questToast(hidup ? '🎵 Musik dihidupkan' : '🔇 Musik dimatikan');
 }
+// ---- sesi: mulai saat Menu Utama tampil, berakhir saat halaman login tampil kembali (logout) ----
+function musikCekSesi() {
+  var m = document.getElementById('main-menu-page'), id = document.getElementById('student-identity-page');
+  if (m && !m.classList.contains('hidden')) musik.sesi = true;
+  else if (id && !id.classList.contains('hidden')) musik.sesi = false;
+  musikSinkron();
+}
+
+// ---- jeda otomatis saat audio lain berbunyi ----
+function musikAdaLain() { return musik.lain.some(function(e) { return !e.paused && !e.ended; }); }
+function musikLainSelesai() {
+  musik.lain = musik.lain.filter(function(e) { return !e.paused && !e.ended && !e.error; });
+  if (!musikAdaLain() && musik.dijeda) { musik.dijeda = false; musikSinkron(); }
+}
+function musikCatatLain(el) {
+  if (!el || el === musik.el) return;
+  if (musik.lain.indexOf(el) === -1) musik.lain.push(el);
+  if (!el._mkPantau) {
+    el._mkPantau = true;
+    ['pause', 'ended', 'emptied', 'error'].forEach(function(ev) { el.addEventListener(ev, musikLainSelesai); });
+  }
+  if (!musik.dijeda) { musik.dijeda = true; musikHenti(); }
+}
+// turunkan volume sebentar saat suara bacaan (Web Speech) berbunyi
+function musikDuck(on) {
+  if (!musik.el || musik.el.paused || musik.dijeda) return;
+  musikFade(on ? MUSIK_VOLUME * 0.3 : MUSIK_VOLUME, 250);
+}
+
 (function() {
-  var m = document.getElementById('main-menu-page');
-  if (m && window.MutationObserver) {
-    new MutationObserver(musikSinkron).observe(m, { attributes: true, attributeFilter: ['class'] });
+  var m = document.getElementById('main-menu-page'), id = document.getElementById('student-identity-page');
+  if (window.MutationObserver) {
+    var ob = new MutationObserver(musikCekSesi);
+    if (m) ob.observe(m, { attributes: true, attributeFilter: ['class'] });
+    if (id) ob.observe(id, { attributes: true, attributeFilter: ['class'] });
   }
   document.addEventListener('visibilitychange', musikSinkron);
+  // audio di halaman (kontrol bawaan <audio>) -> peristiwa play ditangkap di tahap capture
+  document.addEventListener('play', function(e) {
+    var t = e.target;
+    if (t && (t.tagName === 'AUDIO' || t.tagName === 'VIDEO')) musikCatatLain(t);
+  }, true);
+  // audio buatan skrip (new Audio(...)) tidak ada di halaman: bungkus play()
+  try {
+    var asli = HTMLMediaElement.prototype.play;
+    HTMLMediaElement.prototype.play = function() {
+      var el = this;
+      musikCatatLain(el);
+      var p = asli.apply(el, arguments);
+      if (p && p.catch) p.catch(function() { musikLainSelesai(); });   // ditolak browser -> jangan tahan musik
+      return p;
+    };
+  } catch (e) {}
   musikTombol();
-  musikSinkron();
+  musikCekSesi();
 })();
 
 
@@ -4588,30 +4612,7 @@ function ttsPesan() {
   var teks = 'Suara bahasa Jepang belum tersedia di perangkat ini. Pasang suara "Japanese" di pengaturan Text-to-speech, atau periksa koneksi internet.';
   if (typeof tampilkanCustomAlert === 'function') tampilkanCustomAlert('Suara belum tersedia 🔇', teks);
 }
-function ttsPutar(src, gagal) {
-  try {
-    var a = new Audio(src);
-    tts.audio = a;
-    a.onerror = gagal;
-    var p = a.play();
-    if (p && p.catch) p.catch(gagal);
-  } catch (e) { gagal(); }
-}
 function ttsCadangan(t) {
-  var langsung = function() { ttsLangsung(t); };
-  var ok = false;
-  try { ok = !!(window.google && google.script && google.script.run); } catch (e) {}
-  if (!ok) { langsung(); return; }
-  // lewat server Apps Script (fungsi getTtsAudio di Code.gs); browser sering memblokir Google Translate langsung
-  google.script.run
-    .withSuccessHandler(function(d) {
-      if (!d || !d.data) { langsung(); return; }
-      ttsPutar('data:' + (d.mime || 'audio/mpeg') + ';base64,' + d.data, langsung);
-    })
-    .withFailureHandler(langsung)
-    .getTtsAudio(t);
-}
-function ttsLangsung(t) {
   try {
     var a = new Audio('https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=ja&q=' + encodeURIComponent(t));
     tts.audio = a;
@@ -4637,9 +4638,10 @@ function bacaJepang(teks) {
   if (ja) u.voice = ja;
   u.rate = 0.85;
   var mulai = false;
-  u.onstart = function() { mulai = true; clearTimeout(tts.timer); };
+  u.onstart = function() { mulai = true; clearTimeout(tts.timer); musikDuck(true); };
+  u.onend = function() { musikDuck(false); };
   u.onerror = function(e) {
-    clearTimeout(tts.timer);
+    clearTimeout(tts.timer); musikDuck(false);
     if (!e || (e.error !== 'canceled' && e.error !== 'interrupted')) ttsCadangan(t);
   };
   try { speechSynthesis.resume(); } catch (e) {}
