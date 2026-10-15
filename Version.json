@@ -1,6 +1,7 @@
 {
+  "version": "2.5.0",
   "versionCode": 3,
   "versionName": "2.3",
-  "apkUrl": "https://stellar-snickerdoodle-f87f30.netlify.app/kanjidaisuki.apk",
+  "apkUrl": "https://prasuteja-lang.github.io/kotoba-daisuki/kanjidaisuki.apk",
   "catatan": "Tombol tema dipindah ke atas dan ditambah fitur cek update aplikasi."
 }
