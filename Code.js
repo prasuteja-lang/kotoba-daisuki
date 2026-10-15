@@ -2821,6 +2821,7 @@ function ujianFuriTeks(s) {
   var arr = [];
   if (s.soal) arr.push(s.soal);
   if (s.teks) arr.push(s.teks);
+  if (s.dokkaiTeks) arr.push(s.dokkaiTeks);
   if (!ujianModeMoji(s) && s.opsi) s.opsi.forEach(function (o) { if (o) arr.push(o); });
   return arr.map(ujianBersih).filter(function (t) { return t && t.length <= 400 && UJIAN_RE_KANJI.test(t); });
 }
@@ -3007,10 +3008,20 @@ function ujianRenderKuis() {
   h += '<div class="uj-judul">' + kanaEsc(k.judul) + '</div>';
   h += '<div class="uj-kartu">';
   if (s.mondai) h += '<div class="uj-tag">' + kanaEsc(s.mondai) + '</div>';
+  if (s.dokkai) {
+    var anggota = [], posDk = 0;
+    for (var q = 0; q < n; q++) if (k.list[q].dokkai === s.dokkai) { if (q === k.i) posDk = anggota.length; anggota.push(q); }
+    h += '<div class="uj-dokkai"><div class="uj-dokkai-judul">📖 Teks Dokkai <span>Pertanyaan ' + (posDk + 1) + ' dari ' + anggota.length + '</span></div>';
+    if (s.dokkaiAudio) h += '<audio class="uj-audio" controls preload="none" src="' + kanaEsc(s.dokkaiAudio) + '"></audio>';
+    if (s.dokkaiGambar) h += '<img class="uj-dokkai-img" src="' + kanaEsc(s.dokkaiGambar) + '" alt="Teks Dokkai" onclick="this.classList.toggle(\'zoom\')" onerror="this.style.display=\'none\'">';
+    if (s.dokkaiTeks) h += '<div class="uj-teks">' + ujianTeksFuri(s.dokkaiTeks, false) + '</div>';
+    h += '</div>';
+  }
   if (s.audio) h += '<audio class="uj-audio" controls preload="none" src="' + kanaEsc(s.audio) + '"></audio>';
   if (s.gambar) h += '<img class="uj-gambar" src="' + kanaEsc(s.gambar) + '" alt="" onerror="this.style.display=\'none\'">';
   if (s.teks) h += '<div class="uj-teks">' + ujianTeksFuri(s.teks, false) + '</div>';
   if (s.soal) h += '<div class="uj-soal">' + ujianTeksFuri(s.soal, ujianModeMoji(s)) + '</div>';
+  else if (s.dokkai) h += '<div class="uj-soal-dokkai">Pilih jawaban yang paling tepat' + (s.no ? ' (No. ' + kanaEsc(s.no) + ')' : '') + '</div>';
   h += '</div><div class="uj-opsi">';
   for (var p = 0; p < urut.length; p++) {
     var kls = 'uj-op';
