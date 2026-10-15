@@ -39,6 +39,26 @@
   <script>__css('kanji.css')</script>
   <script>__css('bunpou.css')</script>
   <script>__css('kanji-challenge.css')</script>
+  <style>
+/* Baris menu di halaman Profile (Progres, Papan Peringkat): kartu + kotak ikon + tanda panah */
+.pf-row { display: flex; align-items: center; gap: 14px; padding: 12px 14px; margin: 0 0 12px; cursor: pointer; user-select: none; text-align: left;
+  background: #fff; border: 1px solid #e2e8f0; border-radius: 18px; box-shadow: 0 4px 14px rgba(15, 23, 42, .07);
+  -webkit-tap-highlight-color: transparent; transition: transform .15s ease; }
+.pf-row:active { transform: scale(.98); }
+.pf-ico { flex: none; width: 46px; height: 46px; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 24px;
+  background: var(--pbg); border: 1px solid var(--pbd); }
+.pf-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.pf-txt b { font-size: 16px; font-weight: 700; color: #1e293b; }
+.pf-txt small { margin-top: 2px; font-size: 12.5px; color: #64748b; }
+.pf-go { flex: none; font-size: 24px; line-height: 1; color: #94a3b8; }
+.pf-blue { --pa: #3b82f6; --pbg: #eff6ff; --pbd: #bfdbfe; }
+.pf-gold { --pa: #f59e0b; --pbg: #fffbeb; --pbd: #fde68a; }
+html.dark .pf-row { background: #0f172a; border-color: color-mix(in srgb, var(--pa) 45%, transparent); box-shadow: 0 6px 16px rgba(0, 0, 0, .35); }
+html.dark .pf-ico { background: color-mix(in srgb, var(--pa) 14%, #0f172a); border-color: color-mix(in srgb, var(--pa) 50%, transparent); }
+html.dark .pf-txt b { color: #f1f5f9; }
+html.dark .pf-txt small { color: #94a3b8; }
+html.dark .pf-go { color: #64748b; }
+  </style>
 </head>
 <body>
 
