@@ -1728,3 +1728,25 @@ html.dark .musik-switch { background:#0f172a; border-color:#334155; }
 html.dark .musik-switch button { color:#94a3b8 !important; }
 html.dark .musik-switch button.aktif { background:#8b5cf6 !important; color:#fff !important; }
 html.dark .musik-ket.galat { color:#f87171; }
+
+
+/* ===== Tombol aksi di tab Profil (selaras dengan kartu profil) ===== */
+.pf-aksi-list { display: flex; flex-direction: column; gap: 10px; }
+.pf-aksi { display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px 14px; border-radius: 16px; text-align: left; cursor: pointer; font-family: inherit;
+  background: #fff; border: 1px solid #e2e8f0; box-shadow: 0 4px 14px rgba(15, 23, 42, .07); color: #1e293b; transition: transform .12s, border-color .15s; }
+.pf-aksi:active { transform: scale(.98); }
+.pf-aksi-ikon { flex: 0 0 auto; width: 42px; height: 42px; display: flex; align-items: center; justify-content: center; font-size: 22px; border-radius: 12px; }
+.pf-aksi-foto .pf-aksi-ikon { background: #eff6ff; border: 1px solid #bfdbfe; }
+.pf-aksi-rank .pf-aksi-ikon { background: #fffbeb; border: 1px solid #fde68a; }
+.pf-aksi-teks { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.pf-aksi-teks b { font-size: 15px; font-weight: 800; color: #1e293b; }
+.pf-aksi-teks small { font-size: 12px; font-weight: 600; color: #64748b; }
+.pf-aksi-panah { flex: 0 0 auto; font-size: 24px; font-weight: 700; color: #94a3b8; line-height: 1; }
+html.dark .pf-aksi { background: #0f172a !important; border-color: #334155 !important; box-shadow: 0 2px 8px rgba(0, 0, 0, .35); }
+html.dark .pf-aksi-foto { border-color: rgba(96, 165, 250, .45) !important; }
+html.dark .pf-aksi-rank { border-color: rgba(251, 191, 36, .4) !important; }
+html.dark .pf-aksi-foto .pf-aksi-ikon { background: rgba(59, 130, 246, .18); border-color: rgba(96, 165, 250, .4); }
+html.dark .pf-aksi-rank .pf-aksi-ikon { background: rgba(251, 191, 36, .14); border-color: rgba(251, 191, 36, .4); }
+html.dark .pf-aksi-teks b { color: #f1f5f9; }
+html.dark .pf-aksi-teks small { color: #94a3b8; }
+html.dark .pf-aksi-panah { color: #64748b; }
