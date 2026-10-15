@@ -2467,6 +2467,7 @@ function kanaRender() {
   var baris = kanaState.bagian === 'dakuten' ? KANA_DAKUTEN : (kanaState.bagian === 'kombinasi' ? KANA_KOMBINASI : KANA_DASAR);
   var kata = kanaState.aksara === 'kata';
   var h = '';
+  var stat = kanaStatBaca(), nLemah = 0;
   kanaDaftar = [];
   for (var r = 0; r < baris.length; r++) {
     for (var c = 0; c < baris[r].length; c++) {
@@ -2475,23 +2476,15 @@ function kanaRender() {
       var k = kata ? kanaKeKata(sel[0]) : sel[0];
       var i = kanaDaftar.push({ k: k, r: sel[1] }) - 1;
       var ada = kanaContohDari(k).length ? ' ada' : '';
+      if (kanaLemah(k, stat)) { ada += ' lemah'; nLemah++; }
       h += '<div class="kn-cell' + ada + '" role="button" onclick="kanaBuka(' + i + ')"><span class="kn-kana">' + k + '</span><span class="kn-romaji">' + sel[1] + '</span></div>';
     }
   }
   var g = fbEl('kana-grid');
   g.className = 'kn-grid' + (kanaState.bagian === 'kombinasi' ? ' c3' : '');
   g.innerHTML = h;
-}
-
-function kanaSuara(teks) {
-  try {
-    if (window.speechSynthesis) {
-      window.speechSynthesis.cancel();
-      var u = new SpeechSynthesisUtterance(teks);
-      u.lang = 'ja-JP'; u.rate = 0.8;
-      window.speechSynthesis.speak(u);
-    }
-  } catch (e) {}
+  var inf = fbEl('kl-lemah-info');
+  if (inf) inf.innerHTML = nLemah ? '<span class="kl-titik"></span> ' + nLemah + ' huruf di tabel ini masih sering salah. Latih lagi lewat menu di bawah.' : '';
 }
 
 /* ---- lembar contoh kotoba (muncul dari bawah) ---- */
@@ -2500,7 +2493,6 @@ function kanaBuka(i) {
   kanaIdx = i;
   fbEl('kana-sheet').classList.remove('hidden');
   kanaIsiSheet();
-  kanaSuara(kanaDaftar[i].k);
 }
 function kanaTutup(ev) {
   if (ev && ev.target && ev.target.id !== 'kana-sheet' && ev.target.id !== 'ks-tutup') return;
@@ -2510,12 +2502,7 @@ function kanaTutup(ev) {
 function kanaGeser(arah) {
   var n = kanaIdx + arah;
   if (n < 0 || n >= kanaDaftar.length) return;
-  kanaIdx = n; kanaIsiSheet(); kanaSuara(kanaDaftar[n].k);
-}
-function kanaBicara() { if (kanaIdx >= 0) kanaSuara(kanaDaftar[kanaIdx].k); }
-function kanaBicaraKotoba(i) {
-  var l = kanaContohDari(kanaDaftar[kanaIdx].k);
-  if (l[i]) kanaSuara(l[i].kotoba);
+  kanaIdx = n; kanaIsiSheet();
 }
 function kanaIsiSheet() {
   var d = kanaDaftar[kanaIdx]; if (!d) return;
@@ -2530,11 +2517,10 @@ function kanaIsiSheet() {
     h += '<div class="fb-judul-kecil" style="margin-top:0;">Contoh kotoba</div>';
     for (var i = 0; i < list.length; i++) {
       var x = list[i];
-      h += '<div class="ks-contoh" role="button" onclick="kanaBicaraKotoba(' + i + ')">' +
+      h += '<div class="ks-contoh">' +
         '<div class="ks-kotoba">' + kanaEsc(x.kotoba) + '</div>' +
         '<div class="ks-info">' + (x.bacaKotoba ? '<span>' + kanaEsc(x.bacaKotoba) + '</span>' : '') +
-        (x.arti ? '<b>' + kanaEsc(x.arti) + '</b>' : '') + '</div>' +
-        '<span class="ks-spk">🔊</span></div>';
+        (x.arti ? '<b>' + kanaEsc(x.arti) + '</b>' : '') + '</div></div>';
     }
   } else if (kanaMuat === 'memuat' || kanaMuat === 'belum') {
     h = '<div class="fb-info">Memuat contoh kotoba...</div>';
@@ -2546,6 +2532,421 @@ function kanaIsiSheet() {
   fbEl('ks-isi').innerHTML = h;
 }
 function kanaEsc(s) { return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+/* =====================================================================
+   KANA — LATIHAN: Tebak huruf & Tulis kana
+   - Huruf yang salah diulang lagi beberapa soal kemudian (maks. 2x) dalam sesi yang sama.
+   - Riwayat benar/salah per huruf disimpan di perangkat; huruf yang sering salah
+     diberi titik merah di tabel dan bisa dilatih khusus.
+   ===================================================================== */
+var KANA_MIRIP = ['さち', 'ぬめね', 'れわね', 'はほま', 'るろ', 'いり', 'こに', 'あお', 'きさ', 'うえ', 'すむ', 'のめ', 'たな', 'ぷぶふ',
+                  'シツソン', 'クケタ', 'ウワフ', 'アマ', 'コユ', 'チテナ', 'ヌス', 'ノメ', 'ラフ', 'ホボ', 'マヤ', 'ミニ'];
+var kanaLat = {
+  jenis: 'tebak', tahap: 'setup',
+  set: { aksara: 'hira', cakupan: 'dasar', jumlah: 10, modeTebak: 'kana2romaji', modeTulis: 'jiplak', lemah: false },
+  antrian: [], i: 0, unik: 0, benar: 0, salah: 0, pertama: {},
+  opsi: [], jawab: null, goresan: [], cek: null, petunjuk: false, w: 300, dpr: 1, token: 0
+};
+
+function kanaStatKunci() { return 'kotoba_kana_stat|' + studentName; }
+function kanaStatBaca() {
+  var d = null;
+  try { d = JSON.parse(localStorage.getItem(kanaStatKunci()) || 'null'); } catch (e) {}
+  return (d && typeof d === 'object') ? d : {};
+}
+function kanaStatCatat(k, benar) {
+  var d = kanaStatBaca(), x = d[k] || [0, 0];
+  x[benar ? 0 : 1]++; d[k] = x;
+  try { localStorage.setItem(kanaStatKunci(), JSON.stringify(d)); } catch (e) {}
+}
+function kanaLemah(k, d) {
+  var x = (d || kanaStatBaca())[k];
+  return !!x && x[1] >= 1 && x[1] / (x[0] + x[1]) >= 0.3;
+}
+
+// semua huruf untuk satu aksara + cakupan
+function kanaSemua(aksara, cakupan) {
+  var tab = cakupan === 'dakuten' ? KANA_DAKUTEN : (cakupan === 'kombinasi' ? KANA_KOMBINASI : KANA_DASAR), out = [];
+  tab.forEach(function (baris, bi) {
+    baris.forEach(function (sel) {
+      if (!sel) return;
+      out.push({ k: aksara === 'kata' ? kanaKeKata(sel[0]) : sel[0], r: sel[1], g: cakupan, baris: bi, ulang: 0 });
+    });
+  });
+  return out;
+}
+function kanaPoolLatihan() {
+  var st = kanaLat.set;
+  var aks = st.aksara === 'campur' ? ['hira', 'kata'] : [st.aksara];
+  var cak = st.cakupan === 'semua' ? ['dasar', 'dakuten', 'kombinasi'] : [st.cakupan];
+  var out = [];
+  aks.forEach(function (a) { cak.forEach(function (c) { out = out.concat(kanaSemua(a, c)); }); });
+  return out;
+}
+
+/* ---------- halaman & pengaturan ---------- */
+function kanaBukaLatihan(jenis) {
+  var l = kanaLat;
+  l.jenis = jenis; l.tahap = 'setup';
+  l.set.aksara = kanaState.aksara; l.set.cakupan = kanaState.bagian; l.set.lemah = false;
+  fbEl('kana-page').classList.add('hidden');
+  fbEl('kana-latih-page').classList.remove('hidden');
+  fbEl('kl-judul').textContent = jenis === 'tebak' ? '読 Tebak huruf' : '書 Tulis kana';
+  window.scrollTo(0, 0);
+  kanaLatRender();
+}
+function kanaLatKeluar() {
+  kanaLat.tahap = 'setup'; kanaLat.token++;
+  fbEl('kana-latih-page').classList.add('hidden');
+  fbEl('kana-page').classList.remove('hidden');
+  kanaRender();
+  window.scrollTo(0, 0);
+}
+function kanaLatSet(kunci, nilai) { kanaLat.set[kunci] = nilai; kanaLatRender(); }
+
+function kanaLatChips(kunci, daftar) {
+  var h = '<div class="kl-chips">';
+  daftar.forEach(function (d) {
+    var on = kanaLat.set[kunci] === d[0];
+    var v = typeof d[0] === 'number' ? d[0] : "'" + d[0] + "'";
+    h += '<span class="kl-chip' + (on ? ' on' : '') + '" role="button" onclick="kanaLatSet(\'' + kunci + '\',' + v + ')">' + d[1] + '</span>';
+  });
+  return h + '</div>';
+}
+
+function kanaLatRender() {
+  var l = kanaLat;
+  if (l.tahap === 'setup') kanaLatRenderSetup();
+  else if (l.tahap === 'hasil') kanaLatRenderHasil();
+  else if (l.jenis === 'tebak') kanaLatRenderTebak();
+  else kanaLatRenderTulis();
+}
+
+function kanaLatRenderSetup() {
+  var l = kanaLat, st = l.set, tebak = l.jenis === 'tebak';
+  var stat = kanaStatBaca();
+  var pool = kanaPoolLatihan();
+  var nLemah = pool.filter(function (x) { return kanaLemah(x.k, stat); }).length;
+  var h = '<div class="fb-info"><b>' + (tebak ? 'Tebak huruf' : 'Tulis kana') + '</b><br>' +
+    (tebak ? 'Lihat huruf lalu pilih cara bacanya, atau sebaliknya. Pilihan jawaban sengaja dibuat mirip supaya ingatanmu terasah.'
+           : 'Tulis kana dengan jarimu. Huruf yang salah akan muncul lagi beberapa soal kemudian.') + '</div>';
+  h += '<div class="kl-set-jdl">Aksara</div>' + kanaLatChips('aksara', [['hira', 'Hiragana'], ['kata', 'Katakana'], ['campur', 'Campur']]);
+  h += '<div class="kl-set-jdl">Cakupan</div>' + kanaLatChips('cakupan', [['dasar', 'Dasar'], ['dakuten', 'Dakuten'], ['kombinasi', 'Kombinasi'], ['semua', 'Semua']]);
+  h += '<div class="kl-set-jdl">Mode</div>' + (tebak
+    ? kanaLatChips('modeTebak', [['kana2romaji', 'Huruf → bacaan'], ['romaji2kana', 'Bacaan → huruf']])
+    : kanaLatChips('modeTulis', [['jiplak', 'Jiplak (ada contoh)'], ['ingatan', 'Dari ingatan']]));
+  h += '<div class="kl-set-jdl">Jumlah huruf</div>' + kanaLatChips('jumlah', [[10, '10'], [20, '20'], [0, 'Semua (' + pool.length + ')']]);
+  h += '<div class="kl-set-jdl">Fokus</div><div class="kl-chips"><span class="kl-chip' + (st.lemah ? ' on' : '') + (nLemah ? '' : ' mati') + '" role="button" onclick="' +
+    (nLemah ? "kanaLatSet('lemah'," + (!st.lemah) + ')' : '') + '">🎯 Hanya huruf yang sering salah (' + nLemah + ')</span></div>';
+  h += '<div class="uj-aksi"><button class="uj-btn lebar" onclick="kanaLatMulai()">Mulai ▶</button></div>';
+  fbEl('kl-isi').innerHTML = h;
+}
+
+function kanaLatMulai(daftarKhusus) {
+  var l = kanaLat, st = l.set, stat = kanaStatBaca();
+  var pool;
+  if (daftarKhusus) pool = daftarKhusus;
+  else {
+    pool = kanaPoolLatihan();
+    if (st.lemah) pool = pool.filter(function (x) { return kanaLemah(x.k, stat); });
+  }
+  if (!pool.length) { fbSegera('Belum ada huruf', 'Tidak ada huruf untuk dilatih dengan pengaturan ini.'); return; }
+  pool = ujianAcak(pool.slice());
+  if (!daftarKhusus && st.jumlah > 0) pool = pool.slice(0, st.jumlah);
+  l.antrian = pool.map(function (x) { return { k: x.k, r: x.r, g: x.g, baris: x.baris, ulang: 0 }; });
+  l.i = 0; l.unik = l.antrian.length; l.benar = 0; l.salah = 0; l.pertama = {};
+  l.tahap = 'soal';
+  kanaLatSiapSoal();
+  kanaLatRender(); window.scrollTo(0, 0);
+}
+
+function kanaLatSiapSoal() {
+  var l = kanaLat;
+  l.token++; l.jawab = null; l.goresan = []; l.cek = null; l.petunjuk = false;
+  l.opsi = (l.jenis === 'tebak' && l.antrian[l.i]) ? kanaOpsiTebak(l.antrian[l.i]) : [];
+}
+function kanaLatLanjut() {
+  var l = kanaLat;
+  l.i++;
+  if (l.i >= l.antrian.length) { l.tahap = 'hasil'; l.token++; kanaLatRender(); window.scrollTo(0, 0); return; }
+  kanaLatSiapSoal();
+  kanaLatRender(); window.scrollTo(0, 0);
+}
+
+/* catat satu percobaan; huruf salah dijadwalkan muncul lagi */
+function kanaLatCatat(it, benar) {
+  var l = kanaLat;
+  if (l.pertama[it.k] === undefined) l.pertama[it.k] = benar;
+  kanaStatCatat(it.k, benar);
+  if (benar) { l.benar++; return; }
+  l.salah++;
+  if (it.ulang < 2) {
+    var pos = Math.min(l.antrian.length, l.i + 4);
+    l.antrian.splice(pos, 0, { k: it.k, r: it.r, g: it.g, baris: it.baris, ulang: it.ulang + 1 });
+  }
+}
+
+function kanaLatTop(l) {
+  var n = l.antrian.length;
+  return '<div class="uj-top"><button class="uj-btn kecil" onclick="kanaLatKeluar()">‹ Keluar</button>' +
+    '<span class="uj-no">Soal ' + (l.i + 1) + ' / ' + n + '</span><span class="uj-skor">✔ ' + l.benar + '</span></div>' +
+    '<div class="uj-bar"><i style="width:' + Math.round(l.i / n * 100) + '%"></i></div>';
+}
+
+/* ---------- TEBAK HURUF ---------- */
+function kanaOpsiTebak(it) {
+  var kata = it.k.charCodeAt(0) >= 0x30A1;
+  var komb = it.g === 'kombinasi';
+  var semua = komb ? kanaSemua(kata ? 'kata' : 'hira', 'kombinasi')
+                   : kanaSemua(kata ? 'kata' : 'hira', 'dasar').concat(kanaSemua(kata ? 'kata' : 'hira', 'dakuten'));
+  var seen = {}; seen[it.r] = 1;
+  var pri = [];
+  function tambah(arr) {
+    ujianAcak(arr.slice()).forEach(function (x) {
+      if (x.k === it.k || seen[x.r]) return;
+      seen[x.r] = 1; pri.push(x);
+    });
+  }
+  var mirip = [];
+  KANA_MIRIP.forEach(function (grup) {
+    if (grup.indexOf(it.k) < 0) return;
+    semua.forEach(function (x) { if (grup.indexOf(x.k) >= 0) mirip.push(x); });
+  });
+  tambah(mirip);
+  tambah(semua.filter(function (x) { return x.g === it.g && x.baris === it.baris; }));
+  tambah(semua.filter(function (x) { return x.r.charAt(0) === it.r.charAt(0); }));
+  tambah(semua);
+  return ujianAcak([it].concat(pri.slice(0, 3)));
+}
+
+function kanaLatRenderTebak() {
+  var l = kanaLat, it = l.antrian[l.i], rev = l.set.modeTebak === 'romaji2kana', sudah = l.jawab !== null;
+  var h = kanaLatTop(l);
+  h += '<div class="kl-kartu"><div class="kl-minta">' + (rev ? 'Pilih huruf untuk bunyi' : 'Apa cara bacanya?') + '</div>' +
+    (rev ? '<div class="kl-besar">' + kanaEsc(it.r) + '</div>' : '<div class="kl-besar jp' + (it.k.length > 1 ? ' dua' : '') + '">' + kanaEsc(it.k) + '</div>') + '</div>';
+  h += '<div class="kl-opsi">';
+  l.opsi.forEach(function (o, n) {
+    var kls = 'kl-op' + (rev ? ' jp' : '');
+    if (sudah) {
+      if (o.k === it.k) kls += ' benar';
+      else if (n === l.jawab) kls += ' salah';
+      else kls += ' pudar';
+    }
+    h += '<button class="' + kls + '"' + (sudah ? ' disabled' : '') + ' onclick="kanaLatJawabTebak(' + n + ')">' + kanaEsc(rev ? o.k : o.r) + '</button>';
+  });
+  h += '</div>';
+  if (sudah) {
+    var benar = l.opsi[l.jawab].k === it.k;
+    h += '<div class="uj-bahas ' + (benar ? 'ok' : 'no') + '"><b>' + (benar ? 'Benar! ✅' : 'Kurang tepat') + '</b>' +
+      '<div>' + kanaEsc(it.k) + ' dibaca <b style="display:inline">' + kanaEsc(it.r) + '</b>' + (benar ? '' : '. Huruf ini akan muncul lagi sebentar lagi.') + '</div></div>';
+    if (!benar) h += '<div class="uj-aksi"><button class="uj-btn lebar" onclick="kanaLatLanjut()">Lanjut ›</button></div>';
+  }
+  fbEl('kl-isi').innerHTML = h;
+}
+function kanaLatJawabTebak(n) {
+  var l = kanaLat; if (l.jawab !== null) return;
+  var it = l.antrian[l.i];
+  l.jawab = n;
+  var benar = l.opsi[n].k === it.k;
+  kanaLatCatat(it, benar);
+  if (!benar) { try { if (navigator.vibrate) navigator.vibrate(60); } catch (e) {} }
+  kanaLatRender();
+  if (benar) {
+    var t = l.token;
+    setTimeout(function () { if (kanaLat.token === t && kanaLat.tahap === 'soal') kanaLatLanjut(); }, 700);
+  }
+}
+
+/* ---------- HASIL (dipakai kedua latihan) ---------- */
+function kanaLatRenderHasil() {
+  var l = kanaLat, salahList = [], benar = 0;
+  Object.keys(l.pertama).forEach(function (k) { if (l.pertama[k]) benar++; else salahList.push(k); });
+  var n = l.unik, persen = n ? Math.round(benar / n * 100) : 0;
+  var pesan = persen >= 90 ? 'Sugoi! Ingatanmu tajam 🎉' : persen >= 70 ? 'Bagus! Sedikit lagi hafal 💪' : 'Terus berlatih, huruf yang salah akan makin dikenal 🙏';
+  var h = '<div class="uj-hasil"><div class="uj-hasil-bintang">' + (persen === 100 ? '🌟' : '⭐') + '</div>' +
+    '<div class="uj-hasil-judul">Latihan selesai!</div>' +
+    '<div class="uj-hasil-skor">' + benar + ' / ' + n + '</div>' +
+    '<div class="uj-hasil-persen">' + persen + '% benar pada percobaan pertama</div>' +
+    '<div class="uj-hasil-pesan">' + pesan + '</div></div>';
+  if (salahList.length) {
+    h += '<div class="fb-judul-kecil">Huruf yang perlu diulang</div><div class="kl-salah">';
+    salahList.forEach(function (k) {
+      var it = l.antrian.filter(function (x) { return x.k === k; })[0];
+      h += '<div class="kl-ubin"><span class="jp">' + kanaEsc(k) + '</span><small>' + kanaEsc(it ? it.r : '') + '</small></div>';
+    });
+    h += '</div>';
+  }
+  h += '<div class="uj-aksi">' +
+    (salahList.length ? '<button class="uj-btn" onclick="kanaLatUlangSalah()">Latih yang salah</button>' : '') +
+    '<button class="uj-btn' + (salahList.length ? ' kecil' : '') + '" onclick="kanaLatMulai()">Main lagi</button>' +
+    '<button class="uj-btn kecil" onclick="kanaLatKeluar()">Selesai</button></div>';
+  fbEl('kl-isi').innerHTML = h;
+}
+function kanaLatUlangSalah() {
+  var l = kanaLat, daftar = [];
+  Object.keys(l.pertama).forEach(function (k) {
+    if (l.pertama[k]) return;
+    var it = l.antrian.filter(function (x) { return x.k === k; })[0];
+    if (it) daftar.push({ k: it.k, r: it.r, g: it.g, baris: it.baris });
+  });
+  kanaLatMulai(daftar);
+}
+
+/* ---------- TULIS KANA ---------- */
+function kanaFontJp() {
+  var f = '';
+  try { f = getComputedStyle(document.documentElement).getPropertyValue('--jp'); } catch (e) {}
+  return (f && f.trim()) || "'Noto Sans JP', sans-serif";
+}
+function kanaGambarHuruf(ctx, ukuran, teks, warna) {
+  var px = ukuran * (teks.length > 1 ? 0.46 : 0.72);
+  ctx.save();
+  ctx.font = '700 ' + px + 'px ' + kanaFontJp();
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillStyle = warna;
+  ctx.fillText(teks, ukuran / 2, ukuran / 2 + ukuran * 0.04);
+  ctx.restore();
+}
+
+function kanaLatRenderTulis() {
+  var l = kanaLat, it = l.antrian[l.i], jiplak = l.set.modeTulis === 'jiplak', cek = l.cek;
+  var h = kanaLatTop(l);
+  h += '<div class="kl-kartu kecil"><div class="kl-minta">' + (jiplak ? 'Jiplak huruf ini' : 'Tulis huruf untuk bunyi') + '</div>' +
+    (jiplak ? '<div class="kl-besar jp' + (it.k.length > 1 ? ' dua' : '') + ' sedang">' + kanaEsc(it.k) + '</div><div class="kl-bacaan">' + kanaEsc(it.r) + '</div>'
+            : '<div class="kl-besar sedang">' + kanaEsc(it.r) + '</div>') + '</div>';
+  h += '<div class="kl-kanvas-wrap"><canvas id="kl-kanvas"></canvas></div>';
+  if (!cek) {
+    h += '<div class="kl-alat">' +
+      '<button class="uj-btn kecil" onclick="kanaTulisHapus()">🗑 Hapus</button>' +
+      (jiplak ? '' : '<button class="uj-btn kecil" onclick="kanaTulisPetunjuk()">' + (l.petunjuk ? '🙈 Sembunyikan contoh' : '👁 Lihat contoh') + '</button>') +
+      '<button class="uj-btn" onclick="kanaTulisCek()">Cek ✓</button></div>';
+    h += '<div id="kl-pesan" class="kl-pesan"></div>';
+  } else {
+    var p = Math.round(cek.skor * 100);
+    var ket = cek.skor >= 0.7 ? 'Bagus! Tulisanmu mirip contoh 👍' : cek.skor >= 0.5 ? 'Lumayan, masih bisa dirapikan' : 'Belum mirip, perhatikan bentuk dan arah goresannya';
+    h += '<div class="uj-bahas ' + (cek.skor >= 0.5 ? 'ok' : 'no') + '"><b>Kemiripan perkiraan: ' + p + '%</b><div>' + ket +
+      '. Hijau = bentuk yang benar, ungu = tulisanmu. Penilaian ini hanya perkiraan, jadi putuskan sendiri ya.</div></div>';
+    h += '<div class="kl-alat"><button class="uj-btn kecil" onclick="kanaTulisHapus()">↺ Tulis ulang</button></div>';
+    h += '<div class="kl-alat"><button class="uj-btn' + (cek.skor >= 0.5 ? '' : ' kecil') + '" onclick="kanaTulisNilai(true)">✓ Sudah benar</button>' +
+      '<button class="uj-btn' + (cek.skor >= 0.5 ? ' kecil' : '') + '" onclick="kanaTulisNilai(false)">✗ Perlu latihan</button></div>';
+  }
+  fbEl('kl-isi').innerHTML = h;
+  kanaKanvasSiap();
+}
+
+function kanaKanvasSiap() {
+  var l = kanaLat, cv = fbEl('kl-kanvas'); if (!cv) return;
+  var w = Math.floor(cv.getBoundingClientRect().width) || 300, dpr = window.devicePixelRatio || 1;
+  l.w = w; l.dpr = dpr;
+  cv.width = Math.round(w * dpr); cv.height = Math.round(w * dpr);
+  var aktif = null;
+  function titik(e) { var r = cv.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; }
+  cv.onpointerdown = function (e) {
+    if (l.cek) return;
+    e.preventDefault();
+    try { cv.setPointerCapture(e.pointerId); } catch (x) {}
+    aktif = [titik(e)]; l.goresan.push(aktif);
+    kanaKanvasGambar();
+  };
+  cv.onpointermove = function (e) {
+    if (!aktif) return;
+    e.preventDefault();
+    aktif.push(titik(e));
+    kanaKanvasGambar();
+  };
+  var selesai = function () { aktif = null; };
+  cv.onpointerup = selesai; cv.onpointercancel = selesai; cv.onpointerleave = selesai;
+  kanaKanvasGambar();
+}
+
+function kanaKanvasGambar() {
+  var l = kanaLat, cv = fbEl('kl-kanvas'); if (!cv) return;
+  var it = l.antrian[l.i]; if (!it) return;
+  var ctx = cv.getContext('2d'), w = l.w, gelap = document.documentElement.classList.contains('dark');
+  ctx.setTransform(l.dpr, 0, 0, l.dpr, 0, 0);
+  ctx.clearRect(0, 0, w, w);
+  ctx.fillStyle = gelap ? '#0f172a' : '#ffffff'; ctx.fillRect(0, 0, w, w);
+  // garis bantu (silang) seperti buku latihan menulis
+  ctx.save();
+  ctx.strokeStyle = gelap ? 'rgba(148,163,184,.35)' : 'rgba(100,116,139,.3)'; ctx.lineWidth = 1; ctx.setLineDash([5, 5]);
+  ctx.beginPath(); ctx.moveTo(w / 2, 6); ctx.lineTo(w / 2, w - 6); ctx.moveTo(6, w / 2); ctx.lineTo(w - 6, w / 2); ctx.stroke();
+  ctx.restore();
+  var jiplak = l.set.modeTulis === 'jiplak';
+  if (l.cek) kanaGambarHuruf(ctx, w, it.k, 'rgba(34,197,94,.45)');
+  else if (jiplak || l.petunjuk) kanaGambarHuruf(ctx, w, it.k, gelap ? 'rgba(148,163,184,.4)' : 'rgba(100,116,139,.32)');
+  ctx.strokeStyle = gelap ? '#c4b5fd' : '#7c3aed';
+  ctx.lineWidth = w * 0.045; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  l.goresan.forEach(function (g) {
+    ctx.beginPath();
+    if (g.length === 1) { ctx.moveTo(g[0][0], g[0][1]); ctx.lineTo(g[0][0] + 0.01, g[0][1]); }
+    else { ctx.moveTo(g[0][0], g[0][1]); for (var p = 1; p < g.length; p++) ctx.lineTo(g[p][0], g[p][1]); }
+    ctx.stroke();
+  });
+}
+
+function kanaTulisHapus() {
+  var l = kanaLat;
+  l.goresan = []; l.cek = null;
+  kanaLatRender();
+}
+function kanaTulisPetunjuk() {
+  var l = kanaLat;
+  l.petunjuk = !l.petunjuk;
+  kanaLatRender();
+}
+
+/* Kemiripan perkiraan: bandingkan tulisan dengan huruf di font (64x64, toleransi geser) */
+function kanaTulisSkor() {
+  var l = kanaLat, it = l.antrian[l.i], N = 64, w = l.w;
+  function kanvas() { var c = document.createElement('canvas'); c.width = c.height = N; return c; }
+  var cu = kanvas(), xu = cu.getContext('2d');
+  xu.strokeStyle = '#000'; xu.lineWidth = Math.max(2, w * 0.045 * N / w); xu.lineCap = 'round'; xu.lineJoin = 'round';
+  l.goresan.forEach(function (g) {
+    xu.beginPath();
+    if (g.length === 1) { xu.moveTo(g[0][0] * N / w, g[0][1] * N / w); xu.lineTo(g[0][0] * N / w + 0.01, g[0][1] * N / w); }
+    else { xu.moveTo(g[0][0] * N / w, g[0][1] * N / w); for (var p = 1; p < g.length; p++) xu.lineTo(g[p][0] * N / w, g[p][1] * N / w); }
+    xu.stroke();
+  });
+  var cg = kanvas(), xg = cg.getContext('2d');
+  kanaGambarHuruf(xg, N, it.k, '#000');
+  function topeng(x) {
+    var d = x.getImageData(0, 0, N, N).data, m = new Uint8Array(N * N);
+    for (var i = 0; i < N * N; i++) m[i] = d[i * 4 + 3] > 60 ? 1 : 0;
+    return m;
+  }
+  function lebarkan(m, r) {
+    var o = new Uint8Array(N * N);
+    for (var y = 0; y < N; y++) for (var x = 0; x < N; x++) {
+      if (!m[y * N + x]) continue;
+      for (var dy = -r; dy <= r; dy++) for (var dx = -r; dx <= r; dx++) {
+        var yy = y + dy, xx = x + dx;
+        if (yy >= 0 && yy < N && xx >= 0 && xx < N) o[yy * N + xx] = 1;
+      }
+    }
+    return o;
+  }
+  var U = topeng(xu), G = topeng(xg), Ud = lebarkan(U, 4), Gd = lebarkan(G, 4);
+  var nu = 0, ng = 0, hu = 0, hg = 0;
+  for (var i = 0; i < N * N; i++) {
+    if (U[i]) { nu++; if (Gd[i]) hu++; }
+    if (G[i]) { ng++; if (Ud[i]) hg++; }
+  }
+  if (!nu || !ng) return 0;
+  var pre = hu / nu, rec = hg / ng;
+  return (pre + rec) ? 2 * pre * rec / (pre + rec) : 0;
+}
+function kanaTulisCek() {
+  var l = kanaLat;
+  var ada = l.goresan.some(function (g) { return g.length > 0; });
+  if (!ada) { var p = fbEl('kl-pesan'); if (p) p.textContent = 'Tulis hurufnya dulu ya.'; return; }
+  l.cek = { skor: kanaTulisSkor() };
+  kanaLatRender();
+}
+function kanaTulisNilai(benar) {
+  var l = kanaLat, it = l.antrian[l.i]; if (!l.cek) return;
+  kanaLatCatat(it, benar);
+  kanaLatLanjut();
+}
 
 /* =====================================================================
    UJIAN (JFT-Basic & JLPT)
