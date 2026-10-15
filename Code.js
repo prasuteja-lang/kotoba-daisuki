@@ -4460,7 +4460,11 @@ function musikSiapkan() {
       if (musikAktif() && musikDiMenuUtama()) musikMain();
     } else {
       musik.gagal = true;
-      musikKet('Musik belum bisa dimuat. Periksa internet atau izin berbagi file musik.', true);
+      var kode = a.error ? a.error.code : 0;          // 2 = jaringan, 3 = gagal diputar, 4 = alamat/format tidak didukung
+      try { console.warn('[musik] gagal dimuat, kode MediaError =', kode, MUSIK_SUMBER); } catch (e) {}
+      musikKet('Musik gagal dimuat (kode ' + kode + '). ' + (kode === 4
+        ? 'Alamat tidak bisa diputar: cek izin berbagi file, atau pakai file mp3 di folder aplikasi.'
+        : 'Periksa koneksi internet.'), true);
     }
   };
   a.src = MUSIK_SUMBER[0];
@@ -4527,3 +4531,76 @@ function setMusik(hidup) {
   musikTombol();
   musikSinkron();
 })();
+
+
+/* =====================================================================
+   SUARA BAHASA JEPANG (tombol 🔊 di Bunpou & Kanji memanggil bacaJepang)
+   1) Suara bawaan perangkat (Web Speech API), memilih suara bahasa Jepang.
+   2) Bila perangkat tidak punya suara Jepang / tidak mau bicara: cadangan lewat layanan
+      suara Google Translate (tidak resmi, bisa berhenti bekerja sewaktu-waktu).
+   3) Bila keduanya gagal: tampil pemberitahuan singkat.
+   ===================================================================== */
+var tts = { audio: null, timer: null, pesanT: 0 };
+
+function ttsBersih(teks) {
+  return String(teks == null ? '' : teks)
+    .replace(/<[^>]*>/g, '')                      // buang tag HTML bila ada
+    .replace(/\[[^\]]*\]/g, '')                   // buang furigana berkurung: 漢字[かんじ] -> 漢字
+    .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&')
+    .replace(/\s+/g, ' ').trim()
+    .slice(0, 180);
+}
+function ttsHentikan() {
+  clearTimeout(tts.timer);
+  try { if ('speechSynthesis' in window) speechSynthesis.cancel(); } catch (e) {}
+  if (tts.audio) { try { tts.audio.pause(); } catch (e) {} tts.audio = null; }
+}
+function ttsPesan() {
+  var t = Date.now();
+  if (t - tts.pesanT < 15000) return;
+  tts.pesanT = t;
+  var teks = 'Suara bahasa Jepang belum tersedia di perangkat ini. Pasang suara "Japanese" di pengaturan Text-to-speech, atau periksa koneksi internet.';
+  if (typeof tampilkanCustomAlert === 'function') tampilkanCustomAlert('Suara belum tersedia 🔇', teks);
+}
+function ttsCadangan(t) {
+  try {
+    var a = new Audio('https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=ja&q=' + encodeURIComponent(t));
+    tts.audio = a;
+    a.onerror = ttsPesan;
+    var p = a.play();
+    if (p && p.catch) p.catch(ttsPesan);
+  } catch (e) { ttsPesan(); }
+}
+function bacaJepang(teks) {
+  var t = ttsBersih(teks);
+  if (!t) return;
+  ttsHentikan();
+  if (!('speechSynthesis' in window) || typeof SpeechSynthesisUtterance === 'undefined') { ttsCadangan(t); return; }
+
+  var suara = [], ja = null;
+  try { suara = speechSynthesis.getVoices() || []; } catch (e) {}
+  suara.forEach(function(v) { if (!ja && /^ja([-_]|$)/i.test(v.lang)) ja = v; });
+  // daftar suara ada, tetapi tidak ada yang berbahasa Jepang -> langsung cadangan
+  if (suara.length && !ja) { ttsCadangan(t); return; }
+
+  var u = new SpeechSynthesisUtterance(t);
+  u.lang = 'ja-JP';
+  if (ja) u.voice = ja;
+  u.rate = 0.85;
+  var mulai = false;
+  u.onstart = function() { mulai = true; clearTimeout(tts.timer); };
+  u.onerror = function(e) {
+    clearTimeout(tts.timer);
+    if (!e || (e.error !== 'canceled' && e.error !== 'interrupted')) ttsCadangan(t);
+  };
+  try { speechSynthesis.resume(); } catch (e) {}
+  speechSynthesis.speak(u);
+  // bila dalam 2,5 detik tidak mulai bicara (mis. WebView tanpa mesin suara) -> cadangan
+  tts.timer = setTimeout(function() {
+    if (mulai) return;
+    try { speechSynthesis.cancel(); } catch (e) {}
+    ttsCadangan(t);
+  }, 2500);
+}
+// daftar suara di Chrome dimuat belakangan; panggilan ini memancing pemuatan lebih awal
+try { if ('speechSynthesis' in window) { speechSynthesis.getVoices(); if (speechSynthesis.addEventListener) speechSynthesis.addEventListener('voiceschanged', function() {}); } } catch (e) {}
