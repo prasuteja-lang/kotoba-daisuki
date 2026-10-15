@@ -2710,7 +2710,7 @@ function ujianRender() {
       var pk = ujianKelompok(g.soal, 'paket'), selesai = 0;
       pk.forEach(function (p) { if (skor.best[ujianKunciLatihan(g.nama, p.nama)]) selesai++; });
       h += ujianBaris(ujianIkonBagian(g.nama), g.nama,
-        g.soal.length + ' soal · ' + pk.length + ' paket' + (selesai ? ' · ⭐ ' + selesai + ' selesai' : ''),
+        g.soal.length + ' soal · ' + pk.length + ' paket' + (ujianMenitBagian(g.nama) ? ' · ' + ujianMenitBagian(g.nama) + ' menit/paket' : '') + (selesai ? ' · ⭐ ' + selesai + ' selesai' : ''),
         'ujianPilihBagian(' + i + ')', UJIAN_PANAH);
     }
     h += '<div class="fb-judul-kecil">Lainnya</div>';
@@ -2722,10 +2722,11 @@ function ujianRender() {
     ujianPaket = ujianKelompok(gb.soal, 'paket');
     h += '<div class="uj-aksi kiri"><button class="uj-btn kecil" onclick="ujianKembaliDaftar()">‹ Semua bagian</button></div>';
     h += '<div class="fb-judul-kecil">' + kanaEsc(gb.nama) + ' — pilih paket</div>';
-    h += ujianBaris('全', 'Semua paket', gb.soal.length + ' soal', 'ujianMulai(-1)',
+    var mntB = ujianMenitBagian(gb.nama);
+    h += ujianBaris('全', 'Semua paket', gb.soal.length + ' soal' + (mntB ? ' · ' + (mntB * ujianPaket.length) + ' menit' : ''), 'ujianMulai(-1)',
       ujianChipSkor(skor.best[ujianKunciLatihan(gb.nama, '*')]) + UJIAN_PANAH);
     for (var j = 0; j < ujianPaket.length; j++) {
-      h += ujianBaris(String(j + 1), ujianPaket[j].nama, ujianPaket[j].soal.length + ' soal', 'ujianMulai(' + j + ')',
+      h += ujianBaris(String(j + 1), ujianPaket[j].nama, ujianPaket[j].soal.length + ' soal' + (mntB ? ' · ' + mntB + ' menit' : ''), 'ujianMulai(' + j + ')',
         ujianChipSkor(skor.best[ujianKunciLatihan(gb.nama, ujianPaket[j].nama)]) + UJIAN_PANAH);
     }
   }
@@ -2768,17 +2769,50 @@ function ujianSiapAcak(k) {
   });
 }
 
+/* ---------- Waktu pengerjaan (menit per paket) ---------- */
+var UJIAN_WAKTU = [ { re: /moji|goi/i, menit: 25 }, { re: /bunpou/i, menit: 35 } ];
+function ujianMenitBagian(nama) {
+  for (var i = 0; i < UJIAN_WAKTU.length; i++) if (UJIAN_WAKTU[i].re.test(String(nama || ''))) return UJIAN_WAKTU[i].menit;
+  return 0;   // bagian lain: tanpa batas waktu
+}
+function ujianFmtWaktu(d) {
+  d = Math.max(0, Math.round(d));
+  var m = Math.floor(d / 60), sc = d % 60;
+  return (m < 10 ? '0' : '') + m + ':' + (sc < 10 ? '0' : '') + sc;
+}
+
+function ujianBuatKuis(list, judul, labelTab, kunciSkor, detik) {
+  var k = {
+    list: list, i: 0, skor: 0, tercatat: false, judul: judul, labelTab: labelTab, kunciSkor: kunciSkor,
+    jawaban: list.map(function () { return null; }),     // posisi opsi yang dipilih (null = belum)
+    ragu: list.map(function () { return false; }),
+    konfirmasi: '', selesai: false, tinjau: null,
+    detik: detik || 0, mulai: Date.now(), berakhir: detik ? Date.now() + detik * 1000 : 0
+  };
+  ujianSiapAcak(k);
+  return k;
+}
+function ujianTimerMulai(k) {
+  if (!k.berakhir) return;
+  var t = setInterval(function () {
+    if (ujianKuis !== k || k.selesai) { clearInterval(t); return; }
+    var sisa = Math.ceil((k.berakhir - Date.now()) / 1000);
+    var el = document.getElementById('uj-timer');
+    if (el) { el.textContent = '⏱ ' + ujianFmtWaktu(sisa); el.classList.toggle('habis', sisa <= 60); }
+    if (sisa <= 0) { clearInterval(t); ujianSelesai(true); }
+  }, 1000);
+}
+
 function ujianMulai(idxPaket) {
   var gb = ujianGrup[ujianState.bagian]; if (!gb) return;
   var list = (idxPaket < 0) ? gb.soal : ujianPaket[idxPaket].soal;
   if (!list || !list.length) { fbSegera('Belum ada soal', 'Paket ini belum berisi soal.'); return; }
-  ujianKuis = {
-    list: list, i: 0, skor: 0, jawab: null, tercatat: false,
-    judul: gb.nama + (idxPaket < 0 ? ' · Semua paket' : ' · ' + ujianPaket[idxPaket].nama),
-    labelTab: ujianNamaTab(),
-    kunciSkor: ujianKunciLatihan(gb.nama, idxPaket < 0 ? '*' : ujianPaket[idxPaket].nama)
-  };
-  ujianSiapAcak(ujianKuis);
+  var menit = ujianMenitBagian(gb.nama);
+  var detik = menit ? menit * 60 * (idxPaket < 0 ? ujianPaket.length : 1) : 0;
+  ujianKuis = ujianBuatKuis(list,
+    gb.nama + (idxPaket < 0 ? ' · Semua paket' : ' · ' + ujianPaket[idxPaket].nama),
+    ujianNamaTab(), ujianKunciLatihan(gb.nama, idxPaket < 0 ? '*' : ujianPaket[idxPaket].nama), detik);
+  ujianTimerMulai(ujianKuis);
   ujianRender(); window.scrollTo(0, 0);
 }
 function ujianKeluarKuis() { ujianKuis = null; ujianRender(); window.scrollTo(0, 0); }
@@ -2993,24 +3027,16 @@ function ujianFuriAlat() {
     '<span class="uj-furi-ico">ふ</span> Furigana <b>' + (ujianFuri.on ? 'ON' : 'OFF') + '</b></button>' + info + '</div>';
 }
 
-function ujianRenderKuis() {
-  var k = ujianKuis, wadah = fbEl('ujian-isi');
-  var n = k.list.length;
-  if (k.i >= n) { ujianRenderHasil(); return; }
-  var s = k.list[k.i];
-  var urut = k.acak[k.i];
+/* Kartu soal + pilihan jawaban. tinjau=true: tampilan koreksi (benar/salah + pembahasan) */
+function ujianBlokSoal(k, idx, tinjau) {
+  var n = k.list.length, s = k.list[idx], urut = k.acak[idx];
   var posBenar = urut.indexOf(ujianKunciAsli(s));
-  var sudah = k.jawab !== null;
-  var h = '<div class="uj-top"><button class="uj-btn kecil" onclick="ujianKeluarKuis()">‹ Keluar</button>' +
-    '<span class="uj-no">Soal ' + (k.i + 1) + ' / ' + n + '</span><span class="uj-skor">✔ ' + k.skor + '</span></div>';
-  h += ujianFuriAlat();
-  h += '<div class="uj-bar"><i style="width:' + Math.round((k.i + (sudah ? 1 : 0)) / n * 100) + '%"></i></div>';
-  h += '<div class="uj-judul">' + kanaEsc(k.judul) + '</div>';
-  h += '<div class="uj-kartu">';
+  var pilih = k.jawaban[idx];
+  var h = '<div class="uj-kartu">';
   var noDk = '';
   if (s.dokkai) {
     var anggota = [], posDk = 0;
-    for (var q = 0; q < n; q++) if (k.list[q].dokkai === s.dokkai) { if (q === k.i) posDk = anggota.length; anggota.push(q); }
+    for (var q = 0; q < n; q++) if (k.list[q].dokkai === s.dokkai) { if (q === idx) posDk = anggota.length; anggota.push(q); }
     noDk = '<span class="uj-dokkai-no">Pertanyaan ' + (posDk + 1) + ' dari ' + anggota.length + '</span>';
   }
   if (s.mondai || noDk) h += '<div class="uj-tagbaris">' + (s.mondai ? '<span class="uj-tag">' + kanaEsc(s.mondai) + '</span>' : '') + noDk + '</div>';
@@ -3027,66 +3053,176 @@ function ujianRenderKuis() {
   h += '</div><div class="uj-opsi">';
   for (var p = 0; p < urut.length; p++) {
     var kls = 'uj-op';
-    if (sudah) {
+    if (tinjau) {
       if (p === posBenar) kls += ' benar';
-      else if (p === k.jawab) kls += ' salah';
+      else if (p === pilih) kls += ' salah';
       else kls += ' pudar';
-    }
-    h += '<button class="' + kls + '"' + (sudah ? ' disabled' : '') + ' onclick="ujianJawab(' + p + ')">' +
+    } else if (p === pilih) kls += ' pilih';
+    h += '<button class="' + kls + '"' + (tinjau ? ' disabled' : ' onclick="ujianPilihJawab(' + p + ')"') + '>' +
       '<span class="uj-huruf">' + 'ABCD'.charAt(p) + '</span><span class="uj-teks-op">' + (ujianModeMoji(s) ? kanaEsc(ujianBersih(s.opsi[urut[p]])) : ujianTeksFuri(s.opsi[urut[p]], false)) + '</span></button>';
   }
   h += '</div>';
-  if (sudah) {
-    h += '<div class="uj-bahas ' + (k.jawab === posBenar ? 'ok' : 'no') + '">' +
-      '<b>' + (posBenar < 0 ? 'Kunci jawaban belum diisi' : (k.jawab === posBenar ? 'Benar! ✅' : 'Kurang tepat. Jawaban benar: ' + 'ABCD'.charAt(posBenar))) + '</b>' +
+  if (tinjau) {
+    var benar = posBenar >= 0 && pilih === posBenar;
+    h += '<div class="uj-bahas ' + (benar ? 'ok' : 'no') + '">' +
+      '<b>' + (posBenar < 0 ? 'Kunci jawaban belum diisi' : (benar ? 'Benar! ✅' : (pilih === null ? 'Tidak dijawab. ' : 'Kurang tepat. ') + 'Jawaban benar: ' + 'ABCD'.charAt(posBenar))) + '</b>' +
       (s.pembahasan ? '<div>' + ujianNl(s.pembahasan) + '</div>' : '') + '</div>';
-    h += '<div class="uj-bawah"><button class="uj-btn lebar" onclick="ujianLanjut()">' + (k.i + 1 >= n ? 'Lihat hasil ›' : 'Lanjut ›') + '</button></div>';
   }
+  return h;
+}
+
+function ujianHitung(k) {
+  var j = 0, r = 0;
+  for (var i = 0; i < k.list.length; i++) { if (k.jawaban[i] !== null) j++; if (k.ragu[i]) r++; }
+  return { jawab: j, belum: k.list.length - j, ragu: r };
+}
+
+function ujianGridNav(k) {
+  var n = k.list.length, g = '';
+  for (var i = 0; i < n; i++) {
+    g += '<button class="uj-nv' + (k.jawaban[i] !== null ? ' dj' : '') + (k.ragu[i] ? ' rg' : '') + (i === k.i ? ' now' : '') +
+      '" onclick="ujianKe(' + i + ')">' + (i + 1) + '</button>';
+  }
+  return '<div class="uj-nav"><div class="uj-nav-judul">Navigasi soal</div><div class="uj-nav-grid">' + g + '</div>' +
+    '<div class="uj-nav-ket"><span><i class="sd"></i>Sudah dijawab</span><span><i class="rg"></i>Ragu-ragu</span><span><i class="bl"></i>Belum</span></div>' +
+    '<div class="uj-aksi kanan"><button class="uj-btn kirim" onclick="ujianMintaKonfirmasi(\'kirim\')">Selesai &amp; kirim jawaban</button></div></div>';
+}
+
+function ujianPanelKonfirmasi(k) {
+  if (!k.konfirmasi) return '';
+  var c = ujianHitung(k), isi, ya, label;
+  if (k.konfirmasi === 'keluar') {
+    isi = 'Keluar dari latihan? Jawaban yang sudah dipilih tidak akan disimpan.'; ya = 'ujianKeluarKuis()'; label = 'Ya, keluar';
+  } else {
+    isi = (c.belum ? c.belum + ' soal belum dijawab' : 'Semua soal sudah dijawab') + (c.ragu ? ', ' + c.ragu + ' soal ditandai ragu-ragu' : '') + '. Kirim jawaban sekarang?';
+    ya = 'ujianSelesai(false)'; label = 'Ya, kirim';
+  }
+  return '<div class="uj-konfirm"><div>' + isi + '</div><div class="uj-aksi"><button class="uj-btn" onclick="' + ya + '">' + label + '</button>' +
+    '<button class="uj-btn kecil" onclick="ujianBatalKonfirmasi()">Kembali</button></div></div>';
+}
+
+function ujianRenderKuis() {
+  var k = ujianKuis, wadah = fbEl('ujian-isi'), n = k.list.length;
+  if (k.selesai) { ujianRenderHasil(); return; }
+  var c = ujianHitung(k);
+  var ada = !!k.berakhir;
+  var sisa = ada ? Math.max(0, Math.ceil((k.berakhir - Date.now()) / 1000)) : 0;
+  var h = '<div class="uj-top"><button class="uj-btn kecil" onclick="ujianMintaKonfirmasi(\'keluar\')">‹ Keluar</button>' +
+    '<span class="uj-no">Soal ' + (k.i + 1) + ' / ' + n + '</span>' +
+    (ada ? '<span id="uj-timer" class="uj-waktu' + (sisa <= 60 ? ' habis' : '') + '">⏱ ' + ujianFmtWaktu(sisa) + '</span>'
+         : '<span class="uj-skor">' + c.jawab + '/' + n + '</span>') + '</div>';
+  h += ujianPanelKonfirmasi(k);
+  h += ujianFuriAlat();
+  h += '<div class="uj-bar"><i style="width:' + Math.round(c.jawab / n * 100) + '%"></i></div>';
+  h += '<div class="uj-judul">' + kanaEsc(k.judul) + (ada ? ' · waktu ' + Math.round(k.detik / 60) + ' menit' : '') + '</div>';
+  h += ujianBlokSoal(k, k.i, false);
+  h += '<div class="uj-navsoal"><button class="uj-btn kecil"' + (k.i <= 0 ? ' disabled' : '') + ' onclick="ujianKe(' + (k.i - 1) + ')">‹ Sebelumnya</button>' +
+    '<button class="uj-ragu' + (k.ragu[k.i] ? ' on' : '') + '" onclick="ujianToggleRagu()">🚩 Ragu-ragu</button>' +
+    '<button class="uj-btn kecil"' + (k.i >= n - 1 ? ' disabled' : '') + ' onclick="ujianKe(' + (k.i + 1) + ')">Berikutnya ›</button></div>';
+  h += ujianGridNav(k);
   wadah.innerHTML = h;
   setTimeout(ujianFuriPastikan, 0);
 }
 
-function ujianJawab(p) {
-  var k = ujianKuis; if (!k || k.jawab !== null) return;
-  var s = k.list[k.i];
-  var posBenar = k.acak[k.i].indexOf(ujianKunciAsli(s));
-  k.jawab = p;
-  if (p === posBenar) k.skor++;
-  else { try { if (navigator.vibrate) navigator.vibrate(60); } catch (e) {} }
+function ujianPilihJawab(p) {
+  var k = ujianKuis; if (!k || k.selesai) return;
+  k.jawaban[k.i] = (k.jawaban[k.i] === p) ? null : p;      // ketuk lagi = batal pilih
+  var y = window.pageYOffset;
   ujianRenderKuis();
-  setTimeout(function () {                 // pastikan pembahasan & tombol Lanjut terlihat
-    var e = document.querySelector('#ujian-isi .uj-bahas');
-    if (e && e.scrollIntoView) { try { e.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (x) {} }
-  }, 60);
+  window.scrollTo(0, y);
 }
-function ujianLanjut() {
+function ujianToggleRagu() {
+  var k = ujianKuis; if (!k || k.selesai) return;
+  k.ragu[k.i] = !k.ragu[k.i];
+  var y = window.pageYOffset;
+  ujianRenderKuis();
+  window.scrollTo(0, y);
+}
+function ujianKe(i) {
+  var k = ujianKuis; if (!k || k.selesai) return;
+  if (i < 0 || i >= k.list.length) return;
+  k.i = i; k.konfirmasi = '';
+  ujianRenderKuis(); window.scrollTo(0, 0);
+}
+function ujianMintaKonfirmasi(jenis) {
+  var k = ujianKuis; if (!k || k.selesai) return;
+  k.konfirmasi = jenis;
+  ujianRenderKuis(); window.scrollTo(0, 0);
+}
+function ujianBatalKonfirmasi() {
   var k = ujianKuis; if (!k) return;
-  k.i++; k.jawab = null;
+  k.konfirmasi = '';
+  ujianRenderKuis();
+}
+
+/* Kirim jawaban: nilai dihitung di sini (otomatis=true bila waktu habis) */
+function ujianSelesai(otomatis) {
+  var k = ujianKuis; if (!k || k.selesai) return;
+  var skor = 0;
+  k.list.forEach(function (s, i) {
+    var pos = k.acak[i].indexOf(ujianKunciAsli(s));
+    if (k.jawaban[i] !== null && k.jawaban[i] === pos) skor++;
+  });
+  k.skor = skor; k.selesai = true; k.otomatis = !!otomatis; k.konfirmasi = ''; k.tinjau = null;
+  k.terpakai = Math.round((Date.now() - k.mulai) / 1000);
+  if (k.detik && k.terpakai > k.detik) k.terpakai = k.detik;
   ujianRender(); window.scrollTo(0, 0);
 }
+
+function ujianStatusSoal(k, i) {
+  var pos = k.acak[i].indexOf(ujianKunciAsli(k.list[i]));
+  if (k.jawaban[i] === null) return 'ks';
+  return (pos >= 0 && k.jawaban[i] === pos) ? 'bn' : 'sl';
+}
+function ujianTinjau(i) {
+  var k = ujianKuis; if (!k || !k.selesai) return;
+  k.tinjau = i; k.i = i;
+  ujianRenderHasil();
+  setTimeout(function () {
+    var e = document.getElementById('uj-tinjau');
+    if (e && e.scrollIntoView) { try { e.scrollIntoView({ block: 'start', behavior: 'smooth' }); } catch (x) {} }
+  }, 40);
+  setTimeout(ujianFuriPastikan, 0);
+}
+
 function ujianRenderHasil() {
   var k = ujianKuis, n = k.list.length;
   ujianCatatHasil();
+  var kosong = 0, g = '';
+  for (var i = 0; i < n; i++) {
+    var st = ujianStatusSoal(k, i);
+    if (st === 'ks') kosong++;
+    g += '<button class="uj-nv ' + st + (i === k.tinjau ? ' now' : '') + '" onclick="ujianTinjau(' + i + ')">' + (i + 1) + '</button>';
+  }
+  var salah = n - k.skor - kosong;
   var persen = Math.round(k.skor / n * 100);
   var pesan = persen >= 80 ? 'Sugoi! Hampir sempurna 🎉' : persen >= 60 ? 'Bagus! Terus berlatih ya 💪' : 'Jangan menyerah, coba ulangi lagi ya 🙏';
   var sempurna = k.skor >= n;
   var rekor = k.rekorBaru ? (k.rekorLama ? 'Rekor baru! Sebelumnya ' + k.rekorLama.s + '/' + k.rekorLama.n + ' 🏆' : 'Skor pertamamu tersimpan ✨')
                           : 'Skor tertinggi: ' + k.best.s + '/' + k.best.n + ' 🏆';
-  fbEl('ujian-isi').innerHTML =
+  var h =
     '<div class="uj-hasil"><div class="uj-hasil-bintang">' + (sempurna ? '🌟' : '⭐') + '</div>' +
-    '<div class="uj-hasil-judul">Latihan selesai!</div>' +
+    '<div class="uj-hasil-judul">' + (k.otomatis ? 'Waktu habis, jawaban dikirim otomatis ⏰' : 'Latihan selesai!') + '</div>' +
     '<div class="uj-hasil-skor">' + k.skor + ' / ' + n + '</div>' +
     '<div class="uj-hasil-persen">' + persen + '%</div>' +
+    '<div class="uj-hasil-rinci"><span>✅ Benar ' + k.skor + '</span><span>❌ Salah ' + salah + '</span><span>➖ Kosong ' + kosong + '</span>' +
+      (k.terpakai != null ? '<span>⏱ ' + ujianFmtWaktu(k.terpakai) + '</span>' : '') + '</div>' +
     '<div class="uj-hasil-pesan">' + pesan + '</div>' +
     '<div class="uj-hasil-rekor">' + rekor + '</div>' +
     '<div class="uj-judul">' + kanaEsc(k.judul) + '</div></div>' +
     '<div class="uj-aksi"><button class="uj-btn" onclick="ujianUlangi()">Ulangi</button> ' +
-    '<button class="uj-btn kecil" onclick="ujianKeluarKuis()">Kembali ke daftar</button></div>';
+    '<button class="uj-btn kecil" onclick="ujianKeluarKuis()">Kembali ke daftar</button></div>' +
+    '<div class="uj-nav"><div class="uj-nav-judul">Tinjau jawaban <small>(ketuk nomor soal)</small></div><div class="uj-nav-grid">' + g + '</div>' +
+    '<div class="uj-nav-ket"><span><i class="bn"></i>Benar</span><span><i class="sl"></i>Salah</span><span><i class="ks"></i>Kosong</span></div></div>';
+  if (k.tinjau !== null) {
+    h += '<div id="uj-tinjau" class="uj-tinjau-judul">Soal ' + (k.tinjau + 1) + ' dari ' + n + '</div>' + ujianBlokSoal(k, k.tinjau, true);
+  }
+  fbEl('ujian-isi').innerHTML = h;
 }
 function ujianUlangi() {
   var k = ujianKuis; if (!k) return;
-  ujianKuis = { list: k.list, i: 0, skor: 0, jawab: null, tercatat: false, judul: k.judul, labelTab: k.labelTab, kunciSkor: k.kunciSkor };
-  ujianSiapAcak(ujianKuis);
+  ujianKuis = ujianBuatKuis(k.list, k.judul, k.labelTab, k.kunciSkor, k.detik);
+  ujianTimerMulai(ujianKuis);
   ujianRender(); window.scrollTo(0, 0);
 }
 
