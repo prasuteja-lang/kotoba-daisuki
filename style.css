@@ -1288,11 +1288,6 @@ html.dark .fb-soon { background:#3a2a14; color:#fcd34d; }
 .ks-nama { flex:1; min-width:0; }
 .ks-nama b { display:block; font-size:24px; font-weight:800; color:#1e293b; }
 .ks-nama small { display:block; margin-top:2px; font-size:12px; color:#64748b; }
-.ks-btn {
-  flex:none; width:44px; height:44px; border-radius:50%; display:flex; align-items:center; justify-content:center;
-  font-size:20px; cursor:pointer; user-select:none; color:#fff; background:var(--ac); -webkit-tap-highlight-color:transparent;
-}
-.ks-btn:active { transform:scale(.94); }
 .ks-contoh {
   display:flex; align-items:center; gap:12px; padding:12px 14px; margin:0 0 10px; cursor:pointer; user-select:none;
   background:var(--bg); border:1px solid color-mix(in srgb, var(--ac) 25%, transparent); border-radius:16px;
@@ -1302,7 +1297,6 @@ html.dark .fb-soon { background:#3a2a14; color:#fcd34d; }
 .ks-info { flex:1; min-width:0; display:flex; flex-direction:column; gap:2px; }
 .ks-info span { font-size:13px; font-weight:600; color:var(--ac); }
 .ks-info b { font-size:13px; font-weight:700; color:#475569; }
-.ks-spk { flex:none; font-size:18px; opacity:.7; }
 .ks-nav { display:flex; gap:10px; margin-top:6px; }
 .ks-nav > div {
   flex:1 1 0; text-align:center; padding:11px 6px; border-radius:14px; font-size:14px; font-weight:800; cursor:pointer; user-select:none;
@@ -1318,7 +1312,6 @@ html.dark .ks-kana { background:color-mix(in srgb, var(--glow) 16%, transparent)
 html.dark .ks-nama b, html.dark .ks-kotoba { color:#f1f5f9; }
 html.dark .ks-nama small, html.dark .ks-info b { color:#94a3b8; }
 html.dark .ks-info span { color:var(--glow); }
-html.dark .ks-btn { background:var(--glow); color:#0f172a; }
 html.dark .ks-contoh { background:color-mix(in srgb, var(--glow) 8%, #0f172a); border-color:color-mix(in srgb, var(--glow) 35%, transparent); }
 html.dark .ks-contoh:active { background:color-mix(in srgb, var(--glow) 18%, #0f172a); }
 html.dark .ks-nav > div { background:#0f172a; color:var(--glow); border-color:color-mix(in srgb, var(--glow) 40%, transparent); }
@@ -1615,3 +1608,55 @@ html.dark .uj-furi-btn.on b { background:var(--glow); color:#0f172a; }
 html.dark .uj-furi-info { color:#94a3b8; }
 html.dark .uj-furi-info.err { color:#fcd34d; }
 html.dark .uj-kartu rt, html.dark .uj-op rt { color:var(--glow); }
+
+
+/* ==== Kana: latihan Tebak huruf & Tulis kana ==== */
+#kana-latih-page { --ac:#7c3aed; --bg:#f5f3ff; --glow:#a78bfa; }
+.kn-cell.lemah::before { content:""; position:absolute; top:6px; left:6px; width:7px; height:7px; border-radius:50%; background:#ef4444; }
+.kl-lemah-info { display:flex; align-items:center; gap:6px; margin:-2px 2px 10px; font-size:12.5px; font-weight:700; color:#b91c1c; }
+.kl-lemah-info:empty { display:none; }
+.kl-titik { display:inline-block; flex:none; width:8px; height:8px; border-radius:50%; background:#ef4444; }
+.kl-set-jdl { margin:14px 2px 6px; font-size:13px; font-weight:800; color:#64748b; }
+.kl-chips { display:flex; flex-wrap:wrap; gap:8px; }
+.kl-chip { padding:8px 14px; border:1.5px solid color-mix(in srgb, var(--ac) 30%, transparent); border-radius:999px; font-size:13.5px; font-weight:800; color:var(--ac); background:#fff; cursor:pointer; user-select:none; -webkit-tap-highlight-color:transparent; }
+.kl-chip.on { color:#fff; background:var(--ac); border-color:var(--ac); }
+.kl-chip.mati { opacity:.4; pointer-events:none; }
+.kl-kartu { display:flex; flex-direction:column; align-items:center; gap:4px; padding:18px 12px; margin:0 0 14px; border:1px solid #e2e8f0; border-radius:18px; background:#fff; text-align:center; }
+.kl-kartu.kecil { padding:10px 12px; margin:0 0 10px; }
+.kl-minta { font-size:13.5px; font-weight:800; color:#64748b; }
+.kl-besar { font-size:64px; line-height:1.15; font-weight:800; color:var(--ac); }
+.kl-besar.jp, .kl-op.jp, .kl-ubin .jp { font-family:var(--jp); }
+.kl-besar.jp { font-size:96px; }
+.kl-besar.jp.dua { font-size:72px; }
+.kl-besar.sedang { font-size:44px; }
+.kl-besar.jp.sedang { font-size:56px; }
+.kl-bacaan { font-size:15px; font-weight:800; color:#475569; }
+.kl-opsi { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:0 0 12px; }
+.kl-op { width:100%; max-width:none; margin:0; min-height:64px; padding:10px; border:2px solid #e2e8f0; border-radius:16px; font-size:24px; font-weight:800; color:#1e293b; background:#fff; box-shadow:0 2px 0 rgba(15,23,42,.08); }
+.kl-op.jp { font-size:34px; }
+.kl-op:active:not(:disabled) { border-color:var(--ac); transform:translateY(1px); }
+.kl-op:disabled { cursor:default; }
+.kl-op.benar { border-color:#16a34a; background:#f0fdf4; }
+.kl-op.salah { border-color:#dc2626; background:#fef2f2; }
+.kl-op.pudar { opacity:.5; }
+.kl-kanvas-wrap { display:flex; justify-content:center; margin:0 0 10px; }
+#kl-kanvas { width:100%; max-width:340px; aspect-ratio:1 / 1; border:2px solid #cbd5e1; border-radius:18px; touch-action:none; cursor:crosshair; background:#fff; }
+.kl-alat { display:flex; gap:8px; justify-content:center; flex-wrap:wrap; margin:0 0 10px; }
+.kl-pesan { min-height:18px; margin:0 0 6px; text-align:center; font-size:13px; font-weight:700; color:#b45309; }
+.kl-salah { display:flex; flex-wrap:wrap; gap:8px; margin:0 0 12px; }
+.kl-ubin { display:flex; flex-direction:column; align-items:center; min-width:58px; padding:8px 10px; border:1px solid #fecaca; border-radius:14px; background:#fef2f2; }
+.kl-ubin .jp { font-size:28px; font-weight:800; color:#991b1b; line-height:1.2; }
+.kl-ubin small { font-size:11.5px; font-weight:800; color:#b91c1c; }
+html.dark .kl-lemah-info { color:#fca5a5; }
+html.dark .kl-set-jdl, html.dark .kl-minta, html.dark .kl-bacaan { color:#94a3b8; }
+html.dark .kl-chip { background:#0f172a; color:var(--glow); border-color:color-mix(in srgb, var(--glow) 40%, transparent); }
+html.dark .kl-chip.on { color:#0f172a; background:var(--glow); border-color:var(--glow); }
+html.dark .kl-kartu, html.dark .kl-op { background:#0f172a; border-color:#334155; }
+html.dark .kl-besar { color:var(--glow); }
+html.dark .kl-op { color:#f1f5f9; }
+html.dark .kl-op.benar { background:#052e16; border-color:#22c55e; }
+html.dark .kl-op.salah { background:#450a0a; border-color:#ef4444; }
+html.dark #kl-kanvas { border-color:#334155; background:#0f172a; }
+html.dark .kl-pesan { color:#fcd34d; }
+html.dark .kl-ubin { background:#450a0a; border-color:#7f1d1d; }
+html.dark .kl-ubin .jp, html.dark .kl-ubin small { color:#fecaca; }
