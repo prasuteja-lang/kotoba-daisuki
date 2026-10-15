@@ -1540,6 +1540,63 @@ html.dark .uj-chip, html.dark .uj-hasil-rekor { background:#3a2a14; color:#fcd34
 html.dark .uj-chip.emas { background:linear-gradient(135deg,#b45309,#c2410c); color:#fff; }
 html.dark .uj-bawah { background:rgba(15,23,42,.82); }
 
+/* ---- Ujian: waktu, navigasi soal, tinjauan ---- */
+.uj-waktu { min-width:72px; text-align:right; font-size:14.5px; font-weight:900; color:var(--ac); font-variant-numeric:tabular-nums; }
+.uj-waktu.habis { color:#dc2626; animation:ujKedip 1s steps(2) infinite; }
+@keyframes ujKedip { 50% { opacity:.4; } }
+.uj-op.pilih { border-color:var(--ac); background:color-mix(in srgb, var(--ac) 10%, #fff); }
+.uj-op.pilih .uj-huruf { color:#fff; background:var(--ac); }
+.uj-navsoal { display:flex; gap:8px; align-items:stretch; justify-content:space-between; margin:14px 0; }
+.uj-navsoal .uj-btn { flex:1 1 0; padding:10px 6px; }
+.uj-navsoal .uj-btn:disabled { opacity:.4; }
+.uj-ragu { flex:1.1 1 0; width:auto; max-width:none; margin:0; padding:10px 6px; border:2px solid #fcd34d; border-radius:14px; font-size:13px; font-weight:800; color:#92400e; background:#fff; box-shadow:none; }
+.uj-ragu.on { background:#fef3c7; border-color:#f59e0b; }
+.uj-nav { padding:14px; border:1px solid #e2e8f0; border-radius:16px; background:#fff; margin:0 0 14px; text-align:left; }
+.uj-nav-judul { font-size:15px; font-weight:800; color:#1e293b; margin:0 0 10px; }
+.uj-nav-judul small { font-size:11.5px; font-weight:700; color:#64748b; }
+.uj-nav-grid { display:grid; grid-template-columns:repeat(5, 1fr); gap:8px; }
+.uj-nv { width:100%; max-width:none; height:42px; margin:0; padding:0; border:1.5px solid #cbd5e1; border-radius:10px; font-size:15px; font-weight:700; color:#1e293b; background:#fff; box-shadow:none; }
+.uj-nv.dj { color:#fff; background:var(--ac); border-color:var(--ac); }
+.uj-nv.rg { border:2.5px solid #f59e0b; }
+.uj-nv.now { outline:3px solid #e11d48; outline-offset:1px; }
+.uj-nv.bn { color:#fff; background:#16a34a; border-color:#16a34a; }
+.uj-nv.sl { color:#fff; background:#dc2626; border-color:#dc2626; }
+.uj-nv.ks { color:#64748b; background:#f1f5f9; }
+.uj-nav-ket { display:flex; flex-wrap:wrap; gap:6px 14px; margin:12px 0 0; font-size:12.5px; font-weight:600; color:#475569; }
+.uj-nav-ket span { display:inline-flex; align-items:center; gap:6px; }
+.uj-nav-ket i { width:13px; height:13px; border-radius:4px; border:1.5px solid #cbd5e1; background:#fff; }
+.uj-nav-ket i.sd { background:var(--ac); border-color:var(--ac); }
+.uj-nav-ket i.rg { border:2px solid #f59e0b; }
+.uj-nav-ket i.bn { background:#16a34a; border-color:#16a34a; }
+.uj-nav-ket i.sl { background:#dc2626; border-color:#dc2626; }
+.uj-nav-ket i.ks { background:#f1f5f9; }
+.uj-aksi.kanan { justify-content:flex-end; margin:14px 0 0; }
+.uj-btn.kirim { background:#be123c; color:#fff; }
+.uj-konfirm { margin:0 0 12px; padding:12px 14px; border:1px solid #fcd34d; border-radius:14px; background:#fffbeb; color:#92400e; font-size:14px; font-weight:700; text-align:center; }
+.uj-konfirm .uj-aksi { margin:10px 0 0; }
+.uj-hasil-rinci { display:flex; flex-wrap:wrap; gap:6px 14px; justify-content:center; margin:0 0 8px; font-size:13px; font-weight:700; color:#475569; }
+.uj-tinjau-judul { margin:4px 0 10px; font-size:13.5px; font-weight:800; color:#475569; text-align:center; }
+html.dark .uj-waktu.habis { color:#f87171; }
+html.dark .uj-op.pilih { background:color-mix(in srgb, var(--glow) 14%, #0f172a); border-color:var(--glow); }
+html.dark .uj-op.pilih .uj-huruf { color:#0f172a; background:var(--glow); }
+html.dark .uj-ragu { background:#0f172a; border-color:#92400e; color:#fcd34d; }
+html.dark .uj-ragu.on { background:#3a2a14; border-color:#f59e0b; }
+html.dark .uj-nav { background:#0f172a; border-color:#334155; }
+html.dark .uj-nav-judul { color:#f1f5f9; }
+html.dark .uj-nv { background:#1e293b; border-color:#334155; color:#e2e8f0; }
+html.dark .uj-nv.dj { color:#0f172a; background:var(--glow); border-color:var(--glow); }
+html.dark .uj-nv.rg { border-color:#f59e0b; }
+html.dark .uj-nv.bn { color:#fff; background:#16a34a; border-color:#16a34a; }
+html.dark .uj-nv.sl { color:#fff; background:#dc2626; border-color:#dc2626; }
+html.dark .uj-nv.ks { color:#94a3b8; background:#1e293b; }
+html.dark .uj-nav-ket, html.dark .uj-hasil-rinci, html.dark .uj-tinjau-judul { color:#94a3b8; }
+html.dark .uj-nav-ket i { background:#1e293b; border-color:#475569; }
+html.dark .uj-nav-ket i.sd { background:var(--glow); border-color:var(--glow); }
+html.dark .uj-nav-ket i.bn { background:#16a34a; border-color:#16a34a; }
+html.dark .uj-nav-ket i.sl { background:#dc2626; border-color:#dc2626; }
+html.dark .uj-konfirm { background:#3a2a14; border-color:#92400e; color:#fcd34d; }
+html.dark .uj-btn.kirim { background:#e11d48; color:#fff; }
+
 /* ---- Ujian: furigana ---- */
 .uj-alat { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin:0 0 10px; }
 .uj-furi-btn { display:inline-flex; align-items:center; gap:6px; width:auto; max-width:none; margin:0; padding:6px 12px; border-radius:999px; font-size:12.5px; font-weight:800; color:#64748b; background:#f1f5f9; box-shadow:none; }
