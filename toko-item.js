@@ -34,11 +34,11 @@
 var TOKO_ITEM = [
   // ---------- BINGKAI ----------
   { id: 'bk-sakura',        jenis: 'bingkai', nama: 'Bingkai Sakura',        ico: '🌸', ket: 'Bingkai merah muda lembut',               harga: 50 },
-  { id: 'bk-hiraganahero',  jenis: 'bingkai', nama: 'Bingkai Hiragana Hero', ico: '', ket: 'Kucing berikat kepala di bingkai sakura', harga: 500,  gambar: 'bingkai-hiraganahero.png',  skala: 35 },
-  { id: 'bk-scholar',       jenis: 'bingkai', nama: 'Bingkai Scholar',       ico: '', ket: 'Beruang cendekia di bingkai bintang',     harga: 500, gambar: 'bingkai-scholar.png',       skala: 35 },
-  { id: 'bk-seitolegend',   jenis: 'bingkai', nama: 'Bingkai Seito Legend',  ico: '', ket: 'Shiba legendaris di bingkai emas',        harga: 1000, gambar: 'bingkai-seitolegend.png',   skala: 35 },
-  { id: 'bk-kotobacolector',jenis: 'bingkai', nama: 'Bingkai Kotoba Collector', ico: '', ket: 'Kelinci manis di bingkai ungu berbintang', harga: 1000, gambar: 'bingkai-kotobacolector.png', skala: 35 },
-  { id: 'bk-naga',          jenis: 'bingkai', nama: 'Bingkai Naga',          ico: '', ket: 'Bingkai langka bergambar naga emas',      harga: 3000, gambar: 'bingkai-naga.png',  skala: 35, x: -3, y: -2 },
+  { id: 'bk-hiraganahero',  jenis: 'bingkai', nama: 'Bingkai Hiragana Hero', ico: '', ket: 'Kucing berikat kepala di bingkai sakura', harga: 500,  gambar: 'bingkai-hiraganahero.png',  skala: 30 },
+  { id: 'bk-scholar',       jenis: 'bingkai', nama: 'Bingkai Scholar',       ico: '', ket: 'Beruang cendekia di bingkai bintang',     harga: 500, gambar: 'bingkai-scholar.png',       skala: 30 },
+  { id: 'bk-seitolegend',   jenis: 'bingkai', nama: 'Bingkai Seito Legend',  ico: '', ket: 'Shiba legendaris di bingkai emas',        harga: 1000, gambar: 'bingkai-seitolegend.png',   skala: 30 },
+  { id: 'bk-kotobacolector',jenis: 'bingkai', nama: 'Bingkai Kotoba Collector', ico: '', ket: 'Kelinci manis di bingkai ungu berbintang', harga: 1000, gambar: 'bingkai-kotobacolector.png', skala: 30 },
+  { id: 'bk-naga',          jenis: 'bingkai', nama: 'Bingkai Naga',          ico: '', ket: 'Bingkai langka bergambar naga emas',      harga: 3000, gambar: 'bingkai-naga.png',  skala: 33, x: -3, y: -2 },
   { id: 'bk-kawai',         jenis: 'bingkai', nama: 'Bingkai Kawai',         ico: '', ket: 'Bingkai gambar bertema kawai',            harga: 3000, gambar: 'bingkai-kawai.png', skala: 38 },
 
   // ---------- GELAR ----------
