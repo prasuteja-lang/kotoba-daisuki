@@ -34,20 +34,15 @@
 var TOKO_ITEM = [
   // ---------- BINGKAI ----------
   { id: 'bk-sakura',        jenis: 'bingkai', nama: 'Bingkai Sakura',        ico: '🌸', ket: 'Bingkai merah muda lembut',               harga: 50 },
-  { id: 'bk-emas',          jenis: 'bingkai', nama: 'Bingkai Emas',          ico: '🟡', ket: 'Bingkai emas berkilau',                   harga: 100 },
-  { id: 'bk-pelangi',       jenis: 'bingkai', nama: 'Bingkai Pelangi',       ico: '🌈', ket: 'Bingkai warna-warni animasi',             harga: 250 },
-  { id: 'bk-hiraganahero',  jenis: 'bingkai', nama: 'Bingkai Hiragana Hero', ico: '', ket: 'Kucing berikat kepala di bingkai sakura', harga: 800,  gambar: 'bingkai-hiraganahero.png',  skala: 35 },
-  { id: 'bk-navigator',     jenis: 'bingkai', nama: 'Bingkai Navigator',     ico: '', ket: 'Panda penjelajah di bingkai hijau',       harga: 1200, gambar: 'bingkai-navigator.png',     skala: 35 },
-  { id: 'bk-scholar',       jenis: 'bingkai', nama: 'Bingkai Scholar',       ico: '', ket: 'Beruang cendekia di bingkai bintang',     harga: 1500, gambar: 'bingkai-scholar.png',       skala: 35 },
-  { id: 'bk-seitolegend',   jenis: 'bingkai', nama: 'Bingkai Seito Legend',  ico: '', ket: 'Shiba legendaris di bingkai emas',        harga: 2000, gambar: 'bingkai-seitolegend.png',   skala: 35 },
-  { id: 'bk-kotobacolector',jenis: 'bingkai', nama: 'Bingkai Kotoba Collector', ico: '', ket: 'Kelinci manis di bingkai ungu berbintang', harga: 2500, gambar: 'bingkai-kotobacolector.png', skala: 35 },
+  { id: 'bk-hiraganahero',  jenis: 'bingkai', nama: 'Bingkai Hiragana Hero', ico: '', ket: 'Kucing berikat kepala di bingkai sakura', harga: 500,  gambar: 'bingkai-hiraganahero.png',  skala: 35 },
+  { id: 'bk-navigator',     jenis: 'bingkai', nama: 'Bingkai Navigator',     ico: '', ket: 'Panda penjelajah di bingkai hijau',       harga: 500, gambar: 'bingkai-navigator.png',     skala: 35 },
+  { id: 'bk-scholar',       jenis: 'bingkai', nama: 'Bingkai Scholar',       ico: '', ket: 'Beruang cendekia di bingkai bintang',     harga: 500, gambar: 'bingkai-scholar.png',       skala: 35 },
+  { id: 'bk-seitolegend',   jenis: 'bingkai', nama: 'Bingkai Seito Legend',  ico: '', ket: 'Shiba legendaris di bingkai emas',        harga: 1000, gambar: 'bingkai-seitolegend.png',   skala: 35 },
+  { id: 'bk-kotobacolector',jenis: 'bingkai', nama: 'Bingkai Kotoba Collector', ico: '', ket: 'Kelinci manis di bingkai ungu berbintang', harga: 1000, gambar: 'bingkai-kotobacolector.png', skala: 35 },
   { id: 'bk-naga',          jenis: 'bingkai', nama: 'Bingkai Naga',          ico: '', ket: 'Bingkai langka bergambar naga emas',      harga: 3000, gambar: 'bingkai-naga.png',  skala: 35, x: -3, y: -2 },
   { id: 'bk-kawai',         jenis: 'bingkai', nama: 'Bingkai Kawai',         ico: '', ket: 'Bingkai gambar bertema kawai',            harga: 3000, gambar: 'bingkai-kawai.png', skala: 38 },
 
   // ---------- GELAR ----------
-  { id: 'gl-pemula',        jenis: 'gelar',   nama: 'Pelajar Rajin',   ico: '📘', ket: 'Gelar untuk pelajar tekun',          harga: 40 },
-  { id: 'gl-samurai',       jenis: 'gelar',   nama: 'Samurai Kotoba',  ico: '⚔️', ket: 'Gelar penakluk kosakata',            harga: 120 },
-  { id: 'gl-ninja',         jenis: 'gelar',   nama: 'Ninja Kanji',     ico: '🥷', ket: 'Gelar penguasa kanji',               harga: 200 },
   { id: 'gl-hiraganahero',  jenis: 'gelar',   nama: 'Hiragana Hero',      ico: '', ket: 'Pahlawan hiragana',                  harga: 300,  gambar: 'icon-hiraganahero.png' },
   { id: 'gl-kotobacolector',jenis: 'gelar',   nama: 'Kotoba Collector',   ico: '', ket: 'Kolektor kosakata sejati',           harga: 400,  gambar: 'icon-kotobacolector.png' },
   { id: 'gl-scholar',       jenis: 'gelar',   nama: 'Scholar',            ico: '', ket: 'Si cendekia yang rajin membaca',     harga: 500,  gambar: 'icon-scholar.png' },
