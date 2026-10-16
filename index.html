@@ -62,6 +62,13 @@ html.dark .pf-go { color: #64748b; }
 .koin-img { width: 20px; height: 20px; object-fit: contain; vertical-align: -4px; }
 .koin-img.besar { width: 44px; height: 44px; vertical-align: middle; }
 .tk-item .tk-btn .koin-img { width: 16px; height: 16px; vertical-align: -3px; }
+.mm-info { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 2px; }
+.mm-gelar, .mm-koin { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 800; line-height: 1.4; }
+.mm-gelar { background: #f5f3ff; border: 1.5px solid #c4b5fd; color: #5b21b6; }
+.mm-koin { background: #fffbeb; border: 1.5px solid #fcd34d; color: #92400e; cursor: pointer; }
+.mm-koin .koin-img { width: 15px; height: 15px; vertical-align: middle; }
+html.dark .mm-gelar { background: #1a1533; border-color: #8b5cf6; color: #c4b5fd; }
+html.dark .mm-koin { background: #1f1a0b; border-color: #f59e0b; color: #fcd34d; }
 .pf-gelar { margin-top: 6px; font-size: 13px; font-weight: 800; color: #7c3aed; }
 html.dark .pf-gelar { color: #c4b5fd; }
 .pf-koin { display: inline-block; margin-top: 10px; padding: 7px 16px; border-radius: 999px; font-size: 13px; font-weight: 800; cursor: pointer;
@@ -215,6 +222,7 @@ html .mm-avatar.bk-pelangi { outline: 3px solid #ef4444; outline-offset: 2px; an
       <div class="mm-sapa">
         <div class="mm-hai" id="mm-hai">こんにちは ☀️</div>
         <div class="mm-nama" id="mm-nama">Selamat datang</div>
+        <div class="mm-info"><span class="mm-gelar hidden" id="mm-gelar"></span><span class="mm-koin hidden" id="mm-koin" role="button" onclick="pindahTab('toko')"></span></div>
         <div class="mm-sub">Mau belajar apa hari ini?</div>
       </div>
     </div>
@@ -715,7 +723,7 @@ html .mm-avatar.bk-pelangi { outline: 3px solid #ef4444; outline-offset: 2px; an
   </div>
 </div>
 
-<script>__js('Code.js')</script>
+<script>__js('kotoba-app.js')</script>
 
 <!-- ===== HALAMAN KANJI ===== -->
 <!-- KANJI: Menu Level -->
