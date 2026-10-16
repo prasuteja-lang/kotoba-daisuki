@@ -126,14 +126,6 @@ html .tk-ico.bk-pelangi { animation: bkPelangi 3s linear infinite; }
   75%  { border-color: #3b82f6; box-shadow: 0 0 0 3px #93c5fd, 0 0 16px rgba(59, 130, 246, .7); }
   100% { border-color: #ef4444; box-shadow: 0 0 0 3px #fca5a5, 0 0 16px rgba(239, 68, 68, .7); }
 }
-/* bingkai bergambar: Naga (file bingkai-naga.png harus satu folder dengan index.html) */
-html .mm-avatar.bk-naga { border-color: transparent !important; box-shadow: none !important; position: relative; overflow: visible !important; }
-html .mm-avatar.bk-naga::after { content: ''; position: absolute; inset: -38%; pointer-events: none; background: url('bingkai-naga.png') center / contain no-repeat; }
-/* bingkai naga lebih besar dari foto: beri ruang supaya tidak menimpa tulisan */
-html .mm-head .mm-avatar.bk-naga { margin-left: 10px; margin-right: 6px; }
-html .mm-head:has(.mm-avatar.bk-naga) .mm-sapa { margin-left: 28px; }
-html .tk-ico.bk-naga { position: relative; overflow: visible; }
-html .tk-ico.bk-naga::after { content: ''; position: absolute; inset: -38%; pointer-events: none; background: url('bingkai-naga.png') center / contain no-repeat; }
 /* avatar punya border/shadow !important (tidak bisa dianimasikan), jadi pelangi memakai outline */
 html .mm-avatar.bk-pelangi { outline: 3px solid #ef4444; outline-offset: 2px; animation: bkPelangiOut 3s linear infinite; }
 @keyframes bkPelangiOut { 0% { outline-color: #ef4444; } 25% { outline-color: #eab308; } 50% { outline-color: #22c55e; } 75% { outline-color: #3b82f6; } 100% { outline-color: #ef4444; } }
@@ -737,6 +729,7 @@ html .mm-avatar.bk-pelangi { outline: 3px solid #ef4444; outline-offset: 2px; an
   </div>
 </div>
 
+<script>__js('toko-item.js')</script>
 <script>__js('kotoba-app.js')</script>
 
 <!-- ===== HALAMAN KANJI ===== -->

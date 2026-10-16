@@ -845,20 +845,62 @@ function renderPeringkat() {
 // XP tidak pernah turun (xpMax) dan tidak berkurang saat belanja, jadi peringkat aman.
 // Pembelian dicatat di achState.beli = { idItem: hargaSaatBeli } dan ikut tersinkron ke server.
 // Item yang dipakai: achState.pakai = { bingkai: idItem, gelar: idItem }
-// Cara menambah item baru: cukup tambah satu baris di TOKO_ITEM (jenis 'bingkai' perlu gaya .bk-xxx di CSS).
+// Cara menambah item baru: tambah satu baris di toko-item.js (petunjuk & contoh ada di file itu).
 var KOIN_RASIO = 10;
-// Daftar item Toko. Field: id (unik, bingkai harus 'bk-xxx' sesuai CSS), jenis ('bingkai' | 'gelar'), nama, ico, ket, harga (koin).
-// CATATAN: nama, harga, dan gelar di bawah ini hasil rekonstruksi — sesuaikan dengan daftar aslimu.
-var TOKO_ITEM = [
-  { id: 'bk-sakura',  jenis: 'bingkai', nama: 'Bingkai Sakura',  ico: '🌸', ket: 'Bingkai merah muda lembut',   harga: 50 },
-  { id: 'bk-emas',    jenis: 'bingkai', nama: 'Bingkai Emas',    ico: '🟡', ket: 'Bingkai emas berkilau',       harga: 100 },
-  { id: 'bk-api',     jenis: 'bingkai', nama: 'Bingkai Api',     ico: '🔥', ket: 'Bingkai oranye membara',      harga: 150 },
-  { id: 'bk-pelangi', jenis: 'bingkai', nama: 'Bingkai Pelangi', ico: '🌈', ket: 'Bingkai warna-warni animasi', harga: 250 },
-  { id: 'bk-naga',    jenis: 'bingkai', nama: 'Bingkai Naga',    ico: '🐉', ket: 'Bingkai langka bergambar naga emas', harga: 3000 },
-  { id: 'gl-pemula',  jenis: 'gelar',   nama: 'Pelajar Rajin',   ico: '📘', ket: 'Gelar untuk pelajar tekun',   harga: 40 },
-  { id: 'gl-samurai', jenis: 'gelar',   nama: 'Samurai Kotoba',  ico: '⚔️', ket: 'Gelar penakluk kosakata',     harga: 120 },
-  { id: 'gl-ninja',   jenis: 'gelar',   nama: 'Ninja Kanji',     ico: '🥷', ket: 'Gelar penguasa kanji',        harga: 200 }
-];
+// Daftar item Toko ada di file terpisah: toko-item.js (dimuat sebelum file ini). Tambah/ubah item di sana, bukan di sini.
+if (typeof TOKO_ITEM === 'undefined') { var TOKO_ITEM = []; }
+// Jenis item yang didukung (urutan = urutan tampil di Toko). Isi 'label' = judul grup.
+//   bingkai : hiasan foto profil   (CSS .id atau gambar PNG lewat field 'gambar')
+//   gelar   : teks di bawah nama
+//   tema    : kelas CSS di <html> (id item = nama kelas) atau latar lewat field 'latar'
+//   musik   : mengganti musik latar (field 'url')
+var TOKO_JENIS = {
+  bingkai: { label: '🖼️ BINGKAI FOTO' },
+  gelar:   { label: '🏷️ GELAR' },
+  tema:    { label: '🎨 TEMA' },
+  musik:   { label: '🎵 MUSIK LATAR' }
+};
+var tokoMasalah = [];
+// Periksa daftar item: item yang salah ketik dilewati (bukan merusak seluruh Toko) dan dilaporkan.
+// Lalu buat CSS otomatis untuk bingkai bergambar & tema berlatar.
+function tokoSiapkan() {
+  var lihat = {}, bagus = [], css = '';
+  tokoMasalah = [];
+  TOKO_ITEM.forEach(function(it, n) {
+    var tag = '#' + (n + 1) + (it && it.id ? ' (' + it.id + ')' : '');
+    if (!it || typeof it !== 'object') { tokoMasalah.push(tag + ' bukan item'); return; }
+    if (!it.id || !/^[A-Za-z][A-Za-z0-9_-]*$/.test(it.id) || it.id === 'dark' || it.id === 'hidden') { tokoMasalah.push(tag + ' id tidak valid'); return; }
+    if (lihat[it.id]) { tokoMasalah.push(tag + ' id dobel'); return; }
+    if (!TOKO_JENIS[it.jenis]) { tokoMasalah.push(tag + ' jenis "' + it.jenis + '" tidak dikenal'); return; }
+    if (!it.nama) { tokoMasalah.push(tag + ' nama kosong'); return; }
+    if (isNaN(Number(it.harga)) || Number(it.harga) < 0 || it.harga === '' || it.harga === null) { tokoMasalah.push(tag + ' harga tidak valid'); return; }
+    if (it.jenis === 'musik' && !it.url) { tokoMasalah.push(tag + ' musik butuh url'); return; }
+    it.harga = Number(it.harga); it.ico = it.ico || '🎁'; it.ket = it.ket || '';
+    lihat[it.id] = 1; bagus.push(it);
+    if (it.jenis === 'bingkai' && it.gambar) {
+      var sk = Number(it.skala) > 0 ? Number(it.skala) : 38;                    // seberapa jauh bingkai keluar dari foto (%)
+      var u = "url('" + String(it.gambar).replace(/['")\\\n]/g, '') + "') center / contain no-repeat";
+      var lapis = 'content:""; position:absolute; inset:-' + sk + '%; pointer-events:none; background:' + u + ';';
+      css += 'html .mm-avatar.' + it.id + ' { border-color:transparent !important; box-shadow:none !important; position:relative; overflow:visible !important; }' +
+        'html .mm-avatar.' + it.id + '::after { ' + lapis + ' }' +
+        'html .tk-ico.' + it.id + ' { position:relative; overflow:visible; }' +
+        'html .tk-ico.' + it.id + '::after { ' + lapis + ' }' +
+        'html .mm-head .mm-avatar.' + it.id + ' { margin-left:' + Math.round(sk * 0.26) + 'px; margin-right:' + Math.round(sk * 0.16) + 'px; }' +
+        'html .mm-head:has(.mm-avatar.' + it.id + ') .mm-sapa { margin-left:' + Math.round(sk * 0.74) + 'px; }';
+    }
+    if (it.jenis === 'tema' && it.latar) {
+      css += 'html.' + it.id + ', html.' + it.id + ' body { background:' + it.latar + ' !important; background-attachment:fixed !important; }';
+    }
+  });
+  TOKO_ITEM = bagus;
+  if (css) {
+    var st = document.getElementById('toko-css');
+    if (!st) { st = document.createElement('style'); st.id = 'toko-css'; (document.head || document.documentElement).appendChild(st); }
+    st.textContent = css;
+  }
+  if (tokoMasalah.length) { try { console.warn('[toko] ' + tokoMasalah.length + ' item dilewati: ' + tokoMasalah.join(' | ')); } catch (e) {} }
+}
+tokoSiapkan();
 // Gambar koin: SVG emas buatan sendiri (tanpa background, tertanam langsung di kode, tidak butuh file/Drive)
 var KOIN_IMG_SRC = 'data:image/svg+xml,%3Csvg%20xmlns=%27http://www.w3.org/2000/svg%27%20viewBox=%270%200%20100%20100%27%3E%3Cdefs%3E%3ClinearGradient%20id=%27a%27%20x1=%270%27%20y1=%270%27%20x2=%271%27%20y2=%271%27%3E%3Cstop%20offset=%270%27%20stop-color=%27%23fff1b8%27/%3E%3Cstop%20offset=%27.45%27%20stop-color=%27%23fbbf24%27/%3E%3Cstop%20offset=%271%27%20stop-color=%27%23b45309%27/%3E%3C/linearGradient%3E%3ClinearGradient%20id=%27b%27%20x1=%271%27%20y1=%271%27%20x2=%270%27%20y2=%270%27%3E%3Cstop%20offset=%270%27%20stop-color=%27%23fde68a%27/%3E%3Cstop%20offset=%271%27%20stop-color=%27%23d97706%27/%3E%3C/linearGradient%3E%3C/defs%3E%3Ccircle%20cx=%2750%27%20cy=%2750%27%20r=%2747%27%20fill=%27url(%23a)%27%20stroke=%27%2392400e%27%20stroke-width=%274%27/%3E%3Ccircle%20cx=%2750%27%20cy=%2750%27%20r=%2736%27%20fill=%27url(%23b)%27%20stroke=%27%23b45309%27%20stroke-width=%272.5%27/%3E%3Cpath%20d=%27M50.0%2029.0%20L53.1%2040.1%20L64.7%2040.3%20L55.4%2047.3%20L58.8%2058.4%20L50.0%2051.0%20L41.2%2058.4%20L44.6%2047.3%20L35.3%2040.3%20L46.9%2040.1Z%27%20fill=%27%23fff7d6%27%20stroke=%27%23b45309%27%20stroke-width=%272%27%20stroke-linejoin=%27round%27/%3E%3Cpath%20d=%27M20%2038A33%2033%200%200%201%2042%2019%27%20fill=%27none%27%20stroke=%27%23fff%27%20stroke-opacity=%27.75%27%20stroke-width=%274%27%20stroke-linecap=%27round%27/%3E%3C/svg%3E';
 function koinImg(cls) {
@@ -905,7 +947,11 @@ function tokoRender() {
   var h = '<div class="koin-kartu"><div class="koin-ico">' + koinImg('besar') + '</div><div class="koin-txt"><small>Koinmu</small><b>' + fmtAngka(saldo) + '</b></div></div>' +
     '<div class="koin-ket">' + KOIN_RASIO + ' XP = 1 koin · total didapat ' + fmtAngka(total) + ' · terpakai ' + fmtAngka(dipakai) +
     '<br>Belanja tidak mengurangi XP dan peringkatmu.</div>';
-  [['bingkai', '🖼️ BINGKAI FOTO'], ['gelar', '🏷️ GELAR']].forEach(function(g) {
+  if (koinAdmin() && tokoMasalah.length) h += '<div class="koin-ket" style="color:#dc2626">⚠️ ' + tokoMasalah.length + ' item di toko-item.js dilewati: ' + kanaEsc(tokoMasalah.join(' · ')) + '</div>';
+  if (!TOKO_ITEM.length) h += '<div class="qst-kosong">Belum ada item di Toko.</div>';
+  Object.keys(TOKO_JENIS).forEach(function(j) {
+    var g = [j, TOKO_JENIS[j].label];
+    if (!TOKO_ITEM.some(function(it) { return it.jenis === j; })) return;      // grup kosong tidak ditampilkan
     h += '<div class="ach-label">' + g[1] + '</div>';
     TOKO_ITEM.forEach(function(it) {
       if (it.jenis !== g[0]) return;
@@ -946,9 +992,26 @@ function tokoPakai(jenis, id) {
   achSimpan();
   tokoRender(); terapkanDekorasi();
 }
+// musik latar: bila ada item musik yang dipakai, urutan sumber diganti (yang bawaan tetap jadi cadangan)
+function tokoMusikTerapkan() {
+  if (typeof MUSIK_SUMBER === 'undefined' || typeof MUSIK_DEFAULT === 'undefined' || !achSiap()) return;
+  var it = tokoItem(achState.pakai.musik || '');
+  var ok = !!(it && it.jenis === 'musik' && it.url && achState.beli[it.id] != null);
+  var baru = ok ? [it.url].concat(MUSIK_DEFAULT) : MUSIK_DEFAULT.slice();
+  if (baru.join('|') === MUSIK_SUMBER.join('|')) return;
+  MUSIK_SUMBER = baru;
+  if (typeof musik === 'undefined') return;
+  musik.gagal = false; musik.idx = 0;
+  if (musik.el) { musik.el.src = MUSIK_SUMBER[0]; if (typeof musikBoleh === 'function' && musikBoleh()) musikMain(); }
+}
 // pasang bingkai di foto (Menu Utama & Profil) dan gelar di Profil
 function terapkanDekorasi() {
   if (!achSiap()) return;
+  // tema: pasang kelas item tema yang dipakai di <html> (id item = nama kelas)
+  var tm = achState.pakai.tema || '';
+  TOKO_ITEM.forEach(function(it) { if (it.jenis === 'tema') document.documentElement.classList.remove(it.id); });
+  if (tm && achState.beli[tm] != null && tokoItem(tm)) document.documentElement.classList.add(tm);
+  tokoMusikTerapkan();
   var bk = achState.pakai.bingkai || '';
   ['mm-avatar', 'pf-avatar'].forEach(function(i) {
     var el = document.getElementById(i);
@@ -1009,10 +1072,11 @@ function gabungPencapaian(c) {
     if (it && achState.beli[k] == null) achState.beli[k] = (Number(cb[k]) >= 0 && cb[k] !== '') ? Number(cb[k]) : it.harga;
   });
   var cp = (c.pakai && typeof c.pakai === 'object') ? c.pakai : {};
-  ['bingkai', 'gelar'].forEach(function(j) { if (achState.pakai[j] == null && cp[j]) achState.pakai[j] = cp[j]; });
+  Object.keys(TOKO_JENIS).forEach(function(j) { if (achState.pakai[j] == null && cp[j]) achState.pakai[j] = cp[j]; });
   var ld = String(c.lastDone || '');
   if (ld && ld > (questState.lastDone || '')) { questState.lastDone = ld; questState.streak = Number(c.streak) || 0; }
   if (questState.lastDone && questState.lastDone !== questTanggal(0) && questState.lastDone !== questTanggal(-1)) questState.streak = 0;
+  try { terapkanDekorasi(); } catch (e) {}
   achSimpan(); questSimpan();   // sekaligus mengirim data gabungan ke server
 }
 
@@ -4572,6 +4636,7 @@ var MUSIK_SUMBER = [
   'https://drive.usercontent.google.com/download?id=1AgHsFG641Ru_XK9vO8jD7f1patFCYtZ4&export=download&confirm=t',
   'https://drive.google.com/uc?export=download&id=1AgHsFG641Ru_XK9vO8jD7f1patFCYtZ4'
 ];
+var MUSIK_DEFAULT = MUSIK_SUMBER.slice();   // salinan bawaan; item Toko jenis 'musik' bisa menaruh sumber lain di depannya
 var MUSIK_VOLUME = 0.35;
 var MUSIK_KUNCI = 'kotoba_musik';
 var musik = { el: null, idx: 0, gagal: false, tunggu: false, fade: null, sesi: false, dijeda: false, lain: [] };
@@ -4599,6 +4664,7 @@ function musikTombol() {
 }
 function musikSiapkan() {
   if (musik.el) return;
+  try { tokoMusikTerapkan(); } catch (e) {}
   var a = new Audio();
   a.loop = true;
   a.preload = 'auto';
