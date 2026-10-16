@@ -777,6 +777,19 @@ function xpKartuBelajar() {
 
 // ===== PAPAN PERINGKAT (20 XP tertinggi; data dari sheet "Peringkat" lewat Peringkat.gs) =====
 var lbState = { status: 'idle', data: null, t: 0 };
+// bingkai yang sedang dipakai (hanya bila sudah dibeli); ikut dikirim ke server bersama skor supaya tampil di papan peringkat
+function bingkaiAktif() {
+  if (!achSiap()) return '';
+  var b = (achState.pakai && achState.pakai.bingkai) || '';
+  return (b && achState.beli[b] != null && tokoItem(b)) ? b : '';
+}
+// foto profil + bingkai satu baris peringkat
+function lbAvatar(av, bk) {
+  var it = bk ? tokoItem(String(bk)) : null;
+  var kls = (it && it.jenis === 'bingkai') ? ' ' + it.id : '';
+  var isi = av ? '<img src="' + urlAvatar(av, 100) + '" alt="" loading="lazy" onerror="this.outerHTML=\'😺\'">' : '😺';
+  return '<div class="lb-av' + kls + '">' + isi + '</div>';
+}
 function muatPeringkat(paksa) {
   if (!studentName) { renderPeringkat(); return; }
   if (!paksa && lbState.data && Date.now() - lbState.t < 60000) { renderPeringkat(); return; }
@@ -804,7 +817,7 @@ function muatPeringkat(paksa) {
       .getPapanPeringkat(nama);
   }
   // kirim skor terbaru lebih dulu supaya posisimu akurat, apa pun hasilnya lanjut ambil papan
-  google.script.run.withSuccessHandler(ambil).withFailureHandler(ambil).simpanSkor(nama, studentClass, li.xp, li.level);
+  google.script.run.withSuccessHandler(ambil).withFailureHandler(ambil).simpanSkor(nama, studentClass, li.xp, li.level, avatarId || '', bingkaiAktif());
 }
 function renderPeringkat() {
   var pane = document.getElementById('pg-pane-peringkat');
@@ -832,6 +845,7 @@ function renderPeringkat() {
     var info = [r.kelas, r.batch].filter(function(x) { return x; }).map(kanaEsc).join(' · ');
     h += '<div class="lb-row' + (i < 3 ? ' t' + (i + 1) : '') + (aku ? ' me' : '') + '">' +
       '<div class="lb-rank">' + (i < 3 ? medali[i] : r.rank) + '</div>' +
+      lbAvatar(aku ? avatarId : r.avatar, aku ? bingkaiAktif() : r.bingkai) +
       '<div class="lb-info"><b>' + kanaEsc(r.nama) + (aku ? ' (Kamu)' : '') + '</b><small>' + (info || '-') + '</small></div>' +
       '<div class="lb-skor"><b>' + fmtAngka(r.xp) + '</b><small>XP · Lv ' + r.level + '</small></div></div>';
   });
@@ -885,7 +899,10 @@ function tokoSiapkan() {
       var lapis = 'content:""; position:absolute; inset:' + (dy - sk) + '% ' + (-sk - dx) + '% ' + (-sk - dy) + '% ' + (dx - sk) + '%; pointer-events:none; background:' + u + ';';
       css += 'html .mm-avatar.' + it.id + ' { border-color:transparent !important; box-shadow:none !important; position:relative; overflow:visible !important; }' +
         'html .mm-avatar.' + it.id + '::after { ' + lapis + ' }' +
+        'html .lb-av.' + it.id + ' { border-color:transparent !important; box-shadow:none !important; position:relative; overflow:visible !important; margin:0 ' + (Math.round(40 * sk / 100) + 2) + 'px !important; }' +
+        'html .lb-av.' + it.id + '::after { ' + lapis + ' }' +
         'html .tk-ico.' + it.id + ' { position:relative; overflow:visible; }' +
+        'html .tk-ico.' + it.id + ' { margin:0 ' + Math.max(0, Math.round(46 * sk / 100) - 10) + 'px; }' +
         'html .tk-ico.' + it.id + '::after { ' + lapis + ' }' +
         // ov = seberapa jauh bingkai keluar dari foto (foto 58px). Foto digeser sejauh itu supaya bingkai tidak keluar dari kartu,
         // dan tulisan diberi jarak setara supaya tidak tertimpa bingkai. !important perlu karena .mm-avatar punya margin:0 !important.
@@ -917,8 +934,12 @@ var KOIN_ADMIN = 9999;
 function koinAdmin() { return ADMIN_AKUN.indexOf(String(studentName || '').toLowerCase()) !== -1; }
 var tokoKonfirm = '', tokoKonfirmT = null;
 // ikon gelar: gambar PNG (field 'gambar') bila ada, kalau tidak pakai emoji (field 'ico')
-function gelarIko(it) {
-  if (it && it.gambar) return '<img class="gl-img" src="' + it.gambar + '" alt="">';
+function gelarIko(it, px) {
+  if (it && it.gambar) {
+    px = px || 22;
+    return '<img class="gl-img" src="' + it.gambar + '" alt="" style="width:' + px + 'px;height:' + px + 'px;max-width:' + px + 'px;max-height:' + px +
+      'px;object-fit:contain;flex:none;vertical-align:middle;display:inline-block;">';
+  }
   return kanaEsc(it ? it.ico : '');
 }
 function tokoItem(id) {
@@ -970,7 +991,7 @@ function tokoRender() {
       else if (saldo >= it.harga) aksi = '<button type="button" class="tk-btn beli" onclick="tokoBeli(\'' + it.id + '\')">' +
         (tokoKonfirm === it.id ? 'Yakin? ' : '') + koinImg('kecil') + ' ' + fmtAngka(it.harga) + '</button>';
       else aksi = '<button type="button" class="tk-btn kurang" disabled>' + koinImg('kecil') + ' ' + fmtAngka(it.harga) + '</button>';
-      h += '<div class="tk-item' + (pakai ? ' dipakai' : '') + '"><span class="tk-ico' + (it.jenis === 'bingkai' ? ' ' + it.id : '') + '">' + (it.jenis === 'gelar' ? gelarIko(it) : it.ico) + '</span>' +
+      h += '<div class="tk-item' + (pakai ? ' dipakai' : '') + '"><span class="tk-ico' + (it.jenis === 'bingkai' ? ' ' + it.id : '') + '"' + (it.jenis === 'gelar' && it.gambar ? ' style="overflow:hidden"' : '') + '>' + (it.jenis === 'gelar' ? gelarIko(it, 38) : it.ico) + '</span>' +
         '<span class="tk-txt"><b>' + kanaEsc(it.nama) + '</b><small>' + kanaEsc(pakai ? 'Sedang dipakai' : (punya ? 'Sudah dimiliki' : it.ket)) + '</small></span>' + aksi + '</div>';
     });
   });
@@ -1043,13 +1064,13 @@ function terapkanDekorasi() {
   var g = document.getElementById('pf-gelar');
   if (g) {
     var it = tokoItem(achState.pakai.gelar || ''), ok = !!(it && achState.beli[it.id] != null);
-    g.innerHTML = ok ? gelarIko(it) + ' ' + kanaEsc(it.nama) : '';
+    g.innerHTML = ok ? gelarIko(it, 30) + ' ' + kanaEsc(it.nama) : '';
     g.classList.toggle('hidden', !ok);
   }
   var gm = document.getElementById('mm-gelar');     // gelar di Menu Utama
   if (gm) {
     var it2 = tokoItem(achState.pakai.gelar || ''), ok2 = !!(it2 && achState.beli[it2.id] != null);
-    gm.innerHTML = ok2 ? gelarIko(it2) + ' ' + kanaEsc(it2.nama) : '';
+    gm.innerHTML = ok2 ? gelarIko(it2, 22) + ' ' + kanaEsc(it2.nama) : '';
     gm.classList.toggle('hidden', !ok2);
   }
 }
@@ -1074,7 +1095,7 @@ function pencapaianKeServer() {
       pakai: achState.pakai || {}
     };
     try { google.script.run.withFailureHandler(function() {}).simpanPencapaian(nama, JSON.stringify(data)); } catch (e) {}
-    try { google.script.run.withFailureHandler(function() {}).simpanSkor(nama, studentClass, data.xpMax, levelInfo().level); } catch (e) {}
+    try { google.script.run.withFailureHandler(function() {}).simpanSkor(nama, studentClass, data.xpMax, levelInfo().level, avatarId || '', bingkaiAktif()); } catch (e) {}
   }, 1500);
 }
 // Gabungkan data server ke data perangkat (ambil yang terbesar / terbaru; tidak ada yang berkurang)

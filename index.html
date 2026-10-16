@@ -95,6 +95,8 @@ html.dark .koin-ket { color: #94a3b8; }
 .tk-item { display: flex; align-items: center; gap: 12px; padding: 10px 12px; margin: 0 0 10px; border-radius: 16px; text-align: left;
   background: #fff; border: 1px solid #e2e8f0; box-shadow: 0 4px 14px rgba(15, 23, 42, .07); }
 .tk-item.dipakai { background: #f5f3ff; border-color: #a78bfa; }
+/* ikon gelar bergambar (ukuran utama diatur lewat style di kotoba-app.js: Toko 38px, Profil 30px, Menu Utama 22px) */
+.gl-img { object-fit: contain; vertical-align: middle; }
 .tk-ico { flex: none; width: 46px; height: 46px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 22px;
   background: #f5f3ff; border: 2px solid #ddd6fe; }
 .tk-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; }
@@ -131,6 +133,15 @@ html .tk-ico.bk-pelangi { animation: bkPelangi 3s linear infinite; }
 /* avatar punya border/shadow !important (tidak bisa dianimasikan), jadi pelangi memakai outline */
 html .mm-avatar.bk-pelangi { outline: 3px solid #ef4444; outline-offset: 2px; animation: bkPelangiOut 3s linear infinite; }
 @keyframes bkPelangiOut { 0% { outline-color: #ef4444; } 25% { outline-color: #eab308; } 50% { outline-color: #22c55e; } 75% { outline-color: #3b82f6; } 100% { outline-color: #ef4444; } }
+/* foto profil + bingkai di Papan Peringkat */
+.lb-av { flex: none; width: 40px; height: 40px; margin: 0 10px 0 2px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 22px;
+  background: #f1f5f9; border: 2px solid #e2e8f0; overflow: hidden; box-sizing: border-box; }
+.lb-av img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; display: block; }
+html.dark .lb-av { background: #1e293b; border-color: #334155; }
+html .lb-av.bk-sakura { border-color: #f9a8d4; box-shadow: 0 0 0 2px #fbcfe8; }
+html .lb-av.bk-emas { border-color: #facc15; box-shadow: 0 0 0 2px #fde68a; }
+html .lb-av.bk-api { border-color: #f97316; box-shadow: 0 0 0 2px #fdba74; }
+html .lb-av.bk-pelangi { outline: 3px solid #ef4444; outline-offset: 1px; animation: bkPelangiOut 3s linear infinite; }
   </style>
 </head>
 <body>
