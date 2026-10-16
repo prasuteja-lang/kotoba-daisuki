@@ -20,9 +20,11 @@
           location.replace(location.pathname + '?v=' + encodeURIComponent(V) + location.hash);
         }
       }
+      var R = '';
+      try { var mr = location.search.match(/[?&]r=(\d+)/); if (mr) R = '&r=' + mr[1]; } catch (e) {}   // dari tombol Refresh: file diambil ulang, melewati cache browser
       window.APP_BUILD = V;
-      window.__css = function (f) { if (!stop) document.write('<link rel="stylesheet" href="' + f + '?v=' + V + '">'); };
-      window.__js  = function (f) { if (!stop) document.write('<script src="' + f + '?v=' + V + '"><\/script>'); };
+      window.__css = function (f) { if (!stop) document.write('<link rel="stylesheet" href="' + f + '?v=' + V + R + '">'); };
+      window.__js  = function (f) { if (!stop) document.write('<script src="' + f + '?v=' + V + R + '"><\/script>'); };
     })();
   </script>
   <base target="_top">
@@ -285,6 +287,14 @@ html .lb-av.bk-pelangi { outline: 3px solid #ef4444; outline-offset: 1px; animat
       <div class="hm-chips">
         <span class="hm-chip" onclick="event.stopPropagation(); bukaUjianDariMain('jft')">JFT-Basic</span>
         <span class="hm-chip" onclick="event.stopPropagation(); bukaUjianDariMain('jlpt')">JLPT N5–N1</span>
+      </div>
+    </div>
+
+    <div class="hm-wide hm-refresh" role="button" onclick="bukaRefresh()">
+      <div class="hm-wide-top">
+        <span class="hm-wico">更</span>
+        <span class="hm-wtxt"><b>Refresh</b><small>Hapus cache lama &amp; ambil versi terbaru</small></span>
+        <span class="hm-arrow">›</span>
       </div>
     </div>
 
@@ -719,6 +729,19 @@ html .lb-av.bk-pelangi { outline: 3px solid #ef4444; outline-offset: 1px; animat
       <button type="button" class="upd2-dl" onclick="unduhDariInfoUpdate()">⬇️ Download Update</button>
       <button type="button" class="upd2-later" onclick="tutupUpdate()">Nanti saja ›</button>
     </div>
+  </div>
+</div>
+
+<!-- POP UP KUSTOM: Refresh (hapus cache lama, ambil versi terbaru) -->
+<div id="refresh-modal" class="modal modal-hidden">
+  <div class="custom-alert-box rf-box">
+    <div id="rf-ico" class="rf-ico">🔄</div>
+    <div id="rf-judul" class="custom-alert-title">Refresh Aplikasi</div>
+    <div id="rf-pesan" class="custom-alert-msg" style="white-space:pre-line;"></div>
+    <div id="rf-langkah" class="rf-langkah hidden"></div>
+    <div id="rf-barbox" class="rf-bar hidden"><i id="rf-bar"></i></div>
+    <button id="rf-mulai" class="btn-ready" style="margin:0 0 8px;" onclick="refreshMulai()">Refresh Sekarang 🔄</button>
+    <button id="rf-tutup" class="btn-back" style="margin:0; width:100% !important;" onclick="refreshTutup()">Batal</button>
   </div>
 </div>
 

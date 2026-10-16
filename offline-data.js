@@ -413,6 +413,15 @@
     periksa: periksa,
     segarkanSemua: function () { periksa({ paksa: true, semua: true }); },
     kirimAntrian: kirimAntrian,
+    // dipakai tombol Refresh: tandai semua data tersimpan sebagai kedaluwarsa. Data lama tetap dipakai sampai
+    // diganti hasil unduhan baru (diunduh otomatis saat aplikasi dibuka lagi), jadi aman bila internet putus.
+    // Bila data belum pernah diunduh, tidak ada yang dilakukan (tidak memaksa unduhan besar).
+    segarkan: function () {
+      return baca('meta').then(function (meta) {
+        if (!meta || !meta.pernah) return false;
+        return tulis('meta', { pernah: true, versi: {}, t: meta.t || 0 }).then(function () { return true; });
+      }).catch(function () { return false; });
+    },
     // hapus data unduhan; antrian yang belum terkirim tetap dipertahankan
     hapus: function () {
       return baca('antrian').then(function (a) {

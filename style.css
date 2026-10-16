@@ -1091,6 +1091,7 @@ html.dark .pg-star.on { background: #1f1a0b; border-color: #f59e0b; color: #fcd3
 .hm-kana,   #kana-page    { --ac:#7c3aed; --bg:#f5f3ff; --glow:#a78bfa; }
 .hm-ujian,  #ujian-page   { --ac:#0d9488; --bg:#f0fdfa; --glow:#2dd4bf; }
 .hm-hiburan,#hiburan-page { --ac:#db2777; --bg:#fdf2f8; --glow:#f472b6; }
+.hm-refresh { --ac:#ea580c; --bg:#fff7ed; --glow:#fb923c; }
 
 /* ---------- HOME: grid 2 kolom ---------- */
 .hm-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin:0 0 12px; }
@@ -1757,3 +1758,23 @@ html.dark .musik-ket.galat { color:#f87171; }
 html.dark .toko-kosong { background: #1a1533; border-color: #4c1d95; }
 html.dark .toko-judul { color: #c4b5fd; }
 html.dark .toko-ket { color: #94a3b8; }
+
+/* ===== Menu Refresh (hapus cache lama & ambil versi terbaru) ===== */
+.rf-box { text-align:center; }
+.rf-ico { display:inline-block; font-size:44px; line-height:1; margin-bottom:6px; }
+.rf-ico.putar { animation:rf-putar 1s linear infinite; }
+@keyframes rf-putar { to { transform:rotate(360deg); } }
+.rf-langkah { display:flex; flex-direction:column; gap:8px; margin:4px 0 14px; text-align:left; }
+.rf-langkah div { display:flex; align-items:flex-start; gap:8px; font-size:13px; font-weight:600; line-height:1.4; color:#94a3b8; }
+.rf-langkah div b { flex:none; width:20px; text-align:center; font-weight:400; }
+.rf-langkah div.jalan { color:#c2410c; }
+.rf-langkah div.ok { color:#047857; }
+.rf-langkah div.gagal { color:#b91c1c; }
+.rf-langkah div.lewat { color:#94a3b8; text-decoration:line-through; }
+.rf-bar { height:6px; border-radius:99px; background:#e2e8f0; overflow:hidden; margin:-6px 0 14px; }
+.rf-bar i { display:block; height:100%; width:0; background:#ea580c; transition:width .25s; }
+html.dark .rf-langkah div.jalan { color:#fdba74; }
+html.dark .rf-langkah div.ok { color:#6ee7b7; }
+html.dark .rf-langkah div.gagal { color:#fca5a5; }
+html.dark .rf-bar { background:#334155; }
+@media (prefers-reduced-motion: reduce) { .rf-ico.putar { animation:none; } }

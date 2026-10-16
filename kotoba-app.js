@@ -267,8 +267,40 @@ var API_URL = 'https://script.google.com/macros/s/AKfycbyX3EmTsI5MbYy7c1YXxR-N3c
     });
   }
   function hapus() { return dbClear('data'); }
+  // Dipakai tombol Refresh: ambil ulang SEMUA data yang sudah tersimpan di HP, tanpa menghapusnya lebih dulu.
+  // Salinan lama baru diganti kalau unduhan berhasil, jadi bila internet putus di tengah jalan data lama tetap ada.
+  // Hanya data yang memang sudah tersimpan yang diunduh ulang (tidak memaksa unduhan besar bagi yang belum pernah menyimpan).
+  function segarkan(opsi) {
+    opsi = opsi || {};
+    return cekToken().then(function() { return dbAll('data'); }).then(function(rows) {
+      var daftar = [];
+      rows.forEach(function(r) {
+        var k = String(r && r.k || ''), p = k.indexOf('|'), fn, args;
+        if (p < 1) return;
+        fn = k.slice(0, p);
+        try { args = JSON.parse(k.slice(p + 1)); } catch (e) { return; }
+        if (!OFFLINE_BACA[fn] || !Array.isArray(args)) return;
+        if (fn === 'getUjian' && args[0] === 'jft') args = ['jft', 'N5'];      // kunci JFT tidak memuat level; pakai argumen yang sama dengan katalog unduhan
+        daftar.push([fn, args]);
+      });
+      var total = daftar.length, selesai = 0, gagal = 0, i = 0;
+      if (!total) return { total: 0, selesai: 0, gagal: 0 };
+      return new Promise(function(ok) {
+        var aktif = 0;
+        function lanjut() {
+          while (aktif < 3 && i < total) {
+            var d = daftar[i++]; aktif++;
+            unduhSatu(d[0], d[1], true).then(function() { selesai++; }, function() { gagal++; })
+              .then(function() { aktif--; if (opsi.progres) opsi.progres(selesai + gagal, total); lanjut(); });
+          }
+          if (aktif === 0 && i >= total) ok({ total: total, selesai: selesai, gagal: gagal });
+        }
+        lanjut();
+      });
+    });
+  }
 
-  window.KotobaOffline = { online: online, simpanSemua: simpanSemua, ringkas: ringkas, hapus: hapus, kirimAntrian: kirimAntrian, cekToken: cekToken };
+  window.KotobaOffline = { online: online, simpanSemua: simpanSemua, ringkas: ringkas, hapus: hapus, kirimAntrian: kirimAntrian, cekToken: cekToken, segarkan: segarkan };
 
   /* ---------- pemicu otomatis ---------- */
   cekToken();
@@ -547,6 +579,185 @@ function offlineSimpan() {
 function offlineHapus() {
   if (offlineJalan || !window.KotobaOffline) return;
   KotobaOffline.hapus().then(function() { offlineProgres(0, 1, 'Data offline dihapus.'); document.getElementById('off-bar').style.width = '0%'; offlineRender(); });
+}
+
+// ===== MENU REFRESH: hapus cache lama, lalu ambil versi terbaru =====
+// Tombol "Refresh" di Menu Utama (di bawah Ujian). Mengatasi cache nyangkut / belum ikut update.
+//   DIHAPUS    : cache aplikasi (service worker + Cache Storage), catatan versi lama, hasil ukur bingkai.
+//   DIUNDUH ULANG: data offline yang sudah tersimpan di HP (diganti salinan terbaru dari server).
+//   TIDAK DISENTUH: login, XP/level/koin/pembelian, foto profil, tema, dan antrian kiriman yang belum terkirim.
+// Aman: bila tidak ada internet atau server tidak terjangkau, proses berhenti SEBELUM ada yang dihapus.
+// Setelah selesai halaman dimuat ulang dengan alamat baru (?v=versi&r=waktu) supaya index.html, css, dan js
+// diambil langsung dari server (pemuat versi di index.html meneruskan parameter r ke semua css/js).
+var refreshJalan = false, refreshStatus = {};
+var REFRESH_LANGKAH = [
+  { k: 'cek',   t: 'Memeriksa koneksi & versi terbaru' },
+  { k: 'cache', t: 'Menghapus cache aplikasi lama' },
+  { k: 'sisa',  t: 'Membersihkan catatan versi lama' },
+  { k: 'data',  t: 'Mengunduh data terbaru' },
+  { k: 'muat',  t: 'Memuat ulang aplikasi' }
+];
+function refreshEl(id) { return document.getElementById(id); }
+function refreshWeb() { return /^https?:$/.test(location.protocol); }   // di folder APK (file:/content:) tidak ada service worker
+function refreshTampil(judul, pesan, bolehTutup, ikon) {
+  refreshEl('rf-judul').textContent = judul;
+  refreshEl('rf-pesan').textContent = pesan;
+  var ic = refreshEl('rf-ico'); ic.textContent = ikon || '🔄'; ic.classList.remove('putar');
+  refreshEl('rf-mulai').classList.add('hidden');
+  refreshEl('rf-tutup').classList.toggle('hidden', !bolehTutup);
+  refreshEl('rf-tutup').textContent = 'Tutup';
+}
+function refreshGambarLangkah() {
+  var box = refreshEl('rf-langkah'); box.innerHTML = '';
+  REFRESH_LANGKAH.forEach(function(l) {
+    var st = refreshStatus[l.k] || 'tunggu';
+    var row = document.createElement('div'); row.className = st;
+    var ik = document.createElement('b'); ik.textContent = { tunggu: '•', jalan: '⏳', ok: '✅', gagal: '⚠️', lewat: '➖' }[st] || '•';
+    var tx = document.createElement('span'); tx.textContent = l.t + (st === 'lewat' ? ' (tidak perlu)' : '');
+    row.appendChild(ik); row.appendChild(tx); box.appendChild(row);
+  });
+}
+function refreshSet(k, st) { refreshStatus[k] = st; refreshGambarLangkah(); }
+function refreshProgres(n, total) {
+  var b = refreshEl('rf-bar'), bx = refreshEl('rf-barbox');
+  if (!b || !bx) return;
+  bx.classList.toggle('hidden', !(total > 0));
+  b.style.width = (total ? Math.min(100, Math.round(n / total * 100)) : 0) + '%';
+}
+function bukaRefresh() {
+  if (refreshJalan) return;
+  refreshStatus = {};
+  refreshEl('rf-langkah').classList.add('hidden');
+  refreshEl('rf-barbox').classList.add('hidden');
+  refreshEl('rf-judul').textContent = 'Refresh Aplikasi';
+  var ic = refreshEl('rf-ico'); ic.textContent = '🔄'; ic.classList.remove('putar');
+  refreshEl('rf-pesan').textContent = 'Menghapus cache lama lalu mengunduh bagian aplikasi yang terbaru.\n\n' +
+    'Pakai ini kalau tampilan atau fitur belum ikut update. Login, XP, koin, dan progresmu tetap aman.\n\n' +
+    'Butuh internet. Aplikasi akan dimuat ulang otomatis.';
+  refreshEl('rf-mulai').classList.remove('hidden');
+  var t = refreshEl('rf-tutup'); t.classList.remove('hidden'); t.textContent = 'Batal';
+  refreshEl('refresh-modal').classList.remove('modal-hidden');
+}
+function refreshTutup() {
+  if (refreshJalan) return;
+  refreshEl('refresh-modal').classList.add('modal-hidden');
+}
+function refreshGagal(judul, pesan) {
+  refreshJalan = false;
+  var langkah = refreshEl('rf-langkah');
+  refreshTampil(judul, pesan, true, '⚠️');
+  refreshEl('rf-mulai').classList.remove('hidden');
+  refreshEl('rf-mulai').textContent = 'Coba Lagi 🔄';
+  langkah.classList.remove('hidden');
+}
+function refreshAmbilVersi() {
+  var tunggu = new Promise(function(_, tolak) { setTimeout(function() { tolak(new Error('Waktu habis')); }, 15000); });
+  var ambil = fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then(function(r) {
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return r.json();
+  }).then(function(j) {
+    var v = (j && j.version != null) ? String(j.version) : '';
+    if (!v) throw new Error('version.json tidak berisi nomor versi');
+    return v;
+  });
+  return Promise.race([ambil, tunggu]);
+}
+function refreshHapusCache() {
+  var aman = function(p) { return Promise.resolve(p).catch(function() {}); };
+  var langkah1 = aman(('serviceWorker' in navigator && navigator.serviceWorker.getRegistrations)
+    ? navigator.serviceWorker.getRegistrations().then(function(rs) { return Promise.all(rs.map(function(r) { return r.unregister(); })); })
+    : null);
+  return langkah1.then(function() {
+    return aman((window.caches && caches.keys)
+      ? caches.keys().then(function(ks) { return Promise.all(ks.map(function(k) { return caches.delete(k); })); })
+      : null);
+  });
+}
+function refreshBersihkanCatatan(versi) {
+  try {
+    var hapus = [];
+    for (var i = 0; i < localStorage.length; i++) {
+      var k = localStorage.key(i);
+      if (k && (k.indexOf('toko_pas_') === 0 || k === SW_KUNCI || k === SW_KUNCI_CEK)) hapus.push(k);
+    }
+    hapus.forEach(function(k) { localStorage.removeItem(k); });
+    if (versi) localStorage.setItem('app_build', versi);       // sudah versi terbaru: pemuat versi tidak perlu mengalihkan lagi
+  } catch (e) {}
+}
+function refreshDataTerbaru() {
+  var K = window.KotobaOffline;
+  var utama = (K && K.segarkan)
+    ? K.segarkan({ progres: refreshProgres }).catch(function() { return { total: 1, selesai: 0, gagal: 1 }; })
+    : Promise.resolve({ total: 0, selesai: 0, gagal: 0 });
+  // lapisan offline cadangan di offline-data.js (bila masih dipasang): tandai datanya kedaluwarsa agar diunduh ulang saat dibuka
+  var cadangan = (window.OFFLINE && typeof OFFLINE.segarkan === 'function') ? OFFLINE.segarkan() : Promise.resolve(false);
+  return Promise.all([utama, Promise.resolve(cadangan).catch(function() { return false; })]).then(function(h) { return h[0]; });
+}
+function refreshMulai() {
+  if (refreshJalan) return;
+  if (typeof testBerjalan !== 'undefined' && testBerjalan) {
+    tampilkanCustomAlert('Selesaikan dulu 📝', 'Kamu sedang mengerjakan test. Refresh setelah selesai ya.');
+    return;
+  }
+  if (navigator.onLine === false) {
+    refreshTampil('Tidak ada internet 📴', 'Refresh butuh internet untuk mengambil versi terbaru.\n\nCache lama sengaja tidak dihapus supaya aplikasi tetap bisa dipakai. Sambungkan internet lalu coba lagi.', true, '📴');
+    refreshEl('rf-mulai').classList.remove('hidden'); refreshEl('rf-mulai').textContent = 'Coba Lagi 🔄';
+    return;
+  }
+  refreshJalan = true; refreshStatus = {};
+  var web = refreshWeb(), versi = '';
+  refreshTampil('Sedang me-refresh…', 'Jangan tutup aplikasi dulu ya.', false, '🔄');
+  refreshEl('rf-ico').classList.add('putar');
+  refreshEl('rf-langkah').classList.remove('hidden');
+  refreshEl('rf-barbox').classList.add('hidden');
+  refreshGambarLangkah();
+
+  // 1. cek koneksi & versi terbaru. Gagal di sini = belum ada yang dihapus
+  refreshSet('cek', 'jalan');
+  (web ? refreshAmbilVersi() : Promise.resolve(''))
+    .then(function(v) { versi = v; refreshSet('cek', 'ok'); }, function(err) {
+      refreshSet('cek', 'gagal');
+      throw { tahap: 'cek', err: err };
+    })
+    // 2. hapus cache aplikasi (service worker + Cache Storage)
+    .then(function() {
+      try { if (window.KotobaOffline) KotobaOffline.kirimAntrian(); } catch (e) {}      // kirim dulu progres yang tertahan (antrian tidak pernah dihapus)
+      if (!web) { refreshSet('cache', 'lewat'); return; }
+      refreshSet('cache', 'jalan');
+      return refreshHapusCache().then(function() { refreshSet('cache', 'ok'); });
+    })
+    // 3. bersihkan catatan versi lama
+    .then(function() {
+      refreshSet('sisa', 'jalan');
+      refreshBersihkanCatatan(versi);
+      refreshSet('sisa', 'ok');
+    })
+    // 4. unduh ulang data yang sudah tersimpan di HP
+    .then(function() {
+      refreshSet('data', 'jalan');
+      return refreshDataTerbaru().then(function(h) {
+        if (!h || !h.total) refreshSet('data', 'lewat');
+        else refreshSet('data', h.gagal ? 'gagal' : 'ok');
+        refreshProgres(0, 0);
+      });
+    })
+    // 5. muat ulang dengan alamat baru
+    .then(function() {
+      refreshSet('muat', 'jalan');
+      refreshEl('rf-judul').textContent = 'Selesai! Memuat ulang…';
+      refreshEl('rf-pesan').textContent = 'Cache lama sudah dibersihkan.';
+      setTimeout(function() {
+        if (web) location.replace(location.pathname + '?v=' + encodeURIComponent(versi) + '&r=' + Date.now() + location.hash);
+        else location.reload();
+      }, 1200);
+    })
+    .catch(function(e) {
+      if (e && e.tahap === 'cek') {
+        refreshGagal('Refresh dibatalkan', 'Tidak bisa menghubungi server untuk mengambil versi terbaru, jadi tidak ada yang dihapus dan aplikasimu aman.\n\nPeriksa internet lalu coba lagi.');
+      } else {
+        refreshGagal('Refresh belum tuntas', 'Ada langkah yang gagal. Kamu bisa mencoba lagi, atau tutup dan muat ulang aplikasi secara manual.');
+      }
+    });
 }
 
 // ===== PULIHKAN HALAMAN SETELAH LAYAR DIPUTAR / APLIKASI DIMUAT ULANG =====
