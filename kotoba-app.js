@@ -777,31 +777,6 @@ function xpKartuBelajar() {
 
 // ===== PAPAN PERINGKAT (20 XP tertinggi; data dari sheet "Peringkat" lewat Peringkat.gs) =====
 var lbState = { status: 'idle', data: null, t: 0 };
-var lbAvatar = {};   // namaHurufKecil -> { a: idAvatar, b: idBingkai } (diambil dari server)
-function muatAvatarPeringkat(top) {
-  var perlu = [];
-  (top || []).forEach(function(r) {
-    var k = String(r.nama).toLowerCase();
-    if (!lbAvatar[k]) { lbAvatar[k] = {}; perlu.push(r.nama); }   // tanda "sedang/sudah diminta"
-  });
-  if (!perlu.length) return;
-  google.script.run
-    .withSuccessHandler(function(m) {
-      Object.keys(m || {}).forEach(function(k) { lbAvatar[k] = m[k]; });
-      renderPeringkat();
-    })
-    .withFailureHandler(function() { perlu.forEach(function(n) { delete lbAvatar[String(n).toLowerCase()]; }); })
-    .getAvatarPeringkat(perlu);
-}
-function lbFotoHtml(r, aku) {
-  var m = lbAvatar[String(r.nama).toLowerCase()] || {};
-  var id = aku ? (avatarId || r.avatar || m.a || '') : (r.avatar || m.a || '');
-  var bk = aku ? ((achSiap() && achState.pakai.bingkai && achState.beli[achState.pakai.bingkai] != null) ? achState.pakai.bingkai : '') : (m.b || '');
-  bk = /^[A-Za-z][A-Za-z0-9_\-]*$/.test(bk) ? ' ' + bk : '';
-  return '<div class="lb-av' + bk + '">' + (id
-    ? '<img src="' + urlAvatar(id, 100) + '" alt="" loading="lazy" onerror="this.parentNode.textContent=\'😺\'">'
-    : '😺') + '</div>';
-}
 function muatPeringkat(paksa) {
   if (!studentName) { renderPeringkat(); return; }
   if (!paksa && lbState.data && Date.now() - lbState.t < 60000) { renderPeringkat(); return; }
@@ -821,7 +796,6 @@ function muatPeringkat(paksa) {
           achSimpan(); renderLevel(); renderHero();
         }
         renderPeringkat();
-        muatAvatarPeringkat((r && r.top) || []);
       })
       .withFailureHandler(function(err) {
         lbState = { status: 'gagal', data: lbState.data, t: 0, pesan: (err && err.message) ? err.message : '' };
@@ -857,7 +831,7 @@ function renderPeringkat() {
     var aku = String(r.nama).toLowerCase() === me;
     var info = [r.kelas, r.batch].filter(function(x) { return x; }).map(kanaEsc).join(' · ');
     h += '<div class="lb-row' + (i < 3 ? ' t' + (i + 1) : '') + (aku ? ' me' : '') + '">' +
-      '<div class="lb-rank">' + (i < 3 ? medali[i] : r.rank) + '</div>' + lbFotoHtml(r, aku) +
+      '<div class="lb-rank">' + (i < 3 ? medali[i] : r.rank) + '</div>' +
       '<div class="lb-info"><b>' + kanaEsc(r.nama) + (aku ? ' (Kamu)' : '') + '</b><small>' + (info || '-') + '</small></div>' +
       '<div class="lb-skor"><b>' + fmtAngka(r.xp) + '</b><small>XP · Lv ' + r.level + '</small></div></div>';
   });
@@ -1082,10 +1056,8 @@ function terapkanDekorasi() {
 
 // ===== Sinkron Daily Quest (streak) & Achievement ke server, agar tidak hilang saat ganti perangkat =====
 var capaiTimer = null;
-var capaiServerSiap = {};   // nama -> true setelah data server digabung (cegah data kosong menimpa server)
 function pencapaianKeServer() {
   if (!studentName || typeof google === 'undefined') return;
-  if (!capaiServerSiap[studentName]) return;   // tahan dulu sampai data server sudah digabung
   clearTimeout(capaiTimer);
   var nama = studentName;
   capaiTimer = setTimeout(function() {
@@ -1126,7 +1098,6 @@ function gabungPencapaian(c) {
   if (ld && ld > (questState.lastDone || '')) { questState.lastDone = ld; questState.streak = Number(c.streak) || 0; }
   if (questState.lastDone && questState.lastDone !== questTanggal(0) && questState.lastDone !== questTanggal(-1)) questState.streak = 0;
   try { terapkanDekorasi(); } catch (e) {}
-  capaiServerSiap[studentName] = true;
   achSimpan(); questSimpan();   // sekaligus mengirim data gabungan ke server
 }
 
@@ -1418,7 +1389,6 @@ function muatProgress() {
 }
 function resetProgressLokal() {
   progressUser = '';
-  capaiServerSiap = {};
   questState = null; questUser = '';
   achState = null; achUser = '';
   lbState = { status: 'idle', data: null, t: 0 };
