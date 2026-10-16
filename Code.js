@@ -90,6 +90,7 @@ var APP_VERSI = "Versi 2.5.0";
 var APP_UPDATE_INTRO = "Ada pembaruan baru, silakan dicek ya minna-san";
 // Format: { ico, tag (FIX/NEW/UPDATE/INFO), judul, isi }. Teks biasa "Menu Xxx: ..." juga masih didukung.
 var APP_UPDATE_LIST = [
+  { ico: '🪙', tag: 'NEW', judul: 'Koin & Toko', isi: 'Setiap 10 XP jadi 1 Koin. Belanjakan koinmu di Toko untuk bingkai foto dan gelar. XP dan peringkatmu tidak berkurang saat belanja, jadi makin rajin latihan, makin banyak koin!' },
   { ico: '⭐', tag: 'NEW', judul: 'Sistem Level', isi: 'Sekarang ada Level! XP didapat dari progres belajar, Achievement, dan pengalaman memakai aplikasi (test, ujian, latihan kana, daily quest). Lihat levelmu di menu Profile dan Progres.' },
   { ico: '🏅', tag: 'NEW', judul: 'Papan Peringkat', isi: 'Bersaing sehat dengan teman! Papan Peringkat menampilkan 20 pelajar dengan XP tertinggi lengkap dengan Group dan Batch. Buka lewat Profile atau Progres > Peringkat.' },
   { ico: '🎵', tag: 'NEW', judul: 'Musik Latar', isi: 'Sekarang ada musik yang mengalun selama kamu belajar. Kalau mengganggu, matikan lewat menu Setting > Musik Mati.' },
@@ -542,6 +543,7 @@ function achSiap() {
     st.kanji = st.kanji || {}; st.tier = st.tier || {};
     st.test = st.test || 0; st.bestStreak = st.bestStreak || 0;
     st.xpAkt = st.xpAkt || 0; st.xpMax = st.xpMax || 0; st.lvl = st.lvl || 0;
+    st.beli = st.beli || {}; st.pakai = st.pakai || {};
     achState = st;
   }
   return true;
@@ -757,6 +759,7 @@ function levelHtml(li) {
     '<div class="lv-ket">' + fmtAngka(li.sisa) + ' XP lagi menuju Level ' + (li.level + 1) + '</div>';
 }
 function renderLevel() {
+  koinPerbarui();
   var el = document.getElementById('pf-level');
   if (!el) return;
   if (!achSiap()) { el.innerHTML = ''; return; }
@@ -836,6 +839,122 @@ function renderPeringkat() {
   pane.innerHTML = h;
 }
 
+// ===== KOIN & TOKO =====
+// Koin TIDAK disimpan sebagai saldo terpisah, melainkan dihitung dari XP:
+//   saldo = floor(XP total / KOIN_RASIO) - total harga item yang sudah dibeli
+// XP tidak pernah turun (xpMax) dan tidak berkurang saat belanja, jadi peringkat aman.
+// Pembelian dicatat di achState.beli = { idItem: hargaSaatBeli } dan ikut tersinkron ke server.
+// Item yang dipakai: achState.pakai = { bingkai: idItem, gelar: idItem }
+// Cara menambah item baru: cukup tambah satu baris di TOKO_ITEM (jenis 'bingkai' perlu gaya .bk-xxx di CSS).
+var KOIN_RASIO = 10;
+// Gambar koin: dicoba berurutan (Drive -> file koin.png di folder aplikasi -> emoji 🪙 bila semuanya gagal)
+var KOIN_GAMBAR = [
+  'https://drive.google.com/thumbnail?id=1B--e4UFwwt47x54_RO7iFwBzEJmCO6AI&sz=w200',
+  'koin.png'
+];
+function koinImg(cls) {
+  return '<img class="koin-img ' + (cls || '') + '" src="' + KOIN_GAMBAR[0] + '" data-i="0" alt="koin" onerror="koinImgGagal(this)">';
+}
+function koinImgGagal(el) {
+  var i = (parseInt(el.getAttribute('data-i'), 10) || 0) + 1;
+  if (i < KOIN_GAMBAR.length) { el.setAttribute('data-i', i); el.src = KOIN_GAMBAR[i]; }
+  else { var t = document.createElement('span'); t.textContent = '🪙'; el.replaceWith(t); }
+}
+var TOKO_ITEM = [
+  { id: 'bk-sakura',  jenis: 'bingkai', ico: '🌸', nama: 'Bingkai Sakura',  harga: 100, ket: 'Lingkaran merah muda di fotomu' },
+  { id: 'bk-emas',    jenis: 'bingkai', ico: '✨', nama: 'Bingkai Emas',    harga: 200, ket: 'Kilau emas ala juara' },
+  { id: 'bk-api',     jenis: 'bingkai', ico: '🔥', nama: 'Bingkai Api',     harga: 250, ket: 'Menyala untuk pejuang streak' },
+  { id: 'bk-pelangi', jenis: 'bingkai', ico: '🌈', nama: 'Bingkai Pelangi', harga: 400, ket: 'Warnanya berganti-ganti' },
+  { id: 'gl-rajin',   jenis: 'gelar',   ico: '📚', nama: 'Murid Rajin',     harga: 50,  ket: 'Tampil di bawah namamu' },
+  { id: 'gl-kanji',   jenis: 'gelar',   ico: '✍️', nama: 'Pejuang Kanji',   harga: 120, ket: 'Tampil di bawah namamu' },
+  { id: 'gl-sensei',  jenis: 'gelar',   ico: '🎓', nama: 'Calon Sensei',    harga: 300, ket: 'Tampil di bawah namamu' },
+  { id: 'gl-samurai', jenis: 'gelar',   ico: '⚔️', nama: 'Samurai Kotoba',  harga: 600, ket: 'Tampil di bawah namamu' }
+];
+var tokoKonfirm = '', tokoKonfirmT = null;
+function tokoItem(id) {
+  for (var i = 0; i < TOKO_ITEM.length; i++) if (TOKO_ITEM[i].id === id) return TOKO_ITEM[i];
+  return null;
+}
+function koinTotal() { return achSiap() ? Math.floor(levelInfo().xp / KOIN_RASIO) : 0; }
+function koinDipakai() {
+  if (!achSiap()) return 0;
+  var n = 0;
+  Object.keys(achState.beli || {}).forEach(function(k) { n += Number(achState.beli[k]) || 0; });
+  return n;
+}
+function koinSaldo() { return Math.max(0, koinTotal() - koinDipakai()); }
+function koinPerbarui() {
+  var k = document.getElementById('pf-koin');
+  if (k) k.innerHTML = achSiap() ? koinImg('kecil') + ' ' + fmtAngka(koinSaldo()) + ' koin · Toko ›' : '';
+  if (tabAktif === 'toko') tokoRender();
+}
+function tokoRender() {
+  var pane = document.getElementById('toko-isi');
+  if (!pane) return;
+  if (!achSiap()) { pane.innerHTML = '<div class="qst-kosong">Silakan login dulu untuk membuka Toko.</div>'; return; }
+  var total = koinTotal(), dipakai = koinDipakai(), saldo = Math.max(0, total - dipakai);
+  var h = '<div class="koin-kartu"><div class="koin-ico">' + koinImg('besar') + '</div><div class="koin-txt"><small>Koinmu</small><b>' + fmtAngka(saldo) + '</b></div></div>' +
+    '<div class="koin-ket">' + KOIN_RASIO + ' XP = 1 koin · total didapat ' + fmtAngka(total) + ' · terpakai ' + fmtAngka(dipakai) +
+    '<br>Belanja tidak mengurangi XP dan peringkatmu.</div>';
+  [['bingkai', '🖼️ BINGKAI FOTO'], ['gelar', '🏷️ GELAR']].forEach(function(g) {
+    h += '<div class="ach-label">' + g[1] + '</div>';
+    TOKO_ITEM.forEach(function(it) {
+      if (it.jenis !== g[0]) return;
+      var punya = achState.beli[it.id] != null, pakai = achState.pakai[it.jenis] === it.id, aksi;
+      if (pakai) aksi = '<button type="button" class="tk-btn lepas" onclick="tokoPakai(\'' + it.jenis + '\',\'\')">Lepas</button>';
+      else if (punya) aksi = '<button type="button" class="tk-btn pakai" onclick="tokoPakai(\'' + it.jenis + '\',\'' + it.id + '\')">Pakai</button>';
+      else if (saldo >= it.harga) aksi = '<button type="button" class="tk-btn beli" onclick="tokoBeli(\'' + it.id + '\')">' +
+        (tokoKonfirm === it.id ? 'Yakin? ' : '') + koinImg('kecil') + ' ' + fmtAngka(it.harga) + '</button>';
+      else aksi = '<button type="button" class="tk-btn kurang" disabled>' + koinImg('kecil') + ' ' + fmtAngka(it.harga) + '</button>';
+      h += '<div class="tk-item' + (pakai ? ' dipakai' : '') + '"><span class="tk-ico' + (it.jenis === 'bingkai' ? ' ' + it.id : '') + '">' + it.ico + '</span>' +
+        '<span class="tk-txt"><b>' + kanaEsc(it.nama) + '</b><small>' + kanaEsc(pakai ? 'Sedang dipakai' : (punya ? 'Sudah dimiliki' : it.ket)) + '</small></span>' + aksi + '</div>';
+    });
+  });
+  pane.innerHTML = h;
+}
+// Beli = ketuk dua kali (ketukan pertama minta konfirmasi, batal otomatis setelah 4 detik)
+function tokoBeli(id) {
+  var it = tokoItem(id);
+  if (!it || !achSiap() || achState.beli[id] != null) return;
+  if (koinSaldo() < it.harga) { questToast('🪙 Koinmu belum cukup'); return; }
+  if (tokoKonfirm !== id) {
+    tokoKonfirm = id; tokoRender();
+    clearTimeout(tokoKonfirmT);
+    tokoKonfirmT = setTimeout(function() { tokoKonfirm = ''; tokoRender(); }, 4000);
+    return;
+  }
+  clearTimeout(tokoKonfirmT); tokoKonfirm = '';
+  achState.beli[id] = it.harga;
+  achState.pakai[it.jenis] = id;          // langsung dipakai
+  achSimpan();
+  tokoRender(); renderLevel(); terapkanDekorasi();
+  questToast('🛍️ ' + it.nama + ' dibeli dan dipakai!');
+}
+function tokoPakai(jenis, id) {
+  if (!achSiap()) return;
+  if (id && achState.beli[id] == null) return;
+  achState.pakai[jenis] = id || '';
+  achSimpan();
+  tokoRender(); terapkanDekorasi();
+}
+// pasang bingkai di foto (Menu Utama & Profil) dan gelar di Profil
+function terapkanDekorasi() {
+  if (!achSiap()) return;
+  var bk = achState.pakai.bingkai || '';
+  ['mm-avatar', 'pf-avatar'].forEach(function(i) {
+    var el = document.getElementById(i);
+    if (!el) return;
+    TOKO_ITEM.forEach(function(it) { if (it.jenis === 'bingkai') el.classList.remove(it.id); });
+    if (bk && achState.beli[bk] != null && tokoItem(bk)) el.classList.add(bk);
+  });
+  var g = document.getElementById('pf-gelar');
+  if (g) {
+    var it = tokoItem(achState.pakai.gelar || ''), ok = !!(it && achState.beli[it.id] != null);
+    g.textContent = ok ? it.ico + ' ' + it.nama : '';
+    g.classList.toggle('hidden', !ok);
+  }
+}
+
 // ===== Sinkron Daily Quest (streak) & Achievement ke server, agar tidak hilang saat ganti perangkat =====
 var capaiTimer = null;
 function pencapaianKeServer() {
@@ -851,7 +970,9 @@ function pencapaianKeServer() {
       streak: questState.streak || 0,
       lastDone: questState.lastDone || '',
       xpAkt: achState.xpAkt || 0,
-      xpMax: levelInfo().xp
+      xpMax: levelInfo().xp,
+      beli: achState.beli || {},
+      pakai: achState.pakai || {}
     };
     try { google.script.run.withFailureHandler(function() {}).simpanPencapaian(nama, JSON.stringify(data)); } catch (e) {}
     try { google.script.run.withFailureHandler(function() {}).simpanSkor(nama, studentClass, data.xpMax, levelInfo().level); } catch (e) {}
@@ -866,6 +987,14 @@ function gabungPencapaian(c) {
   achState.xpAkt = Math.max(achState.xpAkt || 0, Number(c.xpAkt) || 0);
   achState.xpMax = Math.max(achState.xpMax || 0, Number(c.xpMax) || 0);
   achState.bestStreak = Math.max(achState.bestStreak || 0, Number(c.bestStreak) || 0, Number(c.streak) || 0);
+  // item Toko: gabungkan pembelian dari server (tidak ada yang hilang)
+  var cb = (c.beli && typeof c.beli === 'object') ? c.beli : {};
+  Object.keys(cb).forEach(function(k) {
+    var it = tokoItem(k);
+    if (it && achState.beli[k] == null) achState.beli[k] = (Number(cb[k]) >= 0 && cb[k] !== '') ? Number(cb[k]) : it.harga;
+  });
+  var cp = (c.pakai && typeof c.pakai === 'object') ? c.pakai : {};
+  ['bingkai', 'gelar'].forEach(function(j) { if (achState.pakai[j] == null && cp[j]) achState.pakai[j] = cp[j]; });
   var ld = String(c.lastDone || '');
   if (ld && ld > (questState.lastDone || '')) { questState.lastDone = ld; questState.streak = Number(c.streak) || 0; }
   if (questState.lastDone && questState.lastDone !== questTanggal(0) && questState.lastDone !== questTanggal(-1)) questState.streak = 0;
@@ -952,6 +1081,7 @@ function pindahTab(nama) {
   });
   if (nama === 'profile') renderProfil();
   else if (nama === 'statistik') bukaProgres();
+  else if (nama === 'toko') tokoRender();
   else if (nama === 'pesan') bukaNotif();
   else if (nama === 'setting') { var v = document.getElementById('mm-versi'); if (v) v.textContent = APP_VERSI; terapkanTema(temaSaatIni()); }
   window.scrollTo(0, 0);
@@ -963,6 +1093,7 @@ function renderProfil() {
   var st = (typeof QUEST !== 'undefined' && QUEST.streak) ? QUEST.streak : 0;
   document.getElementById('pf-streak').textContent = st > 0 ? '🔥 ' + st + ' Hari Berturut-turut!' : '🔥 Mulai streak-mu hari ini!';
   renderLevel();
+  terapkanDekorasi();
 }
 
 // ===== Sapaan di Menu Utama =====
@@ -1040,6 +1171,7 @@ function tampilkanAvatar() {
       emo.classList.remove('hidden');
     }
   });
+  terapkanDekorasi();
 }
 function muatAvatarLokal() {
   try { avatarId = localStorage.getItem(kunciAvatarLokal()) || ''; } catch (e) { avatarId = ''; }

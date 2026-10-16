@@ -58,6 +58,65 @@ html.dark .pf-ico { background: color-mix(in srgb, var(--pa) 14%, #0f172a); bord
 html.dark .pf-txt b { color: #f1f5f9; }
 html.dark .pf-txt small { color: #94a3b8; }
 html.dark .pf-go { color: #64748b; }
+/* ===== Koin & Toko ===== */
+.koin-img { width: 20px; height: 20px; object-fit: contain; vertical-align: -4px; }
+.koin-img.besar { width: 44px; height: 44px; vertical-align: middle; }
+.tk-item .tk-btn .koin-img { width: 16px; height: 16px; vertical-align: -3px; }
+.pf-gelar { margin-top: 6px; font-size: 13px; font-weight: 800; color: #7c3aed; }
+html.dark .pf-gelar { color: #c4b5fd; }
+.pf-koin { display: inline-block; margin-top: 10px; padding: 7px 16px; border-radius: 999px; font-size: 13px; font-weight: 800; cursor: pointer;
+  background: #fffbeb; border: 1.5px solid #fcd34d; color: #92400e; }
+html.dark .pf-koin { background: #1f1a0b; border-color: #f59e0b; color: #fcd34d; }
+.koin-kartu { display: flex; align-items: center; gap: 14px; padding: 14px 18px; border-radius: 18px; text-align: left;
+  background: linear-gradient(135deg, #fef3c7, #fde68a); border: 1.5px solid #fbbf24; }
+.koin-ico { font-size: 40px; line-height: 1; }
+.koin-txt { display: flex; flex-direction: column; }
+.koin-txt small { font-size: 12px; font-weight: 700; color: #92400e; }
+.koin-txt b { font-size: 30px; font-weight: 900; line-height: 1.1; color: #78350f; }
+.koin-ket { margin: 8px 2px 6px; font-size: 12px; font-weight: 600; color: #64748b; text-align: center; }
+html.dark .koin-kartu { background: linear-gradient(135deg, #2a210a, #3b2d0c); border-color: #a16207; }
+html.dark .koin-txt small { color: #fcd34d; }
+html.dark .koin-txt b { color: #fde68a; }
+html.dark .koin-ket { color: #94a3b8; }
+.tk-item { display: flex; align-items: center; gap: 12px; padding: 10px 12px; margin: 0 0 10px; border-radius: 16px; text-align: left;
+  background: #fff; border: 1px solid #e2e8f0; box-shadow: 0 4px 14px rgba(15, 23, 42, .07); }
+.tk-item.dipakai { background: #f5f3ff; border-color: #a78bfa; }
+.tk-ico { flex: none; width: 46px; height: 46px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 22px;
+  background: #f5f3ff; border: 2px solid #ddd6fe; }
+.tk-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.tk-txt b { font-size: 15px; font-weight: 800; color: #1e293b; }
+.tk-txt small { margin-top: 2px; font-size: 12px; font-weight: 600; color: #64748b; }
+.tk-item .tk-btn { flex: none; width: auto; min-width: 84px; max-width: none; margin: 0; padding: 9px 12px; display: block; border-radius: 12px;
+  font-size: 13px; font-weight: 800; box-shadow: none; }
+.tk-item .tk-btn.beli { background: #f59e0b; color: #fff; }
+.tk-item .tk-btn.pakai { background: #7c3aed; color: #fff; }
+.tk-item .tk-btn.lepas { background: #e2e8f0; color: #475569; }
+.tk-item .tk-btn.kurang { background: #f1f5f9; color: #94a3b8; cursor: not-allowed; }
+html.dark .tk-item { background: #0f172a; border-color: #334155; box-shadow: 0 6px 16px rgba(0, 0, 0, .35); }
+html.dark .tk-item.dipakai { background: #1a1533; border-color: #7c3aed; }
+html.dark .tk-ico { background: #1a1533; border-color: #4c1d95; }
+html.dark .tk-txt b { color: #f1f5f9; }
+html.dark .tk-txt small { color: #94a3b8; }
+html.dark .tk-item .tk-btn.lepas { background: #334155; color: #e2e8f0; }
+html.dark .tk-item .tk-btn.kurang { background: #1e293b; color: #64748b; }
+/* bingkai foto (Menu Utama & Profil) dan pratinjau di Toko */
+html .mm-avatar.bk-sakura { border-color: #f9a8d4 !important; box-shadow: 0 0 0 3px #fbcfe8, 0 0 16px rgba(244, 114, 182, .7) !important; }
+html .mm-avatar.bk-emas { border-color: #facc15 !important; box-shadow: 0 0 0 3px #fde68a, 0 0 18px rgba(234, 179, 8, .85) !important; }
+html .mm-avatar.bk-api { border-color: #f97316 !important; box-shadow: 0 0 0 3px #fdba74, 0 0 18px rgba(239, 68, 68, .85) !important; }
+html .tk-ico.bk-sakura { border-color: #f9a8d4; box-shadow: 0 0 0 2px #fbcfe8; }
+html .tk-ico.bk-emas { border-color: #facc15; box-shadow: 0 0 0 2px #fde68a; }
+html .tk-ico.bk-api { border-color: #f97316; box-shadow: 0 0 0 2px #fdba74; }
+html .tk-ico.bk-pelangi { animation: bkPelangi 3s linear infinite; }
+@keyframes bkPelangi {
+  0%   { border-color: #ef4444; box-shadow: 0 0 0 3px #fca5a5, 0 0 16px rgba(239, 68, 68, .7); }
+  25%  { border-color: #eab308; box-shadow: 0 0 0 3px #fde047, 0 0 16px rgba(234, 179, 8, .7); }
+  50%  { border-color: #22c55e; box-shadow: 0 0 0 3px #86efac, 0 0 16px rgba(34, 197, 94, .7); }
+  75%  { border-color: #3b82f6; box-shadow: 0 0 0 3px #93c5fd, 0 0 16px rgba(59, 130, 246, .7); }
+  100% { border-color: #ef4444; box-shadow: 0 0 0 3px #fca5a5, 0 0 16px rgba(239, 68, 68, .7); }
+}
+/* avatar punya border/shadow !important (tidak bisa dianimasikan), jadi pelangi memakai outline */
+html .mm-avatar.bk-pelangi { outline: 3px solid #ef4444; outline-offset: 2px; animation: bkPelangiOut 3s linear infinite; }
+@keyframes bkPelangiOut { 0% { outline-color: #ef4444; } 25% { outline-color: #eab308; } 50% { outline-color: #22c55e; } 75% { outline-color: #3b82f6; } 100% { outline-color: #ef4444; } }
   </style>
 </head>
 <body>
@@ -227,8 +286,10 @@ html.dark .pf-go { color: #64748b; }
       </button>
       <div class="pf-nama" id="pf-nama">-</div>
       <div class="pf-kelas" id="pf-kelas">-</div>
+      <div class="pf-gelar hidden" id="pf-gelar"></div>
       <div class="pf-streak" id="pf-streak">🔥 Mulai streak-mu hari ini!</div>
       <div class="lv-box" id="pf-level"></div>
+      <div class="pf-koin" id="pf-koin" role="button" onclick="pindahTab('toko')"></div>
     </div>
     <div class="pf-row pf-blue" role="button" onclick="pindahTab('statistik')"><span class="pf-ico">🎯</span><span class="pf-txt"><b>Progres</b><small>Daily Quest, belajar &amp; pencapaianmu</small></span><span class="pf-go">›</span></div>
     <div class="pf-row pf-gold" role="button" onclick="bukaPeringkat()"><span class="pf-ico">🏅</span><span class="pf-txt"><b>Papan Peringkat</b><small>Lihat posisimu di antara teman</small></span><span class="pf-go">›</span></div>
@@ -266,14 +327,10 @@ html.dark .pf-go { color: #64748b; }
     <div id="pg-pane-peringkat" class="hidden" style="text-align:left;"></div>
   </div>
 
-  <!-- TAB: TOKO (isi menyusul) -->
+  <!-- TAB: TOKO -->
   <div id="tab-toko" class="tab-pane hidden">
     <h3 class="tab-judul">🛒 Toko</h3>
-    <div class="toko-kosong">
-      <div class="toko-ico">🛍️</div>
-      <div class="toko-judul">Toko segera hadir!</div>
-      <div class="toko-ket">Isi Toko sedang disiapkan. Nantikan kejutannya ya!</div>
-    </div>
+    <div id="toko-isi"></div>
   </div>
 
   <!-- TAB: PESAN -->
