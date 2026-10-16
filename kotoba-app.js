@@ -875,6 +875,127 @@ var TOKO_JENIS = {
   musik:   { label: '🎵 MUSIK LATAR' }
 };
 var tokoMasalah = [];
+
+// ===== BINGKAI GAMBAR: SKALA OTOMATIS MENGIKUTI FOTO PROFIL =====
+// Lubang bundar di tengah PNG bingkai diukur otomatis (pusat & diameternya), lalu bingkai diperbesar/diperkecil
+// sehingga lubangnya pas dengan foto profil di mana pun foto itu berada (Menu Utama, Profil, Peringkat, Toko).
+// Kolom 'skala', 'x', 'y' di toko-item.js hanya cadangan bila PNG tidak bisa diukur.
+var TOKO_PAS = 0.97;   // diameter lubang = 97% diameter foto, jadi tepi foto terselip sedikit di bawah cincin
+function tokoLingkaran(P) {                     // cocokkan lingkaran ke titik-titik tepi lubang (kuadrat terkecil)
+  var n = P.length, sx = 0, sy = 0, sxx = 0, syy = 0, sxy = 0, sxz = 0, syz = 0, sz = 0;
+  P.forEach(function(q) {
+    var x = q[0], y = q[1], z = x * x + y * y;
+    sx += x; sy += y; sxx += x * x; syy += y * y; sxy += x * y; sxz += x * z; syz += y * z; sz += z;
+  });
+  function det(m) {
+    return m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1]) - m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0]) + m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0]);
+  }
+  var M = [[sxx, sxy, sx], [sxy, syy, sy], [sx, sy, n]], R = [sxz, syz, sz], d = det(M);
+  if (!isFinite(d) || Math.abs(d) < 1e-9) return null;
+  function ganti(k) { return M.map(function(row, i) { var c = row.slice(); c[k] = R[i]; return c; }); }
+  var a = det(ganti(0)) / d, b = det(ganti(1)) / d, c = det(ganti(2)) / d, r2 = c + (a * a + b * b) / 4;
+  if (!(r2 > 0)) return null;
+  return { x: a / 2, y: b / 2, r: Math.sqrt(r2) };
+}
+function tokoUkurBingkai(it, selesai) {
+  var im = new Image();
+  im.onload = function() {
+    try {
+      var W0 = im.naturalWidth, H0 = im.naturalHeight;
+      if (!W0 || !H0) return;
+      var k = Math.min(1, 400 / Math.max(W0, H0)), W = Math.round(W0 * k), H = Math.round(H0 * k);
+      var cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+      var g = cv.getContext('2d'); g.drawImage(im, 0, 0, W, H);
+      var a = g.getImageData(0, 0, W, H).data;
+      var cx = W / 2, cy = H / 2;
+      if (a[(Math.round(cy) * W + Math.round(cx)) * 4 + 3] >= 40) return;      // tengah tidak transparan: tidak ada lubang
+      var pts = [];
+      for (var deg = 0; deg < 360; deg += 2) {                                   // telusuri dari tengah ke tepi lubang
+        var rad = deg * Math.PI / 180, ux = Math.cos(rad), uy = Math.sin(rad), r = 0, ketemu = false;
+        while (r < Math.max(W, H)) {
+          r++;
+          var x = Math.round(cx + ux * r), y = Math.round(cy + uy * r);
+          if (x < 0 || y < 0 || x >= W || y >= H) break;
+          if (a[(y * W + x) * 4 + 3] >= 40) { ketemu = true; break; }
+        }
+        if (ketemu) pts.push([cx + ux * r, cy + uy * r, r]);
+      }
+      if (pts.length < 60) return;
+      var ds = pts.map(function(q) { return q[2]; }).sort(function(p1, p2) { return p1 - p2; }), med = ds[ds.length >> 1];
+      var P = pts.filter(function(q) { return q[2] > med * 0.75 && q[2] < med * 1.25; });    // buang celah & benda yang menjorok ke lubang
+      var cir = null;
+      for (var i = 0; i < 4; i++) {
+        cir = tokoLingkaran(P);
+        if (!cir) return;
+        var c0 = cir, P2 = P.filter(function(q) { return Math.abs(Math.sqrt(Math.pow(q[0] - c0.x, 2) + Math.pow(q[1] - c0.y, 2)) - c0.r) < c0.r * 0.04; });
+        if (P2.length >= 40) P = P2;
+      }
+      cir = tokoLingkaran(P);
+      if (!cir || cir.r < W * 0.1 || cir.r > W * 0.5) return;
+      var f = TOKO_PAS * 100 / (2 * cir.r);                                      // % ukuran foto per piksel gambar
+      it._pas = { l: 50 - cir.x * f, t: 50 - cir.y * f, w: W * f, h: H * f };
+      try { localStorage.setItem('toko_pas_' + it.gambar + '_' + (window.APP_BUILD || '0'), JSON.stringify(it._pas)); } catch (e) {}
+      selesai();
+    } catch (e) { /* tidak bisa diukur (mis. dibuka dari file://): pakai skala cadangan */ }
+  };
+  im.src = it.gambar;
+}
+// posisi bingkai relatif terhadap foto, dalam %: l,t = tepi kiri/atas, w,h = lebar/tinggi; ov = bagian terjauh yang keluar dari foto
+function tokoGeo(it) {
+  var l, t, w, h;
+  if (it._pas) { l = it._pas.l; t = it._pas.t; w = it._pas.w; h = it._pas.h; }
+  else {
+    var sk = Number(it.skala) > 0 ? Number(it.skala) : 38, dx = Number(it.x) || 0, dy = Number(it.y) || 0;
+    l = dx - sk; t = dy - sk; w = 100 + 2 * sk; h = 100 + 2 * sk;
+  }
+  return { l: l, t: t, w: w, h: h, ov: Math.max(0, -l, -t, l + w - 100, t + h - 100) };
+}
+function tokoTulisCss() {
+  var css = '';
+  TOKO_ITEM.forEach(function(it) {
+    if (it.jenis === 'bingkai' && it.gambar) {
+      var ge = tokoGeo(it), ov = ge.ov;
+      var u = "url('" + String(it.gambar).replace(/['")\\\n]/g, '') + "') center / 100% 100% no-repeat";
+      var lapis = 'content:""; position:absolute; left:' + ge.l + '%; top:' + ge.t + '%; width:' + ge.w + '%; height:' + ge.h + '%; pointer-events:none; background:' + u + ';';
+      css += 'html .mm-avatar.' + it.id + ' { border-color:transparent !important; box-shadow:none !important; position:relative; overflow:visible !important; }' +
+        'html .mm-avatar.' + it.id + '::after { ' + lapis + ' }' +
+        'html .lb-av.' + it.id + ' { border-color:transparent !important; box-shadow:none !important; position:relative; overflow:visible !important; margin:0 ' + (Math.round(40 * ov / 100) + 2) + 'px !important; }' +
+        'html .lb-av.' + it.id + '::after { ' + lapis + ' }' +
+        'html .tk-ico.' + it.id + ' { position:relative; overflow:visible; margin:0 ' + Math.max(0, Math.round(46 * ov / 100) - 10) + 'px; }' +
+        'html .tk-ico.' + it.id + '::after { ' + lapis + ' }' +
+        // foto digeser sejauh bagian bingkai yang keluar (foto 58px) supaya bingkai tidak keluar dari kartu, tulisan diberi jarak setara
+        'html .mm-head .mm-avatar.' + it.id + ' { margin-left:' + Math.round(58 * ov / 100) + 'px !important; }' +
+        'html .mm-head:has(.mm-avatar.' + it.id + ') .mm-sapa { margin-left:' + (Math.round(58 * ov / 100) + 2) + 'px; }';
+    }
+    if (it.jenis === 'tema' && it.latar) {
+      css += 'html.' + it.id + ', html.' + it.id + ' body { background:' + it.latar + ' !important; background-attachment:fixed !important; }';
+    }
+  });
+  var st = document.getElementById('toko-css');
+  if (!css) { if (st) st.textContent = ''; return; }
+  if (!st) { st = document.createElement('style'); st.id = 'toko-css'; (document.head || document.documentElement).appendChild(st); }
+  st.textContent = css;
+}
+function tokoMuatPas() {                         // pakai hasil ukur tersimpan (supaya tidak berkedip saat dibuka lagi)
+  TOKO_ITEM.forEach(function(it) {
+    if (it.jenis !== 'bingkai' || !it.gambar) return;
+    try {
+      var v = JSON.parse(localStorage.getItem('toko_pas_' + it.gambar + '_' + (window.APP_BUILD || '0')) || 'null');
+      if (v && isFinite(v.l) && isFinite(v.t) && v.w > 0 && v.h > 0) it._pas = v;
+    } catch (e) {}
+  });
+}
+function tokoUkurSemua() {
+  TOKO_ITEM.forEach(function(it) {
+    if (it.jenis !== 'bingkai' || !it.gambar || it._pas || it._ukur) return;
+    it._ukur = 1;
+    tokoUkurBingkai(it, function() {
+      tokoTulisCss();
+      try { terapkanDekorasi(); } catch (e) {}
+      try { if (typeof tokoRender === 'function') tokoRender(); } catch (e) {}
+    });
+  });
+}
 // Periksa daftar item: item yang salah ketik dilewati (bukan merusak seluruh Toko) dan dilaporkan.
 // Lalu buat CSS otomatis untuk bingkai bergambar & tema berlatar.
 function tokoSiapkan() {
@@ -892,33 +1013,11 @@ function tokoSiapkan() {
     it.harga = Number(it.harga); it.ico = it.ico || (it.gambar ? '' : '🎁'); it.ket = it.ket || '';
     if (it.jenis === 'gelar' && it.gambar) it.gambar = String(it.gambar).replace(/['"<>\\\s]/g, '');   // gelar bergambar: aman dipasang di atribut HTML
     lihat[it.id] = 1; bagus.push(it);
-    if (it.jenis === 'bingkai' && it.gambar) {
-      var sk = Number(it.skala) > 0 ? Number(it.skala) : 38;                    // seberapa jauh bingkai keluar dari foto (%)
-      var u = "url('" + String(it.gambar).replace(/['")\\\n]/g, '') + "') center / contain no-repeat";
-      var dx = Number(it.x) || 0, dy = Number(it.y) || 0;                        // geser bingkai (% ukuran foto): x + = kanan, y + = bawah
-      var lapis = 'content:""; position:absolute; inset:' + (dy - sk) + '% ' + (-sk - dx) + '% ' + (-sk - dy) + '% ' + (dx - sk) + '%; pointer-events:none; background:' + u + ';';
-      css += 'html .mm-avatar.' + it.id + ' { border-color:transparent !important; box-shadow:none !important; position:relative; overflow:visible !important; }' +
-        'html .mm-avatar.' + it.id + '::after { ' + lapis + ' }' +
-        'html .lb-av.' + it.id + ' { border-color:transparent !important; box-shadow:none !important; position:relative; overflow:visible !important; margin:0 ' + (Math.round(40 * sk / 100) + 2) + 'px !important; }' +
-        'html .lb-av.' + it.id + '::after { ' + lapis + ' }' +
-        'html .tk-ico.' + it.id + ' { position:relative; overflow:visible; }' +
-        'html .tk-ico.' + it.id + ' { margin:0 ' + Math.max(0, Math.round(46 * sk / 100) - 10) + 'px; }' +
-        'html .tk-ico.' + it.id + '::after { ' + lapis + ' }' +
-        // ov = seberapa jauh bingkai keluar dari foto (foto 58px). Foto digeser sejauh itu supaya bingkai tidak keluar dari kartu,
-        // dan tulisan diberi jarak setara supaya tidak tertimpa bingkai. !important perlu karena .mm-avatar punya margin:0 !important.
-        'html .mm-head .mm-avatar.' + it.id + ' { margin-left:' + Math.round(58 * sk / 100) + 'px !important; }' +
-        'html .mm-head:has(.mm-avatar.' + it.id + ') .mm-sapa { margin-left:' + (Math.round(58 * sk / 100) + 2) + 'px; }';
-    }
-    if (it.jenis === 'tema' && it.latar) {
-      css += 'html.' + it.id + ', html.' + it.id + ' body { background:' + it.latar + ' !important; background-attachment:fixed !important; }';
-    }
   });
   TOKO_ITEM = bagus;
-  if (css) {
-    var st = document.getElementById('toko-css');
-    if (!st) { st = document.createElement('style'); st.id = 'toko-css'; (document.head || document.documentElement).appendChild(st); }
-    st.textContent = css;
-  }
+  tokoMuatPas();
+  tokoTulisCss();
+  tokoUkurSemua();
   if (tokoMasalah.length) { try { console.warn('[toko] ' + tokoMasalah.length + ' item dilewati: ' + tokoMasalah.join(' | ')); } catch (e) {} }
 }
 tokoSiapkan();
@@ -1052,7 +1151,7 @@ function terapkanDekorasi() {
     // keluar dari foto (diukur dari ukuran foto sebenarnya) supaya bingkai bergambar tidak menutupi nama.
     if (i === 'pf-avatar') {
       var pk = (bk && achState.beli[bk] != null) ? tokoItem(bk) : null;
-      var sk = (pk && pk.jenis === 'bingkai' && pk.gambar) ? (Number(pk.skala) > 0 ? Number(pk.skala) : 38) : 0;
+      var sk = (pk && pk.jenis === 'bingkai' && pk.gambar) ? tokoGeo(pk).ov : 0;
       if (sk) {
         var tg = parseFloat(window.getComputedStyle(el).height) || el.offsetHeight || 58;
         el.style.setProperty('margin-bottom', Math.round(tg * sk / 100 + 8) + 'px', 'important');
