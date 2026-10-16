@@ -885,8 +885,10 @@ function tokoSiapkan() {
         'html .mm-avatar.' + it.id + '::after { ' + lapis + ' }' +
         'html .tk-ico.' + it.id + ' { position:relative; overflow:visible; }' +
         'html .tk-ico.' + it.id + '::after { ' + lapis + ' }' +
-        'html .mm-head .mm-avatar.' + it.id + ' { margin-left:' + Math.round(sk * 0.26) + 'px; margin-right:' + Math.round(sk * 0.16) + 'px; }' +
-        'html .mm-head:has(.mm-avatar.' + it.id + ') .mm-sapa { margin-left:' + Math.round(sk * 0.74) + 'px; }';
+        // ov = seberapa jauh bingkai keluar dari foto (foto 58px). Foto digeser sejauh itu supaya bingkai tidak keluar dari kartu,
+        // dan tulisan diberi jarak setara supaya tidak tertimpa bingkai. !important perlu karena .mm-avatar punya margin:0 !important.
+        'html .mm-head .mm-avatar.' + it.id + ' { margin-left:' + Math.round(58 * sk / 100) + 'px !important; }' +
+        'html .mm-head:has(.mm-avatar.' + it.id + ') .mm-sapa { margin-left:' + (Math.round(58 * sk / 100) + 2) + 'px; }';
     }
     if (it.jenis === 'tema' && it.latar) {
       css += 'html.' + it.id + ', html.' + it.id + ' body { background:' + it.latar + ' !important; background-attachment:fixed !important; }';
