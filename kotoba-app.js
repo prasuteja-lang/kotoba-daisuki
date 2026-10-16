@@ -349,7 +349,7 @@ var completionTimeFormatted = "";
 var isStopwatchMode = false;
 
 // ===== INFO UPDATE TERBARU (edit bagian ini setiap ada update baru) =====
-var APP_VERSI = "Versi 2.5.0";
+var APP_VERSI = "Versi 2.5.1";
 var APP_UPDATE_INTRO = "Ada pembaruan baru, silakan dicek ya minna-san";
 // Format: { ico, tag (FIX/NEW/UPDATE/INFO), judul, isi }. Teks biasa "Menu Xxx: ..." juga masih didukung.
 var APP_UPDATE_LIST = [
@@ -1673,6 +1673,7 @@ function tokoFxCss() {
   st.textContent =
     '.tk-btn{transition:background-color .25s,color .25s,border-color .25s,box-shadow .25s,transform .12s;-webkit-tap-highlight-color:transparent;}' +
     '.tk-btn:not(:disabled):active{transform:scale(.92);}' +
+    '.tk-btn.tk-pop{animation:tkPop .45s cubic-bezier(.34,1.56,.64,1);}' +
     '.tk-btn.beli.konfirm{background:#f59e0b !important;border-color:#f59e0b !important;color:#fff !important;animation:tkDenyut .9s ease-in-out infinite;}' +
     '.tk-item{transition:background-color .35s,box-shadow .35s,border-color .35s;}' +
     '.tk-item.fx-beli{animation:tkBeli 1s ease;}' +
@@ -1754,9 +1755,9 @@ function tokoRender() {
     TOKO_ITEM.forEach(function(it) {
       if (it.jenis !== g[0]) return;
       var punya = achState.beli[it.id] != null, pakai = achState.pakai[it.jenis] === it.id, aksi;
-      if (pakai) aksi = '<button type="button" class="tk-btn lepas" onclick="tokoPakai(\'' + it.jenis + '\',\'\')">Lepas</button>';
-      else if (punya) aksi = '<button type="button" class="tk-btn pakai" onclick="tokoPakai(\'' + it.jenis + '\',\'' + it.id + '\')">Pakai</button>';
-      else if (saldo >= it.harga) aksi = '<button type="button" class="tk-btn beli' + (tokoKonfirm === it.id ? ' konfirm' : '') + '" onclick="tokoBeli(\'' + it.id + '\')">' +
+      if (pakai) aksi = '<button type="button" class="tk-btn lepas" onclick="tokoPakai(\'' + it.jenis + '\',\'\',this)">Lepas</button>';
+      else if (punya) aksi = '<button type="button" class="tk-btn pakai" onclick="tokoPakai(\'' + it.jenis + '\',\'' + it.id + '\',this)">Pakai</button>';
+      else if (saldo >= it.harga) aksi = '<button type="button" class="tk-btn beli' + (tokoKonfirm === it.id ? ' konfirm' : '') + '" onclick="tokoBeli(\'' + it.id + '\',this)">' +
         (tokoKonfirm === it.id ? 'Yakin? ' : '') + koinImg('kecil') + ' ' + fmtAngka(it.harga) + '</button>';
       else aksi = '<button type="button" class="tk-btn kurang" disabled>' + koinImg('kecil') + ' ' + fmtAngka(it.harga) + '</button>';
       h += '<div class="tk-item' + (pakai ? ' dipakai' : '') + (tokoFx.id === it.id ? ' fx-' + tokoFx.tipe : '') + '"><span class="tk-ico' + (it.jenis === 'bingkai' || it.jenis === 'kartu' ? ' ' + it.id : '') + '"' + (it.jenis === 'gelar' && it.gambar ? ' style="overflow:hidden"' : '') + '>' + (it.jenis === 'gelar' ? gelarIko(it, 38) : it.ico) + '</span>' +
@@ -1766,34 +1767,47 @@ function tokoRender() {
   pane.innerHTML = h;
   pulihGulir();
 }
-// Beli = ketuk dua kali (ketukan pertama minta konfirmasi, batal otomatis setelah 4 detik)
-function tokoBeli(id) {
+// Jalankan langkah satu per satu: bila salah satu error, langkah berikutnya tetap jalan (tampilan tidak boleh macet)
+function tokoAman(fn) { try { fn(); } catch (e) { try { console.error('[toko]', e); } catch (e2) {} } }
+// Ubah tombol yang diketuk SEKETIKA (sebelum apa pun diproses), lalu daftar dibangun ulang sebagai penyelaras
+function tokoTombol(btn, kelas, teks, html) {
+  if (!btn) return;
+  btn.className = 'tk-btn ' + kelas;
+  if (html != null) btn.innerHTML = html; else btn.textContent = teks;
+  btn.classList.remove('tk-pop'); void btn.offsetWidth; btn.classList.add('tk-pop');
+}
+// Beli = ketuk dua kali: 1) tombol jadi "Yakin?" (oranye)  2) dibeli & langsung dipakai -> tombol jadi "Lepas"
+function tokoBeli(id, btn) {
   var it = tokoItem(id);
   if (!it || !achSiap() || achState.beli[id] != null) return;
   if (koinSaldo() < it.harga) { questToast('🪙 Koinmu belum cukup'); return; }
   if (tokoKonfirm !== id) {
-    tokoKonfirm = id; tokoRender();
+    tokoKonfirm = id;
+    tokoTombol(btn, 'beli konfirm', '', 'Yakin? ' + koinImg('kecil') + ' ' + fmtAngka(it.harga));
     clearTimeout(tokoKonfirmT);
-    tokoKonfirmT = setTimeout(function() { tokoKonfirm = ''; tokoRender(); }, 4000);
+    tokoKonfirmT = setTimeout(function() { tokoKonfirm = ''; tokoAman(tokoRender); }, 4000);
     return;
   }
   clearTimeout(tokoKonfirmT); tokoKonfirm = '';
   achState.beli[id] = it.harga;
   achState.pakai[it.jenis] = id;          // langsung dipakai
-  achSimpan();
+  tokoTombol(btn, 'lepas', 'Lepas');
   tokoFlash(id, 'beli');
-  tokoRender(); renderLevel(); terapkanDekorasi();
+  tokoAman(achSimpan);
+  tokoAman(tokoRender); tokoAman(renderLevel); tokoAman(terapkanDekorasi);
   questToast('🛍️ ' + it.nama + ' dibeli dan dipakai!');
 }
-function tokoPakai(jenis, id) {
+// Pakai -> tombol jadi "Lepas";  Lepas -> tombol jadi "Pakai"
+function tokoPakai(jenis, id, btn) {
   if (!achSiap()) return;
   if (id && achState.beli[id] == null) return;
   var lama = achState.pakai[jenis] || '';
   achState.pakai[jenis] = id || '';
-  achSimpan();
+  if (id) tokoTombol(btn, 'lepas', 'Lepas'); else tokoTombol(btn, 'pakai', 'Pakai');
   var tujuan = id ? tokoItem(id) : tokoItem(lama);
   tokoFlash(id || lama, id ? 'pakai' : 'lepas');
-  tokoRender(); terapkanDekorasi();
+  tokoAman(achSimpan);
+  tokoAman(tokoRender); tokoAman(terapkanDekorasi);
   if (tujuan) questToast(id ? '✨ ' + tujuan.nama + ' dipakai' : '↩️ ' + tujuan.nama + ' dilepas');
 }
 // musik latar: bila ada item musik yang dipakai, urutan sumber diganti (yang bawaan tetap jadi cadangan)
