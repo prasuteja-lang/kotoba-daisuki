@@ -29,6 +29,13 @@
   // Tambahan untuk modul lain (Kanji, Bunpou, dst.). Isi dengan nama fungsi server + argumennya:
   //   { id: 'kanji:N5', fn: 'getKanjiList', args: ['N5'] }
   var EKSTRA = [];
+  // Penulisan (simpan progres, skor, pencapaian, dst.) yang ditahan di HP saat offline lalu dikirim otomatis saat online.
+  var ANTRIAN = ['simpanSkor', 'simpanPencapaian', 'simpanLencanaKotoba', 'simpanAvatar', 'simpanHafal', 'tandaiNotifDibaca', 'logAktivitas'];
+  // data "keadaan terakhir": entri lama dengan kunci sama diganti yang terbaru (indeks argumen yang jadi kunci)
+  // fungsi yang tidak ada di sini (logAktivitas) = catatan kejadian, semuanya dikirim berurutan
+  var KUNCI_ANTRIAN = { simpanSkor: [0], simpanPencapaian: [0], simpanAvatar: [0], tandaiNotifDibaca: [0], simpanHafal: [0, 1], simpanLencanaKotoba: [0, 1] };
+  var BATAS_ANTRIAN = 300;         // maksimal entri tertahan
+  var BATAS_COBA = 8;              // setelah gagal sebanyak ini entri dibuang
 
   var asli = window.google && google.script && google.script.run;
   if (!asli) return;
@@ -140,7 +147,63 @@
   function pesanOffline() {
     return new Error('Sedang offline dan data ini belum tersimpan di HP. Sambungkan internet sekali, atau unduh data offline di menu Setting.');
   }
+  /* ---------------- antrian penulisan (offline -> kirim saat online) ---------------- */
+  var rantai = Promise.resolve(), jumlahAntrian = 0, mengirim = false, jadwal = null, uid = 0;
+  function kerja(fn) { var p = rantai.then(fn); rantai = p.catch(function () {}); return p; }   // satu per satu, anti tabrakan
+  function setJumlah(a) { jumlahAntrian = a.length; S.antri = jumlahAntrian ? '📤 ' + jumlahAntrian + ' data belajar menunggu dikirim (otomatis terkirim saat online).' : ''; ui(); }
+  function tambahAntrian(fn, args) {
+    return kerja(function () {
+      return baca('antrian').then(function (a) {
+        a = a || [];
+        var idx = KUNCI_ANTRIAN[fn], sig = null;
+        if (idx) { sig = fn + '|' + idx.map(function (i) { return JSON.stringify(args[i]); }).join('|'); a = a.filter(function (x) { return x.sig !== sig; }); }
+        a.push({ id: Date.now() + '-' + (++uid), sig: sig, fn: fn, args: args, t: Date.now(), n: 0 });
+        if (a.length > BATAS_ANTRIAN) a = a.slice(-BATAS_ANTRIAN);
+        return tulis('antrian', a).then(function () { setJumlah(a); });
+      });
+    });
+  }
+  function ubahAntrian(id, hapusIni) {
+    return kerja(function () {
+      return baca('antrian').then(function (a) {
+        a = (a || []).filter(function (x) {
+          if (x.id !== id) return true;
+          if (hapusIni) return false;
+          x.n = (x.n || 0) + 1; return x.n < BATAS_COBA;
+        });
+        return tulis('antrian', a).then(function () { setJumlah(a); });
+      });
+    });
+  }
+  function kirimSatu(x) {
+    return new Promise(function (res) {
+      var t = setTimeout(function () { res(false); }, 30000);
+      langsung(x.fn, x.args, function () { clearTimeout(t); res(true); }, function () { clearTimeout(t); res(false); });
+    });
+  }
+  function kirimAntrian() {
+    if (mengirim || navigator.onLine === false) return;
+    mengirim = true;
+    function lanjut() {
+      return kerja(function () { return baca('antrian'); }).then(function (a) {
+        a = a || []; setJumlah(a);
+        if (!a.length) return;
+        var x = a[0];
+        return kirimSatu(x).then(function (ok) {
+          return ubahAntrian(x.id, ok).then(function () { if (ok) return lanjut(); jadwalKirim(30000); });
+        });
+      });
+    }
+    lanjut().catch(function () {}).then(function () { mengirim = false; });
+  }
+  function jadwalKirim(ms) { clearTimeout(jadwal); jadwal = setTimeout(kirimAntrian, ms || 1500); }
+  function tulisAman(fn, args, s, f) {
+    if (navigator.onLine === false) { tambahAntrian(fn, args); if (f) f(pesanOffline()); return; }
+    langsung(fn, args, s, function (e) { tambahAntrian(fn, args).then(function () { jadwalKirim(15000); }); if (f) f(e); });
+  }
+
   function panggil(fn, args, s, f) {
+    if (ANTRIAN.indexOf(fn) >= 0) { tulisAman(fn, args, s, f); return; }
     if (!/^get/.test(fn) || TIDAK_DI_CACHE.indexOf(fn) >= 0) { langsung(fn, args, s, f); return; }
     var k = kunci(fn, args), selesai = false, timer = null;
     function dariCache(galat) {
@@ -208,9 +271,9 @@
   }
 
   /* ---------------- status & tampilan ---------------- */
-  var S = { app: '', data: '', persen: -1, reload: false, sibuk: false, cek: 0 };
+  var S = { app: '', data: '', antri: '', persen: -1, reload: false, sibuk: false, cek: 0 };
   function ui() {
-    var teks = [S.app, S.data].filter(Boolean).join('\n');
+    var teks = [S.app, S.data, S.antri].filter(Boolean).join('\n');
     ['off-ket-mod', 'off-ket-set'].forEach(function (id) { var e = $(id); if (e) e.textContent = teks; });
     ['off-bar-mod', 'off-bar-set'].forEach(function (id) {
       var e = $(id); if (!e) return;
@@ -349,7 +412,13 @@
     },
     periksa: periksa,
     segarkanSemua: function () { periksa({ paksa: true, semua: true }); },
-    hapus: function () { return idb('readwrite', function (s) { return s.clear(); }); }
+    kirimAntrian: kirimAntrian,
+    // hapus data unduhan; antrian yang belum terkirim tetap dipertahankan
+    hapus: function () {
+      return baca('antrian').then(function (a) {
+        return idb('readwrite', function (s) { return s.clear(); }).then(function () { return a && a.length ? tulis('antrian', a) : null; });
+      });
+    }
   };
   // tombol "Download Update" di Info Update sekarang memperbarui aplikasi + data (bukan lagi cek APK).
   // Cek APK tetap ada di Setting > Cek Update Aplikasi.
@@ -362,9 +431,12 @@
       pasangUi(); periksa({});
     };
   }
-  window.addEventListener('online', function () { periksa({ paksa: true }); });
-  document.addEventListener('visibilitychange', function () { if (!document.hidden) periksa({}); });
+  // kembali online: kirim dulu progres yang tertahan, baru periksa pembaruan data
+  window.addEventListener('online', function () { kirimAntrian(); periksa({ paksa: true }); });
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) { kirimAntrian(); periksa({}); } });
+  setInterval(function () { if (jumlahAntrian) kirimAntrian(); }, 60000);
 
   daftarSW();
+  baca('antrian').then(function (a) { setJumlah(a || []); if (a && a.length) jadwalKirim(3000); });
   setTimeout(function () { pasangUi(); periksa({}); }, 2500);
 })();
