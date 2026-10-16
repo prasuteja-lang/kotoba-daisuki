@@ -847,6 +847,17 @@ function renderPeringkat() {
 // Item yang dipakai: achState.pakai = { bingkai: idItem, gelar: idItem }
 // Cara menambah item baru: cukup tambah satu baris di TOKO_ITEM (jenis 'bingkai' perlu gaya .bk-xxx di CSS).
 var KOIN_RASIO = 10;
+// Daftar item Toko. Field: id (unik, bingkai harus 'bk-xxx' sesuai CSS), jenis ('bingkai' | 'gelar'), nama, ico, ket, harga (koin).
+// CATATAN: nama, harga, dan gelar di bawah ini hasil rekonstruksi — sesuaikan dengan daftar aslimu.
+var TOKO_ITEM = [
+  { id: 'bk-sakura',  jenis: 'bingkai', nama: 'Bingkai Sakura',  ico: '🌸', ket: 'Bingkai merah muda lembut',   harga: 50 },
+  { id: 'bk-emas',    jenis: 'bingkai', nama: 'Bingkai Emas',    ico: '🟡', ket: 'Bingkai emas berkilau',       harga: 100 },
+  { id: 'bk-api',     jenis: 'bingkai', nama: 'Bingkai Api',     ico: '🔥', ket: 'Bingkai oranye membara',      harga: 150 },
+  { id: 'bk-pelangi', jenis: 'bingkai', nama: 'Bingkai Pelangi', ico: '🌈', ket: 'Bingkai warna-warni animasi', harga: 250 },
+  { id: 'gl-pemula',  jenis: 'gelar',   nama: 'Pelajar Rajin',   ico: '📘', ket: 'Gelar untuk pelajar tekun',   harga: 40 },
+  { id: 'gl-samurai', jenis: 'gelar',   nama: 'Samurai Kotoba',  ico: '⚔️', ket: 'Gelar penakluk kosakata',     harga: 120 },
+  { id: 'gl-ninja',   jenis: 'gelar',   nama: 'Ninja Kanji',     ico: '🥷', ket: 'Gelar penguasa kanji',        harga: 200 }
+];
 // Gambar koin: SVG emas buatan sendiri (tanpa background, tertanam langsung di kode, tidak butuh file/Drive)
 var KOIN_IMG_SRC = 'data:image/svg+xml,%3Csvg%20xmlns=%27http://www.w3.org/2000/svg%27%20viewBox=%270%200%20100%20100%27%3E%3Cdefs%3E%3ClinearGradient%20id=%27a%27%20x1=%270%27%20y1=%270%27%20x2=%271%27%20y2=%271%27%3E%3Cstop%20offset=%270%27%20stop-color=%27%23fff1b8%27/%3E%3Cstop%20offset=%27.45%27%20stop-color=%27%23fbbf24%27/%3E%3Cstop%20offset=%271%27%20stop-color=%27%23b45309%27/%3E%3C/linearGradient%3E%3ClinearGradient%20id=%27b%27%20x1=%271%27%20y1=%271%27%20x2=%270%27%20y2=%270%27%3E%3Cstop%20offset=%270%27%20stop-color=%27%23fde68a%27/%3E%3Cstop%20offset=%271%27%20stop-color=%27%23d97706%27/%3E%3C/linearGradient%3E%3C/defs%3E%3Ccircle%20cx=%2750%27%20cy=%2750%27%20r=%2747%27%20fill=%27url(%23a)%27%20stroke=%27%2392400e%27%20stroke-width=%274%27/%3E%3Ccircle%20cx=%2750%27%20cy=%2750%27%20r=%2736%27%20fill=%27url(%23b)%27%20stroke=%27%23b45309%27%20stroke-width=%272.5%27/%3E%3Cpath%20d=%27M50.0%2029.0%20L53.1%2040.1%20L64.7%2040.3%20L55.4%2047.3%20L58.8%2058.4%20L50.0%2051.0%20L41.2%2058.4%20L44.6%2047.3%20L35.3%2040.3%20L46.9%2040.1Z%27%20fill=%27%23fff7d6%27%20stroke=%27%23b45309%27%20stroke-width=%272%27%20stroke-linejoin=%27round%27/%3E%3Cpath%20d=%27M20%2038A33%2033%200%200%201%2042%2019%27%20fill=%27none%27%20stroke=%27%23fff%27%20stroke-opacity=%27.75%27%20stroke-width=%274%27%20stroke-linecap=%27round%27/%3E%3C/svg%3E';
 function koinImg(cls) {
