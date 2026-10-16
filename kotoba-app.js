@@ -875,7 +875,8 @@ function tokoSiapkan() {
     if (!it.nama) { tokoMasalah.push(tag + ' nama kosong'); return; }
     if (isNaN(Number(it.harga)) || Number(it.harga) < 0 || it.harga === '' || it.harga === null) { tokoMasalah.push(tag + ' harga tidak valid'); return; }
     if (it.jenis === 'musik' && !it.url) { tokoMasalah.push(tag + ' musik butuh url'); return; }
-    it.harga = Number(it.harga); it.ico = it.ico || '🎁'; it.ket = it.ket || '';
+    it.harga = Number(it.harga); it.ico = it.ico || (it.gambar ? '' : '🎁'); it.ket = it.ket || '';
+    if (it.jenis === 'gelar' && it.gambar) it.gambar = String(it.gambar).replace(/['"<>\\\s]/g, '');   // gelar bergambar: aman dipasang di atribut HTML
     lihat[it.id] = 1; bagus.push(it);
     if (it.jenis === 'bingkai' && it.gambar) {
       var sk = Number(it.skala) > 0 ? Number(it.skala) : 38;                    // seberapa jauh bingkai keluar dari foto (%)
@@ -915,6 +916,11 @@ var ADMIN_AKUN = ['admin'];
 var KOIN_ADMIN = 9999;
 function koinAdmin() { return ADMIN_AKUN.indexOf(String(studentName || '').toLowerCase()) !== -1; }
 var tokoKonfirm = '', tokoKonfirmT = null;
+// ikon gelar: gambar PNG (field 'gambar') bila ada, kalau tidak pakai emoji (field 'ico')
+function gelarIko(it) {
+  if (it && it.gambar) return '<img class="gl-img" src="' + it.gambar + '" alt="">';
+  return kanaEsc(it ? it.ico : '');
+}
 function tokoItem(id) {
   for (var i = 0; i < TOKO_ITEM.length; i++) if (TOKO_ITEM[i].id === id) return TOKO_ITEM[i];
   return null;
@@ -964,7 +970,7 @@ function tokoRender() {
       else if (saldo >= it.harga) aksi = '<button type="button" class="tk-btn beli" onclick="tokoBeli(\'' + it.id + '\')">' +
         (tokoKonfirm === it.id ? 'Yakin? ' : '') + koinImg('kecil') + ' ' + fmtAngka(it.harga) + '</button>';
       else aksi = '<button type="button" class="tk-btn kurang" disabled>' + koinImg('kecil') + ' ' + fmtAngka(it.harga) + '</button>';
-      h += '<div class="tk-item' + (pakai ? ' dipakai' : '') + '"><span class="tk-ico' + (it.jenis === 'bingkai' ? ' ' + it.id : '') + '">' + it.ico + '</span>' +
+      h += '<div class="tk-item' + (pakai ? ' dipakai' : '') + '"><span class="tk-ico' + (it.jenis === 'bingkai' ? ' ' + it.id : '') + '">' + (it.jenis === 'gelar' ? gelarIko(it) : it.ico) + '</span>' +
         '<span class="tk-txt"><b>' + kanaEsc(it.nama) + '</b><small>' + kanaEsc(pakai ? 'Sedang dipakai' : (punya ? 'Sudah dimiliki' : it.ket)) + '</small></span>' + aksi + '</div>';
     });
   });
@@ -1037,13 +1043,13 @@ function terapkanDekorasi() {
   var g = document.getElementById('pf-gelar');
   if (g) {
     var it = tokoItem(achState.pakai.gelar || ''), ok = !!(it && achState.beli[it.id] != null);
-    g.textContent = ok ? it.ico + ' ' + it.nama : '';
+    g.innerHTML = ok ? gelarIko(it) + ' ' + kanaEsc(it.nama) : '';
     g.classList.toggle('hidden', !ok);
   }
   var gm = document.getElementById('mm-gelar');     // gelar di Menu Utama
   if (gm) {
     var it2 = tokoItem(achState.pakai.gelar || ''), ok2 = !!(it2 && achState.beli[it2.id] != null);
-    gm.textContent = ok2 ? it2.ico + ' ' + it2.nama : '';
+    gm.innerHTML = ok2 ? gelarIko(it2) + ' ' + kanaEsc(it2.nama) : '';
     gm.classList.toggle('hidden', !ok2);
   }
 }
