@@ -3,10 +3,62 @@
 var API_URL = 'https://script.google.com/macros/s/AKfycbyX3EmTsI5MbYy7c1YXxR-N3crRlIj_vR6aruxiMiET1oFZWH_GnUeqMWwNuKqEUJVi/exec';
 
 // Jembatan ke server. Di dalam Google Apps Script dipakai google.script.run asli;
-// di luar itu (folder APK) pemanggilan dikirim lewat fetch ke API_URL.
+// di luar itu (folder APK / GitHub Pages) pemanggilan dikirim lewat fetch ke API_URL.
+// MODE OFFLINE: pemanggilan baca (get...) disimpan di HP (IndexedDB) dan dipakai saat tidak ada internet;
+// pemanggilan tulis (simpan...) yang gagal karena offline diantrikan, lalu dikirim otomatis saat online lagi.
+// Untuk menambah fungsi baca lain (mis. dari kanji.js / bunpou.js), tambahkan namanya di OFFLINE_BACA di bawah.
 (function() {
   if (typeof google !== 'undefined' && google.script && google.script.run) return;
 
+  // fungsi baca yang boleh disimpan offline -> nama grup data (grup dipakai untuk cek versi data di server)
+  var OFFLINE_BACA = { getKotoba: 'kotoba', getKana: 'kana', getUjian: 'ujian', getHiburan: 'hiburan', getSubtitle: 'hiburan', getDaftarAvatar: 'avatar' };
+  // fungsi tulis yang diantrikan saat offline -> cara menentukan "kunci" agar kiriman lama yang sejenis ditimpa yang terbaru (null = semua dikirim)
+  var OFFLINE_TULIS = {
+    simpanSkor: function(a) { return a[0]; }, simpanPencapaian: function(a) { return a[0]; }, simpanAvatar: function(a) { return a[0]; },
+    simpanHafal: function(a) { return a[0] + '|' + a[1]; }, simpanLencanaKotoba: function(a) { return a[0] + '|' + a[1]; },
+    tandaiNotifDibaca: function(a) { return a[0]; }, logAktivitas: null, simpanMasukan: null
+  };
+
+  var tokenServer = null;        // { grup: penanda } dari getVersiData di server; null = server belum mendukung
+  var tokenSiap = null;
+  var tokenWaktu = 0;
+  function online() { return navigator.onLine !== false; }
+  function tunggu(ms) { return new Promise(function(ok) { setTimeout(ok, ms); }); }
+
+  /* ---------- penyimpanan HP (IndexedDB) ---------- */
+  var dbPromise = null;
+  function bukaDb() {
+    if (dbPromise) return dbPromise;
+    dbPromise = new Promise(function(ok, gagal) {
+      try {
+        var rq = indexedDB.open('kotoba_offline', 1);
+        rq.onupgradeneeded = function() {
+          var db = rq.result;
+          if (!db.objectStoreNames.contains('data')) db.createObjectStore('data', { keyPath: 'k' });
+          if (!db.objectStoreNames.contains('antrian')) db.createObjectStore('antrian', { keyPath: 'k' });
+        };
+        rq.onsuccess = function() { ok(rq.result); };
+        rq.onerror = function() { gagal(rq.error); };
+      } catch (e) { gagal(e); }
+    });
+    return dbPromise;
+  }
+  function dbOp(store, mode, fn) {
+    return bukaDb().then(function(db) {
+      return new Promise(function(ok, gagal) {
+        var t = db.transaction(store, mode), r = fn(t.objectStore(store));
+        t.oncomplete = function() { ok(r ? r.result : undefined); };
+        t.onerror = t.onabort = function() { gagal(t.error); };
+      });
+    });
+  }
+  function dbGet(s, k) { return dbOp(s, 'readonly', function(o) { return o.get(k); }).catch(function() { return undefined; }); }
+  function dbPut(s, rec) { return dbOp(s, 'readwrite', function(o) { return o.put(rec); }); }
+  function dbDel(s, k) { return dbOp(s, 'readwrite', function(o) { return o.delete(k); }); }
+  function dbAll(s) { return dbOp(s, 'readonly', function(o) { return o.getAll(); }).catch(function() { return []; }); }
+  function dbClear(s) { return dbOp(s, 'readwrite', function(o) { return o.clear(); }); }
+
+  /* ---------- panggilan ke server ---------- */
   function panggilApi(namaFungsi, args) {
     if (!API_URL || API_URL.indexOf('PASTE_') === 0) {
       return Promise.reject(new Error('API_URL belum diisi di Code.js'));
@@ -20,9 +72,106 @@ var API_URL = 'https://script.google.com/macros/s/AKfycbyX3EmTsI5MbYy7c1YXxR-N3c
     })
     .then(function(res) { return res.json(); })
     .then(function(d) {
-      if (!d.ok) throw new Error(d.error || 'Server mengembalikan error');
+      if (!d.ok) { var e = new Error(d.error || 'Server mengembalikan error'); e.server = true; throw e; }
       return d.data;
     });
+  }
+
+  /* ---------- cek versi data di server (opsional: fungsi getVersiData di Code.js) ---------- */
+  function cekToken() {
+    tokenWaktu = Date.now();
+    tokenSiap = panggilApi('getVersiData', []).then(function(d) {
+      tokenServer = (d && typeof d === 'object') ? d : null;
+    }, function(err) {
+      if (err && err.server) tokenServer = null;       // server belum punya fungsinya: pakai cara biasa
+    });
+    return tokenSiap;
+  }
+  function kunciCache(fn, args) {
+    var a = args;
+    if (fn === 'getUjian' && args[0] === 'jft') a = ['jft'];     // JFT tidak bergantung pada level
+    return fn + '|' + JSON.stringify(a);
+  }
+  function segar(rec, g) { return !!(rec && tokenServer && tokenServer[g] != null && rec.tk === tokenServer[g]); }
+  function simpanCache(fn, args, d) {
+    var g = OFFLINE_BACA[fn], ukuran = 0;
+    try { ukuran = JSON.stringify(d).length; } catch (e) {}
+    return dbPut('data', { k: kunciCache(fn, args), v: d, t: Date.now(), g: g, u: ukuran, tk: tokenServer ? tokenServer[g] : null }).catch(function() {});
+  }
+
+  /* ---------- kuis offline: disusun dari data kotoba yang sudah tersimpan ---------- */
+  function acak(a) { for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)), t = a[i]; a[i] = a[j]; a[j] = t; } return a; }
+  function kuisOffline(args) {
+    return dbGet('data', kunciCache('getKotoba', [args[0], args[1], 'Semua'])).then(function(rec) {
+      var rows = (rec && rec.v || []).filter(function(r) { return r && r.kotoba && r.arti; });
+      if (rows.length < 4) return undefined;
+      var batas = (args[2] === 'Semua') ? rows.length : (parseInt(args[2], 10) || 10);
+      return acak(rows.slice()).slice(0, batas).map(function(r) {
+        var tipe = Math.random() < 0.5 ? 0 : 1, kunci = tipe === 0 ? r.arti : r.kotoba;
+        var lain = acak(rows.filter(function(x) { return (tipe === 0 ? x.arti : x.kotoba) !== kunci; })).slice(0, 3)
+          .map(function(x) { return tipe === 0 ? x.arti : x.kotoba; });
+        return { type: tipe, kotoba: r.kotoba, carabaca: r.carabaca, arti: r.arti, pilihan: acak([kunci].concat(lain)), kunci: kunci };
+      });
+    });
+  }
+  var PESAN_OFFLINE = 'Data ini belum tersimpan di HP. Sambungkan internet sekali, atau unduh dari Setting > Mode Offline.';
+
+  function baca(fn, args) {
+    var g = OFFLINE_BACA[fn], kunci = kunciCache(fn, args);
+    var tungguToken = online() ? Promise.race([tokenSiap || Promise.resolve(), tunggu(2500)]) : Promise.resolve();
+    return tungguToken.then(function() { return dbGet('data', kunci); }).then(function(rec) {
+      if (segar(rec, g)) return rec.v;                                   // belum berubah di server: tanpa unduh sama sekali
+      function cadangan(err) {
+        if (rec) return rec.v;
+        throw (online() && err) ? err : new Error(PESAN_OFFLINE);
+      }
+      if (!online()) return cadangan(null);
+      var jaringan = panggilApi(fn, args).then(function(d) { simpanCache(fn, args, d); return d; });
+      // ada salinan lama & jaringan lambat (>8 dtk): pakai salinan lama dulu
+      var pacu = rec ? Promise.race([jaringan, tunggu(8000).then(function() { return rec.v; })]) : jaringan;
+      return pacu.catch(cadangan);
+    });
+  }
+
+  /* ---------- antrian kirim saat offline ---------- */
+  var sedangKirim = false;
+  function antri(fn, args) {
+    var f = OFFLINE_TULIS[fn], k = fn + '|' + (f ? f(args) : Date.now() + '_' + Math.random());
+    return dbAll('antrian').then(function(a) { return a.length >= 300 ? undefined : dbPut('antrian', { k: k, fn: fn, args: args, t: Date.now() }); }).catch(function() {});
+  }
+  function tulis(fn, args) {
+    return panggilApi(fn, args).catch(function(err) {
+      if (err && err.server) throw err;                                  // ditolak server: jangan diulang
+      return antri(fn, args).then(function() { throw err; });
+    });
+  }
+  function kirimAntrian() {
+    if (sedangKirim || !online()) return;
+    sedangKirim = true;
+    dbAll('antrian').then(function(items) {
+      items.sort(function(a, b) { return a.t - b.t; });
+      var i = 0;
+      (function lanjut() {
+        if (i >= items.length) { sedangKirim = false; return; }
+        var it = items[i++];
+        panggilApi(it.fn, it.args).then(function() { return dbDel('antrian', it.k); }, function(err) {
+          if (err && err.server) return dbDel('antrian', it.k);          // buang kiriman yang ditolak server
+          throw err;                                                     // masih gagal jaringan: berhenti, coba lagi nanti
+        }).then(lanjut, function() { sedangKirim = false; });
+      })();
+    }).catch(function() { sedangKirim = false; });
+  }
+
+  // soal kuis selalu acak dari server; bila offline / gagal, disusun dari data kotoba yang tersimpan
+  function kuis(args) {
+    var cadangan = function(err) { return kuisOffline(args).then(function(q) { if (q) return q; throw (online() && err) ? err : new Error(PESAN_OFFLINE); }); };
+    return online() ? panggilApi('getQuizData', args).catch(cadangan) : cadangan(null);
+  }
+  function jalankan(fn, args) {
+    if (fn === 'getQuizData') return kuis(args);
+    if (OFFLINE_BACA[fn]) return baca(fn, args);
+    if (Object.prototype.hasOwnProperty.call(OFFLINE_TULIS, fn)) return tulis(fn, args);
+    return panggilApi(fn, args);
   }
 
   function buatRunner(successFn, failureFn) {
@@ -36,7 +185,7 @@ var API_URL = 'https://script.google.com/macros/s/AKfycbyX3EmTsI5MbYy7c1YXxR-N3c
         }
         return function() {
           var args = Array.prototype.slice.call(arguments);
-          panggilApi(String(prop), args).then(
+          jalankan(String(prop), args).then(
             function(data) { if (typeof successFn === 'function') successFn(data); },
             function(err) {
               if (typeof failureFn === 'function') failureFn(err);
@@ -49,6 +198,88 @@ var API_URL = 'https://script.google.com/macros/s/AKfycbyX3EmTsI5MbYy7c1YXxR-N3c
   }
 
   window.google = { script: { run: buatRunner(null, null) } };
+
+  /* ---------- pengelola offline untuk halaman (Setting > Mode Offline) ---------- */
+  // Daftar panggilan yang diunduh saat "Simpan semua data". Fungsi dari file lain bisa ditambahkan lewat
+  // window.OFFLINE_KATALOG_TAMBAHAN = function() { return [['namaFungsi', [arg1, arg2]], ...]; }
+  function katalog() {
+    var d = [], jb = { kotoba: 3, irodori: 18, irodori2: 18, modul: 15, konstruksi: 7, kaigo: 19 };
+    Object.keys(jb).forEach(function(j) {
+      for (var i = 1; i <= jb[j]; i++) {
+        if (j === 'konstruksi' && (i === 5 || i === 6)) continue;        // Bab 5 & 6 dibuka lewat sub bab
+        d.push(['getKotoba', [j, 'Bab ' + i, 'Semua']]);
+      }
+      d.push(['getKotoba', [j, 'Semua bab', 'Semua']]);
+    });
+    ['土木', '建築', 'ライフライン'].forEach(function(s) { d.push(['getKotoba', ['konstruksi', 'Bab 5 - ' + s, 'Semua']]); });
+    ['土木', '建築'].forEach(function(s) { d.push(['getKotoba', ['konstruksi', 'Bab 6 - ' + s, 'Semua']]); });
+    d.push(['getKana', []], ['getHiburan', []], ['getUjian', ['jft', 'N5']], ['getDaftarAvatar', []]);
+    ['N5', 'N4', 'N3', 'N2', 'N1'].forEach(function(l) { d.push(['getUjian', ['jlpt', l]]); });
+    try { if (typeof window.OFFLINE_KATALOG_TAMBAHAN === 'function') d = d.concat(window.OFFLINE_KATALOG_TAMBAHAN() || []); } catch (e) {}
+    return d;
+  }
+  function unduhSatu(fn, args, paksa) {
+    var g = OFFLINE_BACA[fn];
+    if (!g) return Promise.resolve('lewat');
+    return dbGet('data', kunciCache(fn, args)).then(function(rec) {
+      if (!paksa) {
+        if (segar(rec, g)) return 'lewat';                                // tidak berubah di server: tidak diunduh ulang
+        if (!tokenServer && rec && Date.now() - rec.t < 12 * 3600 * 1000) return 'lewat';
+      }
+      return panggilApi(fn, args).then(function(d) { return simpanCache(fn, args, d).then(function() { return 'baru'; }); });
+    });
+  }
+  function simpanSemua(opsi) {
+    opsi = opsi || {};
+    var antrianKerja = katalog(), total = antrianKerja.length, selesai = 0, gagal = 0, baru = 0, i = 0, tahap2 = false, berhenti = false;
+    function laporan() { if (opsi.progres) opsi.progres(selesai + gagal, total); }
+    return cekToken().then(function() {
+      return new Promise(function(ok) {
+        var aktif = 0;
+        function lanjut() {
+          if (opsi.batal && opsi.batal()) berhenti = true;
+          while (!berhenti && aktif < 3 && i < antrianKerja.length) {
+            var d = antrianKerja[i++]; aktif++;
+            unduhSatu(d[0], d[1], opsi.paksa).then(function(h) { selesai++; if (h === 'baru') baru++; }, function() { gagal++; })
+              .then(function() { aktif--; laporan(); lanjut(); });
+          }
+          if (aktif === 0 && (berhenti || i >= antrianKerja.length)) {
+            if (!berhenti && !tahap2) {                                    // tahap 2: subtitle tiap video di Hiburan
+              tahap2 = true;
+              dbGet('data', kunciCache('getHiburan', [])).then(function(rec) {
+                (rec && rec.v || []).forEach(function(r) { if (r && r.no) { antrianKerja.push(['getSubtitle', [r.no]]); total++; } });
+                lanjut();
+              });
+              return;
+            }
+            ok({ total: total, selesai: selesai, gagal: gagal, baru: baru, berhenti: berhenti });
+          }
+        }
+        lanjut();
+      });
+    });
+  }
+  function ringkas() {
+    return Promise.all([dbAll('data'), dbAll('antrian')]).then(function(h) {
+      var n = 0, byte = 0, t = 0;
+      h[0].forEach(function(r) { n++; byte += (r.u || 0) * 2; if (r.t > t) t = r.t; });
+      return { jumlah: n, byte: byte, terakhir: t, antrian: h[1].length, tokenAda: !!tokenServer };
+    });
+  }
+  function hapus() { return dbClear('data'); }
+
+  window.KotobaOffline = { online: online, simpanSemua: simpanSemua, ringkas: ringkas, hapus: hapus, kirimAntrian: kirimAntrian, cekToken: cekToken };
+
+  /* ---------- pemicu otomatis ---------- */
+  cekToken();
+  window.addEventListener('online', function() { cekToken(); kirimAntrian(); });
+  document.addEventListener('visibilitychange', function() {
+    if (document.hidden) return;
+    if (Date.now() - tokenWaktu > 3 * 60 * 1000) cekToken();
+    kirimAntrian();
+  });
+  setTimeout(kirimAntrian, 4000);
+  setInterval(kirimAntrian, 60000);
 })();
 
 var currentJenis = "kotoba";
@@ -153,10 +384,169 @@ function tampilkanUpdateTerbaru() {
   });
   terapkanTema(temaSaatIni());
   document.getElementById('update-modal').classList.remove('modal-hidden');
+  swRender();
+  if (swAda()) swPerbarui();            // otomatis: periksa & unduh hanya bagian yang berubah
 }
-function unduhDariInfoUpdate() { tutupUpdate(); cekUpdateAplikasi(); }
+function unduhDariInfoUpdate() {
+  if (swAda()) {
+    if (swState.status === 'siap') { swTerapkan(); return; }
+    swPerbarui();                         // modal tetap terbuka: progres tampil di sini
+    return;
+  }
+  tutupUpdate(); cekUpdateAplikasi();     // cadangan: cara lama (unduh APK)
+}
 function tutupUpdate() {
   document.getElementById('update-modal').classList.add('modal-hidden');
+}
+
+// ===== PEMBARUAN BERTAHAP & MODE OFFLINE =====
+// Aplikasi disimpan di HP lewat service worker (sw.js). Saat ada versi baru, hanya file yang berubah yang diunduh
+// (otomatis di latar belakang). Status tampil di Menu Utama dan di Info Update. Data (kotoba, ujian, dll) disimpan
+// lewat Setting > Mode Offline. Lihat juga jembatan server di bagian paling atas file ini.
+var swState = { status: 'idle', diubah: [], total: 0, bytes: 0, pesan: '', versiBaru: false };
+var swAktif = false;
+var SW_KUNCI = 'app_shell_build', SW_KUNCI_CEK = 'app_shell_cek';
+function swAda() { return swAktif; }
+function swKirim(pesan) {
+  try {
+    var c = navigator.serviceWorker.controller;
+    if (c) { c.postMessage(pesan); return; }
+    navigator.serviceWorker.ready.then(function(r) { if (r.active) r.active.postMessage(pesan); });
+  } catch (e) {}
+}
+function swMulai() {
+  if (!('serviceWorker' in navigator) || location.protocol === 'file:' || location.protocol === 'content:') return;
+  navigator.serviceWorker.addEventListener('message', swPesan);
+  navigator.serviceWorker.register('sw.js').then(function(reg) {
+    swAktif = true;
+    try { reg.update(); } catch (e) {}
+    return navigator.serviceWorker.ready;
+  }).then(function() { swCekOtomatis(); }).catch(function() { swAktif = false; });
+  document.addEventListener('visibilitychange', function() { if (!document.hidden) swCekBerkala(); });
+}
+var swTerakhir = Date.now();
+function swCekOtomatis() {
+  var V = String(window.APP_BUILD || '0'), tersimpan = null, cek = 0;
+  try { tersimpan = localStorage.getItem(SW_KUNCI); cek = Number(localStorage.getItem(SW_KUNCI_CEK)) || 0; } catch (e) {}
+  if (tersimpan !== V) swState.versiBaru = true;
+  if (tersimpan !== V || Date.now() - cek > 6 * 3600 * 1000) swPerbarui();
+}
+function swCekBerkala() { if (swAktif && Date.now() - swTerakhir > 30 * 60 * 1000) swPerbarui(); }
+function swPerbarui() {
+  if (!swAktif) return;
+  if (!navigator.onLine) { swSet({ status: 'offline' }); return; }
+  if (swState.status === 'cek') return;
+  swTerakhir = Date.now();
+  swSet({ status: 'cek' });
+  swKirim({ tipe: 'PERBARUI', build: String(window.APP_BUILD || '0') });
+}
+function swPesan(e) {
+  var d = e.data || {};
+  if (d.tipe === 'sw-status') {
+    if (d.status === 'siap' || d.status === 'terbaru') {
+      try { localStorage.setItem(SW_KUNCI, String(d.build || window.APP_BUILD || '0')); localStorage.setItem(SW_KUNCI_CEK, String(Date.now())); } catch (x) {}
+    }
+    swSet({ status: d.status, diubah: d.diubah || [], total: d.total || 0, bytes: d.bytes || 0, pesan: d.pesan || '' });
+  } else if (d.tipe === 'sw-aset') {
+    offlineAsetProgres(d.selesai, d.total);
+  }
+}
+function swSet(p) { for (var k in p) swState[k] = p[k]; swRender(); }
+function swTeks() {
+  var s = swState, kb = Math.max(1, Math.round((s.bytes || 0) / 1024));
+  if (s.status === 'cek') return '⏳ Memeriksa pembaruan & mengunduh bagian yang berubah…';
+  if (s.status === 'siap') return '✅ ' + s.diubah.length + ' bagian diperbarui (' + kb + ' KB saja). Mulai ulang untuk memakai versi baru.';
+  if (s.status === 'terbaru') return '✅ Aplikasi sudah versi terbaru.';
+  if (s.status === 'gagal') return '⚠️ ' + (s.pesan ? 'Gagal memperbarui. Coba lagi nanti.' : 'Gagal memperbarui.');
+  if (s.status === 'offline') return '📴 Sedang offline. Pembaruan dicek saat internet tersambung.';
+  return '';
+}
+function swRender() {
+  var s = swState, chip = document.getElementById('upd-chip'), box = document.getElementById('upd-status'), btn = document.getElementById('upd-dl-btn');
+  if (chip) {
+    var tampil = s.status === 'siap' || (s.status === 'cek' && s.versiBaru);
+    chip.classList.toggle('hidden', !tampil);
+    chip.textContent = s.status === 'siap' ? '🔄 Versi baru sudah diunduh (' + s.diubah.length + ' bagian) — ketuk untuk mulai ulang' : '⬇️ Mengunduh pembaruan…';
+  }
+  if (box) {
+    var t = swTeks();
+    box.textContent = t;
+    box.classList.toggle('hidden', !t);
+  }
+  if (btn) btn.textContent = s.status === 'siap' ? '🔄 Mulai ulang & pakai versi baru' : (s.status === 'cek' ? '⏳ Memeriksa…' : '⬇️ Download Update');
+}
+function swTerapkan() {
+  if (typeof testBerjalan !== 'undefined' && testBerjalan) {
+    tampilkanCustomAlert('Selesaikan dulu 📝', 'Kamu sedang mengerjakan test. Mulai ulang setelah selesai ya.');
+    return;
+  }
+  location.reload();
+}
+
+// ----- Mode Offline (Setting) -----
+var offlineJalan = false, offlineBatalFlag = false, offlineAsetSelesai = null;
+function offlineChip() {
+  var c = document.getElementById('off-chip');
+  if (c) c.classList.toggle('hidden', navigator.onLine !== false);
+}
+window.addEventListener('online', function() { offlineChip(); swCekBerkala(); if (document.getElementById('offline-modal') && !document.getElementById('offline-modal').classList.contains('modal-hidden')) offlineRender(); });
+window.addEventListener('offline', function() { offlineChip(); if (document.getElementById('offline-modal') && !document.getElementById('offline-modal').classList.contains('modal-hidden')) offlineRender(); });
+function offlineFmtByte(b) { return b < 1024 * 1024 ? Math.max(1, Math.round(b / 1024)) + ' KB' : (b / 1024 / 1024).toFixed(1).replace('.', ',') + ' MB'; }
+function bukaOffline() { document.getElementById('offline-modal').classList.remove('modal-hidden'); offlineRender(); }
+function tutupOffline() { document.getElementById('offline-modal').classList.add('modal-hidden'); }
+function offlineRender() {
+  var el = document.getElementById('off-isi'), bs = document.getElementById('off-simpan'), bh = document.getElementById('off-hapus');
+  if (!el || !window.KotobaOffline) { if (el) el.textContent = 'Mode offline belum tersedia di perangkat ini.'; return; }
+  KotobaOffline.ringkas().then(function(r) {
+    var h = '<div class="off-baris"><span>Koneksi</span><b>' + (navigator.onLine !== false ? '🟢 Online' : '📴 Offline') + '</b></div>' +
+      '<div class="off-baris"><span>Data tersimpan</span><b>' + (r.jumlah ? r.jumlah + ' set · ' + offlineFmtByte(r.byte) : 'Belum ada') + '</b></div>';
+    if (r.terakhir) h += '<div class="off-baris"><span>Terakhir diperbarui</span><b>' + new Date(r.terakhir).toLocaleString('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) + '</b></div>';
+    if (r.antrian) h += '<div class="off-baris"><span>Menunggu dikirim</span><b>' + r.antrian + ' perubahan</b></div>';
+    if (typeof koinAdmin === 'function' && koinAdmin()) h += '<div class="off-ket">Admin: pembaruan data bertahap ' + (r.tokenAda ? 'AKTIF (hanya data yang berubah di server diunduh ulang).' : 'belum aktif — pasang getVersiData di server (lihat VersiData.gs).') + '</div>';
+    h += '<div class="off-ket">Dengan data tersimpan, Kotoba, Test, Kana, Ujian, dan Hiburan bisa dibuka tanpa internet. Login, Peringkat, Tanya AI, dan video tetap butuh internet. Progresmu saat offline dikirim otomatis begitu internet tersambung.</div>';
+    el.innerHTML = h;
+    if (bs) bs.textContent = offlineJalan ? '⏹ Batalkan' : (r.jumlah ? '🔄 Perbarui data offline' : '⬇️ Simpan semua data');
+    if (bh) bh.disabled = offlineJalan || !r.jumlah;
+  });
+}
+function offlineProgres(n, total, teks) {
+  var w = document.getElementById('off-prog'), bar = document.getElementById('off-bar'), kotak = document.getElementById('off-progbox');
+  if (kotak) kotak.classList.remove('hidden');
+  if (bar) bar.style.width = (total ? Math.min(100, Math.round(n / total * 100)) : 0) + '%';
+  if (w) w.textContent = teks || ('Mengunduh… ' + n + ' / ' + total);
+}
+function offlineDaftarAset() {
+  var u = [];
+  (typeof TOKO_ITEM !== 'undefined' ? TOKO_ITEM : []).forEach(function(it) { if (it.gambar && u.indexOf(it.gambar) < 0) u.push(it.gambar); });
+  return u;
+}
+function offlineAsetProgres(n, total) { if (offlineJalan && offlineAsetSelesai) { offlineProgres(n, total, 'Menyimpan gambar… ' + n + ' / ' + total); if (n >= total) offlineAsetSelesai(); } }
+function offlineSimpan() {
+  if (offlineJalan) { offlineBatalFlag = true; return; }
+  if (navigator.onLine === false) { tampilkanCustomAlert('Tidak ada internet 📴', 'Sambungkan internet dulu untuk menyimpan data.'); return; }
+  offlineJalan = true; offlineBatalFlag = false;
+  offlineProgres(0, 1, 'Menyiapkan…'); offlineRender();
+  KotobaOffline.simpanSemua({ progres: function(n, t) { offlineProgres(n, t); }, batal: function() { return offlineBatalFlag; } })
+    .then(function(h) {
+      var urls = (swAktif && !h.berhenti) ? offlineDaftarAset() : [];
+      return new Promise(function(ok) {
+        if (!urls.length) { ok(h); return; }
+        offlineAsetSelesai = function() { offlineAsetSelesai = null; ok(h); };
+        swKirim({ tipe: 'SIMPAN_ASET', urls: urls });
+        setTimeout(function() { if (offlineAsetSelesai) { offlineAsetSelesai(); } }, 20000);
+      });
+    })
+    .then(function(h) {
+      offlineJalan = false;
+      var pesan = h.berhenti ? '⏹ Dibatalkan. Data yang sudah terunduh tetap tersimpan.' :
+        (h.gagal ? '⚠️ Selesai, tapi ' + h.gagal + ' data gagal diunduh. Coba lagi nanti.' : '✅ Selesai! ' + (h.baru ? h.baru + ' data baru diunduh.' : 'Semua data sudah yang terbaru, tidak ada yang diunduh ulang.'));
+      offlineProgres(h.total, h.total, pesan); offlineRender();
+    })
+    .catch(function() { offlineJalan = false; offlineProgres(0, 1, '⚠️ Gagal menyimpan data. Coba lagi.'); offlineRender(); });
+}
+function offlineHapus() {
+  if (offlineJalan || !window.KotobaOffline) return;
+  KotobaOffline.hapus().then(function() { offlineProgres(0, 1, 'Data offline dihapus.'); document.getElementById('off-bar').style.width = '0%'; offlineRender(); });
 }
 
 // ===== PULIHKAN HALAMAN SETELAH LAYAR DIPUTAR / APLIKASI DIMUAT ULANG =====
@@ -193,6 +583,8 @@ document.addEventListener('visibilitychange', function() { if (document.hidden) 
 
 window.onload = function() {
   terapkanTema(temaSaatIni());
+  swMulai();
+  offlineChip();
   var savedUser = localStorage.getItem("kotoba_logged_user");
   var savedClass = localStorage.getItem("kotoba_logged_class");
 
@@ -777,6 +1169,19 @@ function xpKartuBelajar() {
 
 // ===== PAPAN PERINGKAT (20 XP tertinggi; data dari sheet "Peringkat" lewat Peringkat.gs) =====
 var lbState = { status: 'idle', data: null, t: 0 };
+// bingkai yang sedang dipakai (hanya bila sudah dibeli); ikut dikirim ke server bersama skor supaya tampil di papan peringkat
+function bingkaiAktif() {
+  if (!achSiap()) return '';
+  var b = (achState.pakai && achState.pakai.bingkai) || '';
+  return (b && achState.beli[b] != null && tokoItem(b)) ? b : '';
+}
+// foto profil + bingkai satu baris peringkat
+function lbAvatar(av, bk) {
+  var it = bk ? tokoItem(String(bk)) : null;
+  var kls = (it && it.jenis === 'bingkai') ? ' ' + it.id : '';
+  var isi = av ? '<img src="' + urlAvatar(av, 100) + '" alt="" loading="lazy" onerror="this.outerHTML=\'😺\'">' : '😺';
+  return '<div class="lb-av' + kls + '">' + isi + '</div>';
+}
 function muatPeringkat(paksa) {
   if (!studentName) { renderPeringkat(); return; }
   if (!paksa && lbState.data && Date.now() - lbState.t < 60000) { renderPeringkat(); return; }
@@ -804,7 +1209,7 @@ function muatPeringkat(paksa) {
       .getPapanPeringkat(nama);
   }
   // kirim skor terbaru lebih dulu supaya posisimu akurat, apa pun hasilnya lanjut ambil papan
-  google.script.run.withSuccessHandler(ambil).withFailureHandler(ambil).simpanSkor(nama, studentClass, li.xp, li.level);
+  google.script.run.withSuccessHandler(ambil).withFailureHandler(ambil).simpanSkor(nama, studentClass, li.xp, li.level, avatarId || '', bingkaiAktif());
 }
 function renderPeringkat() {
   var pane = document.getElementById('pg-pane-peringkat');
@@ -832,6 +1237,7 @@ function renderPeringkat() {
     var info = [r.kelas, r.batch].filter(function(x) { return x; }).map(kanaEsc).join(' · ');
     h += '<div class="lb-row' + (i < 3 ? ' t' + (i + 1) : '') + (aku ? ' me' : '') + '">' +
       '<div class="lb-rank">' + (i < 3 ? medali[i] : r.rank) + '</div>' +
+      lbAvatar(aku ? avatarId : r.avatar, aku ? bingkaiAktif() : r.bingkai) +
       '<div class="lb-info"><b>' + kanaEsc(r.nama) + (aku ? ' (Kamu)' : '') + '</b><small>' + (info || '-') + '</small></div>' +
       '<div class="lb-skor"><b>' + fmtAngka(r.xp) + '</b><small>XP · Lv ' + r.level + '</small></div></div>';
   });
@@ -861,6 +1267,127 @@ var TOKO_JENIS = {
   musik:   { label: '🎵 MUSIK LATAR' }
 };
 var tokoMasalah = [];
+
+// ===== BINGKAI GAMBAR: SKALA OTOMATIS MENGIKUTI FOTO PROFIL =====
+// Lubang bundar di tengah PNG bingkai diukur otomatis (pusat & diameternya), lalu bingkai diperbesar/diperkecil
+// sehingga lubangnya pas dengan foto profil di mana pun foto itu berada (Menu Utama, Profil, Peringkat, Toko).
+// Kolom 'skala', 'x', 'y' di toko-item.js hanya cadangan bila PNG tidak bisa diukur.
+var TOKO_PAS = 0.97;   // diameter lubang = 97% diameter foto, jadi tepi foto terselip sedikit di bawah cincin
+function tokoLingkaran(P) {                     // cocokkan lingkaran ke titik-titik tepi lubang (kuadrat terkecil)
+  var n = P.length, sx = 0, sy = 0, sxx = 0, syy = 0, sxy = 0, sxz = 0, syz = 0, sz = 0;
+  P.forEach(function(q) {
+    var x = q[0], y = q[1], z = x * x + y * y;
+    sx += x; sy += y; sxx += x * x; syy += y * y; sxy += x * y; sxz += x * z; syz += y * z; sz += z;
+  });
+  function det(m) {
+    return m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1]) - m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0]) + m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0]);
+  }
+  var M = [[sxx, sxy, sx], [sxy, syy, sy], [sx, sy, n]], R = [sxz, syz, sz], d = det(M);
+  if (!isFinite(d) || Math.abs(d) < 1e-9) return null;
+  function ganti(k) { return M.map(function(row, i) { var c = row.slice(); c[k] = R[i]; return c; }); }
+  var a = det(ganti(0)) / d, b = det(ganti(1)) / d, c = det(ganti(2)) / d, r2 = c + (a * a + b * b) / 4;
+  if (!(r2 > 0)) return null;
+  return { x: a / 2, y: b / 2, r: Math.sqrt(r2) };
+}
+function tokoUkurBingkai(it, selesai) {
+  var im = new Image();
+  im.onload = function() {
+    try {
+      var W0 = im.naturalWidth, H0 = im.naturalHeight;
+      if (!W0 || !H0) return;
+      var k = Math.min(1, 400 / Math.max(W0, H0)), W = Math.round(W0 * k), H = Math.round(H0 * k);
+      var cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+      var g = cv.getContext('2d'); g.drawImage(im, 0, 0, W, H);
+      var a = g.getImageData(0, 0, W, H).data;
+      var cx = W / 2, cy = H / 2;
+      if (a[(Math.round(cy) * W + Math.round(cx)) * 4 + 3] >= 40) return;      // tengah tidak transparan: tidak ada lubang
+      var pts = [];
+      for (var deg = 0; deg < 360; deg += 2) {                                   // telusuri dari tengah ke tepi lubang
+        var rad = deg * Math.PI / 180, ux = Math.cos(rad), uy = Math.sin(rad), r = 0, ketemu = false;
+        while (r < Math.max(W, H)) {
+          r++;
+          var x = Math.round(cx + ux * r), y = Math.round(cy + uy * r);
+          if (x < 0 || y < 0 || x >= W || y >= H) break;
+          if (a[(y * W + x) * 4 + 3] >= 40) { ketemu = true; break; }
+        }
+        if (ketemu) pts.push([cx + ux * r, cy + uy * r, r]);
+      }
+      if (pts.length < 60) return;
+      var ds = pts.map(function(q) { return q[2]; }).sort(function(p1, p2) { return p1 - p2; }), med = ds[ds.length >> 1];
+      var P = pts.filter(function(q) { return q[2] > med * 0.75 && q[2] < med * 1.25; });    // buang celah & benda yang menjorok ke lubang
+      var cir = null;
+      for (var i = 0; i < 4; i++) {
+        cir = tokoLingkaran(P);
+        if (!cir) return;
+        var c0 = cir, P2 = P.filter(function(q) { return Math.abs(Math.sqrt(Math.pow(q[0] - c0.x, 2) + Math.pow(q[1] - c0.y, 2)) - c0.r) < c0.r * 0.04; });
+        if (P2.length >= 40) P = P2;
+      }
+      cir = tokoLingkaran(P);
+      if (!cir || cir.r < W * 0.1 || cir.r > W * 0.5) return;
+      var f = TOKO_PAS * 100 / (2 * cir.r);                                      // % ukuran foto per piksel gambar
+      it._pas = { l: 50 - cir.x * f, t: 50 - cir.y * f, w: W * f, h: H * f };
+      try { localStorage.setItem('toko_pas_' + it.gambar + '_' + (window.APP_BUILD || '0'), JSON.stringify(it._pas)); } catch (e) {}
+      selesai();
+    } catch (e) { /* tidak bisa diukur (mis. dibuka dari file://): pakai skala cadangan */ }
+  };
+  im.src = it.gambar;
+}
+// posisi bingkai relatif terhadap foto, dalam %: l,t = tepi kiri/atas, w,h = lebar/tinggi; ov = bagian terjauh yang keluar dari foto
+function tokoGeo(it) {
+  var l, t, w, h;
+  if (it._pas) { l = it._pas.l; t = it._pas.t; w = it._pas.w; h = it._pas.h; }
+  else {
+    var sk = Number(it.skala) > 0 ? Number(it.skala) : 38, dx = Number(it.x) || 0, dy = Number(it.y) || 0;
+    l = dx - sk; t = dy - sk; w = 100 + 2 * sk; h = 100 + 2 * sk;
+  }
+  return { l: l, t: t, w: w, h: h, ov: Math.max(0, -l, -t, l + w - 100, t + h - 100) };
+}
+function tokoTulisCss() {
+  var css = '';
+  TOKO_ITEM.forEach(function(it) {
+    if (it.jenis === 'bingkai' && it.gambar) {
+      var ge = tokoGeo(it), ov = ge.ov;
+      var u = "url('" + String(it.gambar).replace(/['")\\\n]/g, '') + "') center / 100% 100% no-repeat";
+      var lapis = 'content:""; position:absolute; left:' + ge.l + '%; top:' + ge.t + '%; width:' + ge.w + '%; height:' + ge.h + '%; pointer-events:none; background:' + u + ';';
+      css += 'html .mm-avatar.' + it.id + ' { border-color:transparent !important; box-shadow:none !important; position:relative; overflow:visible !important; }' +
+        'html .mm-avatar.' + it.id + '::after { ' + lapis + ' }' +
+        'html .lb-av.' + it.id + ' { border-color:transparent !important; box-shadow:none !important; position:relative; overflow:visible !important; margin:0 ' + (Math.round(40 * ov / 100) + 2) + 'px !important; }' +
+        'html .lb-av.' + it.id + '::after { ' + lapis + ' }' +
+        'html .tk-ico.' + it.id + ' { position:relative; overflow:visible; margin:0 ' + Math.max(0, Math.round(46 * ov / 100) - 10) + 'px; }' +
+        'html .tk-ico.' + it.id + '::after { ' + lapis + ' }' +
+        // foto digeser sejauh bagian bingkai yang keluar (foto 58px) supaya bingkai tidak keluar dari kartu, tulisan diberi jarak setara
+        'html .mm-head .mm-avatar.' + it.id + ' { margin-left:' + Math.round(58 * ov / 100) + 'px !important; }' +
+        'html .mm-head:has(.mm-avatar.' + it.id + ') .mm-sapa { margin-left:' + (Math.round(58 * ov / 100) + 2) + 'px; }';
+    }
+    if (it.jenis === 'tema' && it.latar) {
+      css += 'html.' + it.id + ', html.' + it.id + ' body { background:' + it.latar + ' !important; background-attachment:fixed !important; }';
+    }
+  });
+  var st = document.getElementById('toko-css');
+  if (!css) { if (st) st.textContent = ''; return; }
+  if (!st) { st = document.createElement('style'); st.id = 'toko-css'; (document.head || document.documentElement).appendChild(st); }
+  st.textContent = css;
+}
+function tokoMuatPas() {                         // pakai hasil ukur tersimpan (supaya tidak berkedip saat dibuka lagi)
+  TOKO_ITEM.forEach(function(it) {
+    if (it.jenis !== 'bingkai' || !it.gambar) return;
+    try {
+      var v = JSON.parse(localStorage.getItem('toko_pas_' + it.gambar + '_' + (window.APP_BUILD || '0')) || 'null');
+      if (v && isFinite(v.l) && isFinite(v.t) && v.w > 0 && v.h > 0) it._pas = v;
+    } catch (e) {}
+  });
+}
+function tokoUkurSemua() {
+  TOKO_ITEM.forEach(function(it) {
+    if (it.jenis !== 'bingkai' || !it.gambar || it._pas || it._ukur) return;
+    it._ukur = 1;
+    tokoUkurBingkai(it, function() {
+      tokoTulisCss();
+      try { terapkanDekorasi(); } catch (e) {}
+      try { if (typeof tokoRender === 'function') tokoRender(); } catch (e) {}
+    });
+  });
+}
 // Periksa daftar item: item yang salah ketik dilewati (bukan merusak seluruh Toko) dan dilaporkan.
 // Lalu buat CSS otomatis untuk bingkai bergambar & tema berlatar.
 function tokoSiapkan() {
@@ -878,30 +1405,11 @@ function tokoSiapkan() {
     it.harga = Number(it.harga); it.ico = it.ico || (it.gambar ? '' : '🎁'); it.ket = it.ket || '';
     if (it.jenis === 'gelar' && it.gambar) it.gambar = String(it.gambar).replace(/['"<>\\\s]/g, '');   // gelar bergambar: aman dipasang di atribut HTML
     lihat[it.id] = 1; bagus.push(it);
-    if (it.jenis === 'bingkai' && it.gambar) {
-      var sk = Number(it.skala) > 0 ? Number(it.skala) : 38;                    // seberapa jauh bingkai keluar dari foto (%)
-      var u = "url('" + String(it.gambar).replace(/['")\\\n]/g, '') + "') center / contain no-repeat";
-      var dx = Number(it.x) || 0, dy = Number(it.y) || 0;                        // geser bingkai (% ukuran foto): x + = kanan, y + = bawah
-      var lapis = 'content:""; position:absolute; inset:' + (dy - sk) + '% ' + (-sk - dx) + '% ' + (-sk - dy) + '% ' + (dx - sk) + '%; pointer-events:none; background:' + u + ';';
-      css += 'html .mm-avatar.' + it.id + ' { border-color:transparent !important; box-shadow:none !important; position:relative; overflow:visible !important; }' +
-        'html .mm-avatar.' + it.id + '::after { ' + lapis + ' }' +
-        'html .tk-ico.' + it.id + ' { position:relative; overflow:visible; }' +
-        'html .tk-ico.' + it.id + '::after { ' + lapis + ' }' +
-        // ov = seberapa jauh bingkai keluar dari foto (foto 58px). Foto digeser sejauh itu supaya bingkai tidak keluar dari kartu,
-        // dan tulisan diberi jarak setara supaya tidak tertimpa bingkai. !important perlu karena .mm-avatar punya margin:0 !important.
-        'html .mm-head .mm-avatar.' + it.id + ' { margin-left:' + Math.round(58 * sk / 100) + 'px !important; }' +
-        'html .mm-head:has(.mm-avatar.' + it.id + ') .mm-sapa { margin-left:' + (Math.round(58 * sk / 100) + 2) + 'px; }';
-    }
-    if (it.jenis === 'tema' && it.latar) {
-      css += 'html.' + it.id + ', html.' + it.id + ' body { background:' + it.latar + ' !important; background-attachment:fixed !important; }';
-    }
   });
   TOKO_ITEM = bagus;
-  if (css) {
-    var st = document.getElementById('toko-css');
-    if (!st) { st = document.createElement('style'); st.id = 'toko-css'; (document.head || document.documentElement).appendChild(st); }
-    st.textContent = css;
-  }
+  tokoMuatPas();
+  tokoTulisCss();
+  tokoUkurSemua();
   if (tokoMasalah.length) { try { console.warn('[toko] ' + tokoMasalah.length + ' item dilewati: ' + tokoMasalah.join(' | ')); } catch (e) {} }
 }
 tokoSiapkan();
@@ -917,8 +1425,12 @@ var KOIN_ADMIN = 9999;
 function koinAdmin() { return ADMIN_AKUN.indexOf(String(studentName || '').toLowerCase()) !== -1; }
 var tokoKonfirm = '', tokoKonfirmT = null;
 // ikon gelar: gambar PNG (field 'gambar') bila ada, kalau tidak pakai emoji (field 'ico')
-function gelarIko(it) {
-  if (it && it.gambar) return '<img class="gl-img" src="' + it.gambar + '" alt="">';
+function gelarIko(it, px) {
+  if (it && it.gambar) {
+    px = px || 22;
+    return '<img class="gl-img" src="' + it.gambar + '" alt="" style="width:' + px + 'px;height:' + px + 'px;max-width:' + px + 'px;max-height:' + px +
+      'px;object-fit:contain;flex:none;vertical-align:middle;display:inline-block;">';
+  }
   return kanaEsc(it ? it.ico : '');
 }
 function tokoItem(id) {
@@ -970,7 +1482,7 @@ function tokoRender() {
       else if (saldo >= it.harga) aksi = '<button type="button" class="tk-btn beli" onclick="tokoBeli(\'' + it.id + '\')">' +
         (tokoKonfirm === it.id ? 'Yakin? ' : '') + koinImg('kecil') + ' ' + fmtAngka(it.harga) + '</button>';
       else aksi = '<button type="button" class="tk-btn kurang" disabled>' + koinImg('kecil') + ' ' + fmtAngka(it.harga) + '</button>';
-      h += '<div class="tk-item' + (pakai ? ' dipakai' : '') + '"><span class="tk-ico' + (it.jenis === 'bingkai' ? ' ' + it.id : '') + '">' + (it.jenis === 'gelar' ? gelarIko(it) : it.ico) + '</span>' +
+      h += '<div class="tk-item' + (pakai ? ' dipakai' : '') + '"><span class="tk-ico' + (it.jenis === 'bingkai' ? ' ' + it.id : '') + '"' + (it.jenis === 'gelar' && it.gambar ? ' style="overflow:hidden"' : '') + '>' + (it.jenis === 'gelar' ? gelarIko(it, 38) : it.ico) + '</span>' +
         '<span class="tk-txt"><b>' + kanaEsc(it.nama) + '</b><small>' + kanaEsc(pakai ? 'Sedang dipakai' : (punya ? 'Sudah dimiliki' : it.ket)) + '</small></span>' + aksi + '</div>';
     });
   });
@@ -1031,7 +1543,7 @@ function terapkanDekorasi() {
     // keluar dari foto (diukur dari ukuran foto sebenarnya) supaya bingkai bergambar tidak menutupi nama.
     if (i === 'pf-avatar') {
       var pk = (bk && achState.beli[bk] != null) ? tokoItem(bk) : null;
-      var sk = (pk && pk.jenis === 'bingkai' && pk.gambar) ? (Number(pk.skala) > 0 ? Number(pk.skala) : 38) : 0;
+      var sk = (pk && pk.jenis === 'bingkai' && pk.gambar) ? tokoGeo(pk).ov : 0;
       if (sk) {
         var tg = parseFloat(window.getComputedStyle(el).height) || el.offsetHeight || 58;
         el.style.setProperty('margin-bottom', Math.round(tg * sk / 100 + 8) + 'px', 'important');
@@ -1043,13 +1555,13 @@ function terapkanDekorasi() {
   var g = document.getElementById('pf-gelar');
   if (g) {
     var it = tokoItem(achState.pakai.gelar || ''), ok = !!(it && achState.beli[it.id] != null);
-    g.innerHTML = ok ? gelarIko(it) + ' ' + kanaEsc(it.nama) : '';
+    g.innerHTML = ok ? gelarIko(it, 30) + ' ' + kanaEsc(it.nama) : '';
     g.classList.toggle('hidden', !ok);
   }
   var gm = document.getElementById('mm-gelar');     // gelar di Menu Utama
   if (gm) {
     var it2 = tokoItem(achState.pakai.gelar || ''), ok2 = !!(it2 && achState.beli[it2.id] != null);
-    gm.innerHTML = ok2 ? gelarIko(it2) + ' ' + kanaEsc(it2.nama) : '';
+    gm.innerHTML = ok2 ? gelarIko(it2, 22) + ' ' + kanaEsc(it2.nama) : '';
     gm.classList.toggle('hidden', !ok2);
   }
 }
@@ -1074,7 +1586,7 @@ function pencapaianKeServer() {
       pakai: achState.pakai || {}
     };
     try { google.script.run.withFailureHandler(function() {}).simpanPencapaian(nama, JSON.stringify(data)); } catch (e) {}
-    try { google.script.run.withFailureHandler(function() {}).simpanSkor(nama, studentClass, data.xpMax, levelInfo().level); } catch (e) {}
+    try { google.script.run.withFailureHandler(function() {}).simpanSkor(nama, studentClass, data.xpMax, levelInfo().level, avatarId || '', bingkaiAktif()); } catch (e) {}
   }, 1500);
 }
 // Gabungkan data server ke data perangkat (ambil yang terbesar / terbaru; tidak ada yang berkurang)
