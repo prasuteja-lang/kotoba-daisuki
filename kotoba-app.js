@@ -1656,9 +1656,49 @@ function koinImg(cls) {
 // Akun admin (untuk maintenance): koinnya otomatis minimal KOIN_ADMIN. XP & peringkat tidak berubah.
 // Isi dengan nama akun admin persis seperti saat login (huruf besar/kecil tidak dibedakan).
 var ADMIN_AKUN = ['admin'];
-var KOIN_ADMIN = 99999;
+var KOIN_ADMIN = 9999;
 function koinAdmin() { return ADMIN_AKUN.indexOf(String(studentName || '').toLowerCase()) !== -1; }
 var tokoKonfirm = '', tokoKonfirmT = null;
+// ---- umpan balik visual Toko: item yang baru dibeli/dipakai/dilepas berkedip, tombol "pop", tombol konfirmasi berdenyut ----
+var tokoFx = { id: '', tipe: '' }, tokoFxT = null;
+function tokoFlash(id, tipe) {
+  tokoFx = { id: id, tipe: tipe };
+  clearTimeout(tokoFxT);
+  tokoFxT = setTimeout(function() { tokoFx = { id: '', tipe: '' }; }, 1200);   // tetap aktif bila render ulang terjadi beruntun
+  try { if (navigator.vibrate) navigator.vibrate(tipe === 'beli' ? [18, 40, 18] : 14); } catch (e) {}
+}
+function tokoFxCss() {
+  if (document.getElementById('toko-fx-css')) return;
+  var st = document.createElement('style'); st.id = 'toko-fx-css';
+  st.textContent =
+    '.tk-btn{transition:background-color .25s,color .25s,border-color .25s,box-shadow .25s,transform .12s;-webkit-tap-highlight-color:transparent;}' +
+    '.tk-btn:not(:disabled):active{transform:scale(.92);}' +
+    '.tk-btn.beli.konfirm{background:#f59e0b !important;border-color:#f59e0b !important;color:#fff !important;animation:tkDenyut .9s ease-in-out infinite;}' +
+    '.tk-item{transition:background-color .35s,box-shadow .35s,border-color .35s;}' +
+    '.tk-item.fx-beli{animation:tkBeli 1s ease;}' +
+    '.tk-item.fx-pakai{animation:tkPakai .85s ease;}' +
+    '.tk-item.fx-lepas{animation:tkLepas .65s ease;}' +
+    '.tk-item[class*="fx-"] .tk-btn{animation:tkPop .5s cubic-bezier(.34,1.56,.64,1);}' +
+    '@keyframes tkDenyut{0%,100%{box-shadow:0 0 0 0 rgba(245,158,11,.55);}50%{box-shadow:0 0 0 7px rgba(245,158,11,0);}}' +
+    '@keyframes tkPop{0%{transform:scale(.7);opacity:.4;}100%{transform:scale(1);opacity:1;}}' +
+    '@keyframes tkBeli{0%{box-shadow:0 0 0 0 rgba(34,197,94,.7);background-color:rgba(34,197,94,.28);}60%{box-shadow:0 0 0 12px rgba(34,197,94,0);}100%{box-shadow:0 0 0 0 rgba(34,197,94,0);}}' +
+    '@keyframes tkPakai{0%{box-shadow:0 0 0 0 rgba(59,130,246,.6);background-color:rgba(59,130,246,.22);}60%{box-shadow:0 0 0 10px rgba(59,130,246,0);}100%{box-shadow:0 0 0 0 rgba(59,130,246,0);}}' +
+    '@keyframes tkLepas{0%{background-color:rgba(148,163,184,.3);}100%{background-color:rgba(148,163,184,0);}}' +
+    '@media (prefers-reduced-motion:reduce){.tk-btn,.tk-item,.tk-item[class*="fx-"] .tk-btn,.tk-btn.beli.konfirm{animation:none !important;transition:none !important;}}';
+  (document.head || document.documentElement).appendChild(st);
+}
+// simpan posisi gulir (halaman & wadah yang bisa digulir) supaya daftar tidak melompat saat dibangun ulang
+function tokoGulirSimpan(pane) {
+  var daftar = [];
+  for (var n = pane; n && n !== document.body && n !== document.documentElement; n = n.parentNode) {
+    if (n.scrollTop) daftar.push([n, n.scrollTop]);
+  }
+  var wy = window.pageYOffset || 0;
+  return function() {
+    daftar.forEach(function(d) { d[0].scrollTop = d[1]; });
+    if (wy && (window.pageYOffset || 0) !== wy) window.scrollTo(0, wy);
+  };
+}
 // ikon gelar: gambar PNG (field 'gambar') bila ada, kalau tidak pakai emoji (field 'ico')
 function gelarIko(it, px) {
   if (it && it.gambar) {
@@ -1698,7 +1738,9 @@ function koinPerbarui() {
 function tokoRender() {
   var pane = document.getElementById('toko-isi');
   if (!pane) return;
+  tokoFxCss();
   if (!achSiap()) { pane.innerHTML = '<div class="qst-kosong">Silakan login dulu untuk membuka Toko.</div>'; return; }
+  var pulihGulir = tokoGulirSimpan(pane);
   var total = koinTotal(), dipakai = koinDipakai(), saldo = Math.max(0, total - dipakai);
   var h = '<div class="koin-kartu"><div class="koin-ico">' + koinImg('besar') + '</div><div class="koin-txt"><small>Koinmu</small><b>' + fmtAngka(saldo) + '</b></div></div>' +
     '<div class="koin-ket">' + KOIN_RASIO + ' XP = 1 koin · total didapat ' + fmtAngka(total) + ' · terpakai ' + fmtAngka(dipakai) +
@@ -1714,14 +1756,15 @@ function tokoRender() {
       var punya = achState.beli[it.id] != null, pakai = achState.pakai[it.jenis] === it.id, aksi;
       if (pakai) aksi = '<button type="button" class="tk-btn lepas" onclick="tokoPakai(\'' + it.jenis + '\',\'\')">Lepas</button>';
       else if (punya) aksi = '<button type="button" class="tk-btn pakai" onclick="tokoPakai(\'' + it.jenis + '\',\'' + it.id + '\')">Pakai</button>';
-      else if (saldo >= it.harga) aksi = '<button type="button" class="tk-btn beli" onclick="tokoBeli(\'' + it.id + '\')">' +
+      else if (saldo >= it.harga) aksi = '<button type="button" class="tk-btn beli' + (tokoKonfirm === it.id ? ' konfirm' : '') + '" onclick="tokoBeli(\'' + it.id + '\')">' +
         (tokoKonfirm === it.id ? 'Yakin? ' : '') + koinImg('kecil') + ' ' + fmtAngka(it.harga) + '</button>';
       else aksi = '<button type="button" class="tk-btn kurang" disabled>' + koinImg('kecil') + ' ' + fmtAngka(it.harga) + '</button>';
-      h += '<div class="tk-item' + (pakai ? ' dipakai' : '') + '"><span class="tk-ico' + (it.jenis === 'bingkai' || it.jenis === 'kartu' ? ' ' + it.id : '') + '"' + (it.jenis === 'gelar' && it.gambar ? ' style="overflow:hidden"' : '') + '>' + (it.jenis === 'gelar' ? gelarIko(it, 38) : it.ico) + '</span>' +
+      h += '<div class="tk-item' + (pakai ? ' dipakai' : '') + (tokoFx.id === it.id ? ' fx-' + tokoFx.tipe : '') + '"><span class="tk-ico' + (it.jenis === 'bingkai' || it.jenis === 'kartu' ? ' ' + it.id : '') + '"' + (it.jenis === 'gelar' && it.gambar ? ' style="overflow:hidden"' : '') + '>' + (it.jenis === 'gelar' ? gelarIko(it, 38) : it.ico) + '</span>' +
         '<span class="tk-txt"><b>' + kanaEsc(it.nama) + '</b><small>' + kanaEsc(pakai ? 'Sedang dipakai' : (punya ? 'Sudah dimiliki' : it.ket)) + '</small></span>' + aksi + '</div>';
     });
   });
   pane.innerHTML = h;
+  pulihGulir();
 }
 // Beli = ketuk dua kali (ketukan pertama minta konfirmasi, batal otomatis setelah 4 detik)
 function tokoBeli(id) {
@@ -1738,15 +1781,20 @@ function tokoBeli(id) {
   achState.beli[id] = it.harga;
   achState.pakai[it.jenis] = id;          // langsung dipakai
   achSimpan();
+  tokoFlash(id, 'beli');
   tokoRender(); renderLevel(); terapkanDekorasi();
   questToast('🛍️ ' + it.nama + ' dibeli dan dipakai!');
 }
 function tokoPakai(jenis, id) {
   if (!achSiap()) return;
   if (id && achState.beli[id] == null) return;
+  var lama = achState.pakai[jenis] || '';
   achState.pakai[jenis] = id || '';
   achSimpan();
+  var tujuan = id ? tokoItem(id) : tokoItem(lama);
+  tokoFlash(id || lama, id ? 'pakai' : 'lepas');
   tokoRender(); terapkanDekorasi();
+  if (tujuan) questToast(id ? '✨ ' + tujuan.nama + ' dipakai' : '↩️ ' + tujuan.nama + ' dilepas');
 }
 // musik latar: bila ada item musik yang dipakai, urutan sumber diganti (yang bawaan tetap jadi cadangan)
 function tokoMusikTerapkan() {
