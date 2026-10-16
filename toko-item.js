@@ -37,7 +37,8 @@ var TOKO_ITEM = [
   { id: 'bk-emas',    jenis: 'bingkai', nama: 'Bingkai Emas',    ico: '🟡', ket: 'Bingkai emas berkilau',              harga: 100 },
   { id: 'bk-pelangi', jenis: 'bingkai', nama: 'Bingkai Pelangi', ico: ' ', ket: 'Bingkai warna-warni animasi',        harga: 250 },
   { id: 'bk-naga',    jenis: 'bingkai', nama: 'Bingkai Naga',    ico: ' ', ket: 'Bingkai langka bergambar naga emas', harga: 3000, gambar: 'bingkai-naga.png', skala: 38 },
-  { id: 'bk-kawai',   jenis: 'bingkai', nama: 'Bingkai Kawai',    ico: ' ', ket: 'Bingkai langka bergambar Kawai', harga: 3000, gambar: 'bingkai-kawai.png', skala: 38 },
+  { id: 'bk-kawai',   jenis: 'bingkai', nama: 'Bingkai Kawai',   ico: ' ', ket: 'Bingkai langka bertema Kawai', harga: 3000, gambar: 'bingkai-kawai.png', skala: 38 }
+   
   // ---------- GELAR ----------
   { id: 'gl-pemula',  jenis: 'gelar',   nama: 'Pelajar Rajin',   ico: '📘', ket: 'Gelar untuk pelajar tekun',          harga: 40 },
   { id: 'gl-samurai', jenis: 'gelar',   nama: 'Samurai Kotoba',  ico: '⚔️', ket: 'Gelar penakluk kosakata',            harga: 120 },
