@@ -52,13 +52,13 @@ var TOKO_ITEM = [
   { id: 'gl-bunpoumaster',  jenis: 'gelar',   nama: 'Bunpou Master',      ico: '', ket: 'Penguasa tata bahasa',               harga: 800,  gambar: 'icon-bunpoumaster.png' },
   { id: 'gl-chiennokishi',  jenis: 'gelar',   nama: 'Chie no Kishi',      ico: '', ket: 'Ksatria kebijaksanaan',              harga: 2000, gambar: 'icon-chiennokishi.png' },
 
-  // ---------- TEMA KARTU PROFIL ----------
-  { id: 'kt-futuristik', jenis: 'kartu', nama: 'Kota Futuristik', ico: '🌆', ket: 'Latar kartu profil kota masa depan',  harga: 2000, gambar: 'kartu-temafuturistik.jpg' },
-  { id: 'kt-hutan',      jenis: 'kartu', nama: 'Hutan & Air Terjun', ico: '🌿', ket: 'Latar kartu profil hutan asri',    harga: 2000, gambar: 'kartu-temahutan.jpg',     gelap: true },
-  { id: 'kt-samurai',    jenis: 'kartu', nama: 'Samurai Senja',   ico: '⛩️', ket: 'Latar kartu profil samurai di torii', harga: 2000, gambar: 'kartu-temasamurai.jpg',   gelap: true },
-  { id: 'kt-shinto',     jenis: 'kartu', nama: 'Kuil Shinto',     ico: '🏮', ket: 'Latar kartu profil kuil di hutan',    harga: 2000, gambar: 'kartu-temashinto.jpg',    gelap: true }
-
-  // ---------- TEMA ----------
+  //  // ---------- TEMA KARTU PROFIL ----------
+  { id: 'kt-futuristik', jenis: 'kartu', nama: 'Kota Futuristik', ico: '🌆', ket: 'Latar kartu profil kota masa depan',  harga: 2000, gambar: 'kartu-temafuturistik.png' },
+  { id: 'kt-hutan',      jenis: 'kartu', nama: 'Hutan & Air Terjun', ico: '🌿', ket: 'Latar kartu profil hutan asri',    harga: 2000, gambar: 'kartu-temahutan.png',     gelap: true },
+  { id: 'kt-samurai',    jenis: 'kartu', nama: 'Samurai Senja',   ico: '⛩️', ket: 'Latar kartu profil samurai di torii', harga: 2000, gambar: 'kartu-temasamurai.png',   gelap: true },
+  { id: 'kt-shinto',     jenis: 'kartu', nama: 'Kuil Shinto',     ico: '🏮', ket: 'Latar kartu profil kuil di hutan',    harga: 2000, gambar: 'kartu-temashinto.png',    gelap: true }
+  
+   // ---------- TEMA ----------
   // (belum ada — lihat CONTOH di atas)
 
   // ---------- MUSIK ----------
