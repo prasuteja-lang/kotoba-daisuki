@@ -129,6 +129,9 @@ html .tk-ico.bk-pelangi { animation: bkPelangi 3s linear infinite; }
 /* bingkai bergambar: Naga (file bingkai-naga.png harus satu folder dengan index.html) */
 html .mm-avatar.bk-naga { border-color: transparent !important; box-shadow: none !important; position: relative; overflow: visible !important; }
 html .mm-avatar.bk-naga::after { content: ''; position: absolute; inset: -38%; pointer-events: none; background: url('bingkai-naga.png') center / contain no-repeat; }
+/* bingkai naga lebih besar dari foto: beri ruang supaya tidak menimpa tulisan */
+html .mm-head .mm-avatar.bk-naga { margin-left: 10px; margin-right: 6px; }
+html .mm-head:has(.mm-avatar.bk-naga) .mm-sapa { margin-left: 28px; }
 html .tk-ico.bk-naga { position: relative; overflow: visible; }
 html .tk-ico.bk-naga::after { content: ''; position: absolute; inset: -38%; pointer-events: none; background: url('bingkai-naga.png') center / contain no-repeat; }
 /* avatar punya border/shadow !important (tidak bisa dianimasikan), jadi pelangi memakai outline */
