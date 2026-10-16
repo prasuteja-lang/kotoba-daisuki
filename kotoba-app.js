@@ -880,7 +880,8 @@ function tokoSiapkan() {
     if (it.jenis === 'bingkai' && it.gambar) {
       var sk = Number(it.skala) > 0 ? Number(it.skala) : 38;                    // seberapa jauh bingkai keluar dari foto (%)
       var u = "url('" + String(it.gambar).replace(/['")\\\n]/g, '') + "') center / contain no-repeat";
-      var lapis = 'content:""; position:absolute; inset:-' + sk + '%; pointer-events:none; background:' + u + ';';
+      var dx = Number(it.x) || 0, dy = Number(it.y) || 0;                        // geser bingkai (% ukuran foto): x + = kanan, y + = bawah
+      var lapis = 'content:""; position:absolute; inset:' + (dy - sk) + '% ' + (-sk - dx) + '% ' + (-sk - dy) + '% ' + (dx - sk) + '%; pointer-events:none; background:' + u + ';';
       css += 'html .mm-avatar.' + it.id + ' { border-color:transparent !important; box-shadow:none !important; position:relative; overflow:visible !important; }' +
         'html .mm-avatar.' + it.id + '::after { ' + lapis + ' }' +
         'html .tk-ico.' + it.id + ' { position:relative; overflow:visible; }' +
