@@ -35,7 +35,6 @@ var TOKO_ITEM = [
   // ---------- BINGKAI ----------
   { id: 'bk-sakura',        jenis: 'bingkai', nama: 'Bingkai Sakura',        ico: '🌸', ket: 'Bingkai merah muda lembut',               harga: 50 },
   { id: 'bk-hiraganahero',  jenis: 'bingkai', nama: 'Bingkai Hiragana Hero', ico: '', ket: 'Kucing berikat kepala di bingkai sakura', harga: 500,  gambar: 'bingkai-hiraganahero.png',  skala: 35 },
-  { id: 'bk-navigator',     jenis: 'bingkai', nama: 'Bingkai Navigator',     ico: '', ket: 'Panda penjelajah di bingkai hijau',       harga: 500, gambar: 'bingkai-navigator.png',     skala: 35 },
   { id: 'bk-scholar',       jenis: 'bingkai', nama: 'Bingkai Scholar',       ico: '', ket: 'Beruang cendekia di bingkai bintang',     harga: 500, gambar: 'bingkai-scholar.png',       skala: 35 },
   { id: 'bk-seitolegend',   jenis: 'bingkai', nama: 'Bingkai Seito Legend',  ico: '', ket: 'Shiba legendaris di bingkai emas',        harga: 1000, gambar: 'bingkai-seitolegend.png',   skala: 35 },
   { id: 'bk-kotobacolector',jenis: 'bingkai', nama: 'Bingkai Kotoba Collector', ico: '', ket: 'Kelinci manis di bingkai ungu berbintang', harga: 1000, gambar: 'bingkai-kotobacolector.png', skala: 35 },
@@ -45,12 +44,7 @@ var TOKO_ITEM = [
   // ---------- GELAR ----------
   { id: 'gl-hiraganahero',  jenis: 'gelar',   nama: 'Hiragana Hero',      ico: '', ket: 'Pahlawan hiragana',                  harga: 300,  gambar: 'icon-hiraganahero.png' },
   { id: 'gl-kotobacolector',jenis: 'gelar',   nama: 'Kotoba Collector',   ico: '', ket: 'Kolektor kosakata sejati',           harga: 400,  gambar: 'icon-kotobacolector.png' },
-  { id: 'gl-scholar',       jenis: 'gelar',   nama: 'Scholar',            ico: '', ket: 'Si cendekia yang rajin membaca',     harga: 500,  gambar: 'icon-scholar.png' },
-  { id: 'gl-nihongonavigator', jenis: 'gelar', nama: 'Nihongo Navigator', ico: '', ket: 'Penjelajah bahasa Jepang',           harga: 600,  gambar: 'icon-nihongonavigator.png' },
   { id: 'gl-bunpoumaster',  jenis: 'gelar',   nama: 'Bunpou Master',      ico: '', ket: 'Penguasa tata bahasa',               harga: 800,  gambar: 'icon-bunpoumaster.png' },
-  { id: 'gl-kanjiconqueror',jenis: 'gelar',   nama: 'Kanji Conqueror',    ico: '', ket: 'Penakluk kanji',                     harga: 1000, gambar: 'icon-kanjiconqueror.png' },
-  { id: 'gl-katsudou',      jenis: 'gelar',   nama: 'Katsudou',           ico: '', ket: 'Selalu aktif dan bersemangat',       harga: 1200, gambar: 'icon-katsudou.png' },
-  { id: 'gl-seitolegend',   jenis: 'gelar',   nama: 'Seito Legend',       ico: '', ket: 'Murid legendaris',                   harga: 1500, gambar: 'icon-seitolegend.png' },
   { id: 'gl-chiennokishi',  jenis: 'gelar',   nama: 'Chie no Kishi',      ico: '', ket: 'Ksatria kebijaksanaan',              harga: 2000, gambar: 'icon-chiennokishi.png' }
 
   // ---------- TEMA ----------
