@@ -67,6 +67,11 @@ html.dark .pf-go { color: #64748b; }
 .mm-gelar { background: #f5f3ff; border: 1.5px solid #c4b5fd; color: #5b21b6; }
 .mm-koin { background: #fffbeb; border: 1.5px solid #fcd34d; color: #92400e; cursor: pointer; }
 .mm-koin .koin-img { width: 15px; height: 15px; vertical-align: middle; }
+/* baris sapaan: teks sapaan di kiri, chip koin di kanan (sejajar) */
+.mm-head .mm-sapa { flex: 1 1 auto; min-width: 0; }
+.mm-baris { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.mm-baris .mm-hai { min-width: 0; }
+.mm-baris .mm-koin { flex: none; white-space: nowrap; }
 html.dark .mm-gelar { background: #1a1533; border-color: #8b5cf6; color: #c4b5fd; }
 html.dark .mm-koin { background: #1f1a0b; border-color: #f59e0b; color: #fcd34d; }
 .pf-gelar { margin-top: 6px; font-size: 13px; font-weight: 800; color: #7c3aed; }
@@ -121,6 +126,11 @@ html .tk-ico.bk-pelangi { animation: bkPelangi 3s linear infinite; }
   75%  { border-color: #3b82f6; box-shadow: 0 0 0 3px #93c5fd, 0 0 16px rgba(59, 130, 246, .7); }
   100% { border-color: #ef4444; box-shadow: 0 0 0 3px #fca5a5, 0 0 16px rgba(239, 68, 68, .7); }
 }
+/* bingkai bergambar: Naga (file bingkai-naga.png harus satu folder dengan index.html) */
+html .mm-avatar.bk-naga { border-color: transparent !important; box-shadow: none !important; position: relative; overflow: visible !important; }
+html .mm-avatar.bk-naga::after { content: ''; position: absolute; inset: -38%; pointer-events: none; background: url('bingkai-naga.png') center / contain no-repeat; }
+html .tk-ico.bk-naga { position: relative; overflow: visible; }
+html .tk-ico.bk-naga::after { content: ''; position: absolute; inset: -38%; pointer-events: none; background: url('bingkai-naga.png') center / contain no-repeat; }
 /* avatar punya border/shadow !important (tidak bisa dianimasikan), jadi pelangi memakai outline */
 html .mm-avatar.bk-pelangi { outline: 3px solid #ef4444; outline-offset: 2px; animation: bkPelangiOut 3s linear infinite; }
 @keyframes bkPelangiOut { 0% { outline-color: #ef4444; } 25% { outline-color: #eab308; } 50% { outline-color: #22c55e; } 75% { outline-color: #3b82f6; } 100% { outline-color: #ef4444; } }
@@ -217,12 +227,14 @@ html .mm-avatar.bk-pelangi { outline: 3px solid #ef4444; outline-offset: 2px; an
       <button type="button" class="mm-avatar" id="mm-avatar" onclick="bukaAvatar()" aria-label="Ganti foto profil" title="Ganti foto profil">
         <span class="mm-avatar-emoji" id="mm-avatar-emoji">😺</span>
         <img id="mm-avatar-img" class="hidden" alt="">
-        <span class="mm-avatar-edit">✏️</span>
       </button>
       <div class="mm-sapa">
-        <div class="mm-hai" id="mm-hai">こんにちは ☀️</div>
+        <div class="mm-baris">
+          <div class="mm-hai" id="mm-hai">こんにちは ☀️</div>
+          <span class="mm-koin hidden" id="mm-koin" role="button" onclick="pindahTab('toko')"></span>
+        </div>
         <div class="mm-nama" id="mm-nama">Selamat datang</div>
-        <div class="mm-info"><span class="mm-gelar hidden" id="mm-gelar"></span><span class="mm-koin hidden" id="mm-koin" role="button" onclick="pindahTab('toko')"></span></div>
+        <div class="mm-info"><span class="mm-gelar hidden" id="mm-gelar"></span></div>
         <div class="mm-sub">Mau belajar apa hari ini?</div>
       </div>
     </div>
@@ -290,7 +302,6 @@ html .mm-avatar.bk-pelangi { outline: 3px solid #ef4444; outline-offset: 2px; an
       <button type="button" class="mm-avatar" id="pf-avatar" onclick="bukaAvatar()" aria-label="Ganti foto profil" title="Ganti foto profil">
         <span class="mm-avatar-emoji" id="pf-avatar-emoji">😺</span>
         <img id="pf-avatar-img" class="hidden" alt="">
-        <span class="mm-avatar-edit">✏️</span>
       </button>
       <div class="pf-nama" id="pf-nama">-</div>
       <div class="pf-kelas" id="pf-kelas">-</div>
