@@ -4421,6 +4421,7 @@ document.addEventListener('keydown', function (e) {
 // Sumber dicoba berurutan. Paling andal: unggah file mp3 ke folder aplikasi (sejajar index.html),
 // lalu letakkan namanya paling atas, mis. 'musik-latar.mp3'.
 var MUSIK_SUMBER = [
+  'musik-latar.mp3',
   'https://drive.usercontent.google.com/download?id=1AgHsFG641Ru_XK9vO8jD7f1patFCYtZ4&export=download&confirm=t',
   'https://drive.google.com/uc?export=download&id=1AgHsFG641Ru_XK9vO8jD7f1patFCYtZ4'
 ];
