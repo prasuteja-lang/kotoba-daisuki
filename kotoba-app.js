@@ -1470,9 +1470,13 @@ if (typeof TOKO_ITEM === 'undefined') { var TOKO_ITEM = []; }
 //   bingkai : hiasan foto profil   (CSS .id atau gambar PNG lewat field 'gambar')
 //   gelar   : teks di bawah nama
 //   tema    : kelas CSS di <html> (id item = nama kelas) atau latar lewat field 'latar'
+//   kartu   : latar kartu di tab Profil. Isi salah satu: 'gambar' (alamat gambar, dipotong otomatis menutupi kartu)
+//             atau 'latar' (CSS background, mis. 'linear-gradient(135deg,#fbcfe8,#f9a8d4)').
+//             Tambahkan gelap:true bila gambar/gradasinya gelap (teks nama jadi putih).
 //   musik   : mengganti musik latar (field 'url')
 var TOKO_JENIS = {
   bingkai: { label: '🖼️ BINGKAI FOTO' },
+  kartu:   { label: '🪪 TEMA KARTU PROFIL' },
   gelar:   { label: '🏷️ GELAR' },
   tema:    { label: '🎨 TEMA' },
   musik:   { label: '🎵 MUSIK LATAR' }
@@ -1570,6 +1574,22 @@ function tokoTulisCss() {
         'html .mm-head .mm-avatar.' + it.id + ' { margin-left:' + Math.round(58 * ov / 100) + 'px !important; }' +
         'html .mm-head:has(.mm-avatar.' + it.id + ') .mm-sapa { margin-left:' + (Math.round(58 * ov / 100) + 2) + 'px; }';
     }
+    if (it.jenis === 'kartu') {
+      var kb = it.gambar ? "url('" + it.gambar + "') center / cover no-repeat" : String(it.latar).replace(/[<>{}]/g, '');
+      var gl = !!it.gelap, k = 'html .pf-card.' + it.id, kd = 'html.dark .pf-card.' + it.id;
+      // lapisan tipis di atas gambar supaya tulisan tetap terbaca; kotak kecil (kelas, streak, level, koin) dibuat agak bening
+      css += k + ' { background:linear-gradient(' + (gl ? 'rgba(0,0,0,.22),rgba(0,0,0,.22)' : 'rgba(255,255,255,.28),rgba(255,255,255,.28)') + '),' + kb + ' !important; border-color:transparent !important; }' +
+        kd + ' { background:linear-gradient(rgba(15,23,42,.45),rgba(15,23,42,.45)),' + kb + ' !important; }' +
+        k + ' .pf-kelas { background:rgba(239,246,255,.85) !important; backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); }' +
+        k + ' .pf-streak { background:rgba(255,247,237,.88) !important; backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); }' +
+        k + ' .pf-koin { background:rgba(255,251,235,.9) !important; backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); }' +
+        k + ' .lv-box { background:rgba(245,243,255,.86) !important; backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); }' +
+        kd + ' .pf-kelas, ' + kd + ' .pf-streak, ' + kd + ' .pf-koin, ' + kd + ' .lv-box { background:rgba(15,23,42,.72) !important; }' +
+        (gl ? k + ' .pf-nama, ' + k + ' .pf-gelar { color:#fff !important; text-shadow:0 1px 4px rgba(0,0,0,.65); }' : k + ' .pf-nama { text-shadow:0 1px 3px rgba(255,255,255,.8); }') +
+        kd + ' .pf-nama, ' + kd + ' .pf-gelar { color:#f1f5f9 !important; text-shadow:0 1px 4px rgba(0,0,0,.65); }' +
+        // pratinjau bulat di daftar Toko
+        'html .tk-ico.' + it.id + ' { background:' + kb + ' !important; border-color:#fff !important; box-shadow:0 0 0 1px #cbd5e1; }';
+    }
     if (it.jenis === 'tema' && it.latar) {
       css += 'html.' + it.id + ', html.' + it.id + ' body { background:' + it.latar + ' !important; background-attachment:fixed !important; }';
     }
@@ -1615,6 +1635,10 @@ function tokoSiapkan() {
     if (it.jenis === 'musik' && !it.url) { tokoMasalah.push(tag + ' musik butuh url'); return; }
     it.harga = Number(it.harga); it.ico = it.ico || (it.gambar ? '' : '🎁'); it.ket = it.ket || '';
     if (it.jenis === 'gelar' && it.gambar) it.gambar = String(it.gambar).replace(/['"<>\\\s]/g, '');   // gelar bergambar: aman dipasang di atribut HTML
+    if (it.jenis === 'kartu') {
+      if (it.gambar) it.gambar = String(it.gambar).replace(/['"<>()\\\s]/g, '');   // alamat gambar aman dipasang di CSS url()
+      if (!it.gambar && !it.latar) { tokoMasalah.push(tag + ' kartu butuh gambar atau latar'); return; }
+    }
     lihat[it.id] = 1; bagus.push(it);
   });
   TOKO_ITEM = bagus;
@@ -1632,7 +1656,7 @@ function koinImg(cls) {
 // Akun admin (untuk maintenance): koinnya otomatis minimal KOIN_ADMIN. XP & peringkat tidak berubah.
 // Isi dengan nama akun admin persis seperti saat login (huruf besar/kecil tidak dibedakan).
 var ADMIN_AKUN = ['admin'];
-var KOIN_ADMIN = 99999;
+var KOIN_ADMIN = 9999;
 function koinAdmin() { return ADMIN_AKUN.indexOf(String(studentName || '').toLowerCase()) !== -1; }
 var tokoKonfirm = '', tokoKonfirmT = null;
 // ikon gelar: gambar PNG (field 'gambar') bila ada, kalau tidak pakai emoji (field 'ico')
@@ -1693,7 +1717,7 @@ function tokoRender() {
       else if (saldo >= it.harga) aksi = '<button type="button" class="tk-btn beli" onclick="tokoBeli(\'' + it.id + '\')">' +
         (tokoKonfirm === it.id ? 'Yakin? ' : '') + koinImg('kecil') + ' ' + fmtAngka(it.harga) + '</button>';
       else aksi = '<button type="button" class="tk-btn kurang" disabled>' + koinImg('kecil') + ' ' + fmtAngka(it.harga) + '</button>';
-      h += '<div class="tk-item' + (pakai ? ' dipakai' : '') + '"><span class="tk-ico' + (it.jenis === 'bingkai' ? ' ' + it.id : '') + '"' + (it.jenis === 'gelar' && it.gambar ? ' style="overflow:hidden"' : '') + '>' + (it.jenis === 'gelar' ? gelarIko(it, 38) : it.ico) + '</span>' +
+      h += '<div class="tk-item' + (pakai ? ' dipakai' : '') + '"><span class="tk-ico' + (it.jenis === 'bingkai' || it.jenis === 'kartu' ? ' ' + it.id : '') + '"' + (it.jenis === 'gelar' && it.gambar ? ' style="overflow:hidden"' : '') + '>' + (it.jenis === 'gelar' ? gelarIko(it, 38) : it.ico) + '</span>' +
         '<span class="tk-txt"><b>' + kanaEsc(it.nama) + '</b><small>' + kanaEsc(pakai ? 'Sedang dipakai' : (punya ? 'Sudah dimiliki' : it.ket)) + '</small></span>' + aksi + '</div>';
     });
   });
@@ -1763,6 +1787,13 @@ function terapkanDekorasi() {
       }
     }
   });
+  // tema kartu profil: pasang kelas item 'kartu' yang dipakai di kartu tab Profil
+  var kt = achState.pakai.kartu || '';
+  var pc = document.querySelector('#tab-profile .pf-card');
+  if (pc) {
+    TOKO_ITEM.forEach(function(it) { if (it.jenis === 'kartu') pc.classList.remove(it.id); });
+    if (kt && achState.beli[kt] != null && tokoItem(kt)) pc.classList.add(kt);
+  }
   var g = document.getElementById('pf-gelar');
   if (g) {
     var it = tokoItem(achState.pakai.gelar || ''), ok = !!(it && achState.beli[it.id] != null);
