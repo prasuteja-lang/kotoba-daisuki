@@ -1020,6 +1020,18 @@ function terapkanDekorasi() {
     if (!el) return;
     TOKO_ITEM.forEach(function(it) { if (it.jenis === 'bingkai') el.classList.remove(it.id); });
     if (bk && achState.beli[bk] != null && tokoItem(bk)) el.classList.add(bk);
+    // Di tab Profil foto berada di tengah dan nama tepat di bawahnya: beri ruang sebesar bagian bingkai yang
+    // keluar dari foto (diukur dari ukuran foto sebenarnya) supaya bingkai bergambar tidak menutupi nama.
+    if (i === 'pf-avatar') {
+      var pk = (bk && achState.beli[bk] != null) ? tokoItem(bk) : null;
+      var sk = (pk && pk.jenis === 'bingkai' && pk.gambar) ? (Number(pk.skala) > 0 ? Number(pk.skala) : 38) : 0;
+      if (sk) {
+        var tg = parseFloat(window.getComputedStyle(el).height) || el.offsetHeight || 58;
+        el.style.setProperty('margin-bottom', Math.round(tg * sk / 100 + 8) + 'px', 'important');
+      } else {
+        el.style.removeProperty('margin-bottom');
+      }
+    }
   });
   var g = document.getElementById('pf-gelar');
   if (g) {
