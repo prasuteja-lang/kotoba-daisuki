@@ -1570,6 +1570,7 @@ function terapkanDekorasi() {
 var capaiTimer = null;
 function pencapaianKeServer() {
   if (!studentName || typeof google === 'undefined') return;
+  if (!capaiServerSiap[studentName]) return;
   clearTimeout(capaiTimer);
   var nama = studentName;
   capaiTimer = setTimeout(function() {
@@ -1901,6 +1902,7 @@ function muatProgress() {
 }
 function resetProgressLokal() {
   progressUser = '';
+  capaiServerSiap = {};
   questState = null; questUser = '';
   achState = null; achUser = '';
   lbState = { status: 'idle', data: null, t: 0 };
