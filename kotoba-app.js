@@ -1656,7 +1656,7 @@ function koinImg(cls) {
 // Akun admin (untuk maintenance): koinnya otomatis minimal KOIN_ADMIN. XP & peringkat tidak berubah.
 // Isi dengan nama akun admin persis seperti saat login (huruf besar/kecil tidak dibedakan).
 var ADMIN_AKUN = ['admin'];
-var KOIN_ADMIN = 9999;
+var KOIN_ADMIN = 99999;
 function koinAdmin() { return ADMIN_AKUN.indexOf(String(studentName || '').toLowerCase()) !== -1; }
 var tokoKonfirm = '', tokoKonfirmT = null;
 // ---- umpan balik visual Toko: item yang baru dibeli/dipakai/dilepas berkedip, tombol "pop", tombol konfirmasi berdenyut ----
