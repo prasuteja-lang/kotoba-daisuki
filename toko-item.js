@@ -45,7 +45,7 @@ var TOKO_ITEM = [
   { id: 'bk-kotobacolector',jenis: 'bingkai', nama: 'Kotoba Collector', ico: '', ket: 'Kelinci manis di bingkai ungu berbintang', harga: 300, gambar: 'bingkai-kotobacolector.png', skala: 35 },
   { id: 'bk-naga',          jenis: 'bingkai', nama: 'Naga Emas',          ico: '', ket: 'Bingkai langka bergambar naga emas',      harga: 3000, gambar: 'bingkai-naga.png',  skala: 33 },
   { id: 'bk-kawai',         jenis: 'bingkai', nama: 'Kawai',         ico: '', ket: 'Bingkai gambar bertema kawai',            harga: 3000, gambar: 'bingkai-kawai.png', skala: 38 },
-  { id: 'bk-sparklingneko', jenis: 'bingkai', nama: 'Sparkling Neko', ico: '', ket: 'Bingkai animasi neko, sakura, dan torii', harga: 3000, gambar: 'bingkai-sprakling neko.gif', skala: 35 },
+  { id: 'bk-sparklingneko', jenis: 'bingkai', nama: 'Sparkling Neko', ico: '', ket: 'Bingkai animasi neko, sakura, dan torii', harga: 3000, gambar: 'bingkai-spraklingneko.gif', skala: 35 },
 
   // ---------- GELAR ----------
   { id: 'gl-hiraganahero',  jenis: 'gelar',   nama: 'Hiragana Hero',      ico: '', ket: 'Pahlawan hiragana',                  harga: 300,  gambar: 'icon-hiraganahero.png' },
