@@ -37,11 +37,11 @@ body {
 
 /* Background: landscape (laptop/desktop/HP miring) */
 @media (orientation: landscape) {
-  body { background-image: url('https://lh3.googleusercontent.com/d/1B6e12qwkWZShp_jpevlQxJYt7olfJkDo'); }
+  body { background-image: url('https://lh3.googleusercontent.com/d/1jOhjttVGMuf1S1vIjQUgfTT20S5gy1pk'); }
 }
 /* Background: vertikal (HP tegak) */
 @media (orientation: portrait) {
-  body { background-image: url('https://lh3.googleusercontent.com/d/1Zitnl0MFuWVdxDxKX2yidQVgcNB9eKCn'); }
+  body { background-image: url('https://lh3.googleusercontent.com/d/1I0xfmoZGJ_n7bMWdwO-TJtXzn7B77ELU'); }
 }
 
 .card {
