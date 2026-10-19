@@ -57,7 +57,7 @@ var TOKO_ITEM = [
   { id: 'kt-futuristik', jenis: 'kartu', nama: 'Kota Futuristik', ico: '🌆', ket: 'Latar kartu profil kota masa depan',  harga: 2000, gambar: 'kartu-temafuturistik.png' },
   { id: 'kt-hutan',      jenis: 'kartu', nama: 'Hutan & Air Terjun', ico: '🌿', ket: 'Latar kartu profil hutan asri',    harga: 1500, gambar: 'kartu-temahutan.png',     gelap: true },
   { id: 'kt-samurai',    jenis: 'kartu', nama: 'Samurai Senja',   ico: '⛩️', ket: 'Latar kartu profil samurai di torii', harga: 2000, gambar: 'kartu-temasamurai.png',   gelap: true },
-  { id: 'kt-shinto',     jenis: 'kartu', nama: 'Kuil Shinto',     ico: '🏮', ket: 'Latar kartu profil kuil di hutan',    harga: 1500, gambar: 'kartu-temashinto.png',    gelap: true }
+  { id: 'kt-shinto',     jenis: 'kartu', nama: 'Kuil Shinto',     ico: '🏮', ket: 'Latar kartu profil kuil di hutan',    harga: 1500, gambar: 'kartu-temashinto.png',    gelap: true },
   
    // ---------- TEMA ----------
   // (belum ada — lihat CONTOH di atas)
