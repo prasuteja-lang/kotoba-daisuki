@@ -1974,9 +1974,10 @@ function terapkanDekorasi() {
 
 // ===== Sinkron Daily Quest (streak) & Achievement ke server, agar tidak hilang saat ganti perangkat =====
 var capaiTimer = null;
+var capaiServerSiap = {};   // nama -> true setelah data Pencapaian dari server digabung (baru boleh dikirim balik ke server)
 function pencapaianKeServer() {
   if (!studentName || typeof google === 'undefined') return;
-  if (!capaiServerSiap[studentName]) return;
+  if (typeof capaiServerSiap === 'undefined' || !capaiServerSiap[studentName]) return;
   clearTimeout(capaiTimer);
   var nama = studentName;
   capaiTimer = setTimeout(function() {
@@ -2299,6 +2300,7 @@ function muatProgress() {
       if (typeof bp !== 'undefined') {
         (r.bunpouDone || []).forEach(function(k) { bp.done[k] = true; });
       }
+      capaiServerSiap[nama] = true;
       gabungPencapaian(r.capai);
       achCek(false);
       renderQuest();
@@ -2700,6 +2702,7 @@ function kembaliKeMenuUtama() {
 function bukaMenuTest() {
   simpanProgresTest();
   testBerjalan = false;
+  testSesi++;
   stopTimer();
   document.getElementById('judul-test-menu').innerText = "TEST - " + currentMenu;
   var container = document.getElementById('test-bab-container');
@@ -2736,6 +2739,7 @@ function bukaMenuTest() {
 function bukaMenuTestDariBab() {
   simpanProgresTest();
   testBerjalan = false;
+  testSesi++;
   stopTimer();
   selectedBabForTest = currentBab;
   // Jumlah soal test mengikuti pilihan dropdown "Jumlah Kotoba" di halaman daftar kotoba
@@ -2794,6 +2798,9 @@ function kembaliDariModeTest() {
 
 // ===== SIMPAN & LANJUTKAN PROGRES TEST (Pilihan Ganda & Tulis) =====
 var testBerjalan = false;      // true selama test pg/tulis sedang dikerjakan
+var testSesi = 0;              // naik setiap test dimulai / dihentikan: timer jeda lama yang tertinggal diabaikan
+var testSudahSelesai = false;  // mencegah layar hasil muncul dua kali
+var testWaktuHabis = false;    // true bila test berakhir karena waktu habis
 var testNextIndex = 0;         // nomor soal berikutnya yang belum dijawab
 var resetProgresCtx = null;
 
@@ -2865,6 +2872,7 @@ document.addEventListener('visibilitychange', function() { if (document.hidden) 
 window.addEventListener('pagehide', simpanProgresTest);
 
 function lanjutkanTest(mode) {
+  testSesi++; testSudahSelesai = false; testWaktuHabis = false; stopTimer();
   catatAktivitas('Test kotoba', ({pg:'Test pilihan ganda', tulis:'Test Tulis kotoba', joyquiz:'JoyFlash'})[mode] || mode, true);
   currentTestMode = mode;
   document.getElementById('select-test-type-page').classList.add('hidden');
@@ -3109,32 +3117,32 @@ function calculateCompletionTime() {
 }
 
 function handleTimeOut() {
+  if (!testBerjalan || testSudahSelesai) return;
+  testSesi++;                                   // membatalkan jeda "soal berikutnya" yang mungkin sedang berjalan
+  var sesi = testSesi;
+  var sudahMenjawab = isAnswering;              // jawaban soal ini sudah dinilai sebelum waktu habis
   calculateCompletionTime();
   isAnswering = true;
 
   if (currentTestMode === 'pg') {
-    var allButtons = document.querySelectorAll('.btn-option');
     var q = quizQuestions[currentQuizIndex];
-    allButtons.forEach(function(b) {
-      if (b.innerText === q.kunci) {
-        b.classList.add('correct');
-      } else {
-        b.classList.add('wrong');
-      }
-    });
+    if (q && !sudahMenjawab) {
+      document.querySelectorAll('.btn-option').forEach(function(b) {
+        if (b.getAttribute('data-benar') === '1') b.classList.add('correct'); else b.classList.add('wrong');
+      });
+    }
   } else {
     var inputField = document.getElementById('user-write-input');
-    inputField.style.borderColor = "#ef4444";
-    inputField.style.backgroundColor = "#fef2f2";
+    if (inputField) { inputField.style.borderColor = "#ef4444"; inputField.style.backgroundColor = "#fef2f2"; }
   }
 
   setTimeout(function() {
+    if (sesi !== testSesi || testSudahSelesai) return;
     if (currentTestMode === 'tulis') {
       var inputField = document.getElementById('user-write-input');
-      inputField.style.borderColor = "#cbd5e1";
-      inputField.style.backgroundColor = "#ffffff";
+      if (inputField) { inputField.style.borderColor = "#cbd5e1"; inputField.style.backgroundColor = "#ffffff"; }
     }
-
+    if (!sudahMenjawab) testWaktuHabis = true;   // soal yang sedang tampil belum terjawab: test tidak dihitung tuntas
     currentQuizIndex++;
     selesaikanTestOtomatis();
   }, 1000);
@@ -3150,56 +3158,65 @@ function getRankTitle(score) {
 }
 
 function selesaikanTestOtomatis() {
+  if (testSudahSelesai) return;                 // jangan tampilkan hasil dua kali
+  testSudahSelesai = true;
+  testSesi++;
   stopTimer();
-  calculateCompletionTime();
+  try { calculateCompletionTime(); } catch (e) { console.warn(e); }
   testBerjalan = false;
-  hapusProgresTest(currentTestMode);
+  try { hapusProgresTest(currentTestMode); } catch (e) { console.warn(e); }
 
   var jenisTestNama = (currentTestMode === 'pg') ? "Test Pilihan Ganda" : ((currentTestMode === 'joyquiz') ? "JoyQuiz" : "Test Tulis Kotoba");
 
   var totalSoal = quizQuestions.length;
-  var jumlahBenar = Math.round(quizScore / 10);
+  var jumlahBenar = Math.min(totalSoal, Math.round(quizScore / 10));
   var jumlahSalah = totalSoal - jumlahBenar;
   if (jumlahSalah < 0) jumlahSalah = 0;
 
   // Test Tulis Kotoba tidak bisa lanjut kalau salah, jadi baris Benar/Salah tidak ditampilkan
-  var barisBenarSalah = (currentTestMode === 'tulis') ? "" : "✅ Benar: " + jumlahBenar + " | ❌ Salah: " + jumlahSalah + "\n";
+  var barisBenarSalah = (currentTestMode === 'tulis') ? "" : " Benar: " + jumlahBenar + " |  Salah: " + jumlahSalah + "\n";
 
   var keteranganJenisTest = currentMenu + ", " + selectedBabForTest + " (" + jenisTestNama + ")";
   var rankUnik = getRankTitle(quizScore);
+  var tuntas = totalSoal > 0 && currentQuizIndex >= totalSoal && !testWaktuHabis;   // semua soal terjawab sebelum waktu habis
 
-  // XP pengalaman: tiap jawaban benar bernilai 2 XP + 5 XP karena menyelesaikan test
-  var xpDapat = 0;
-  if ((currentTestMode === 'pg' || currentTestMode === 'tulis') && totalSoal > 0) {
-    xpDapat = xpTambah(5 + jumlahBenar * 2, 'Test', true);
-    achCek(true, 900);
-  }
+  // Layar hasil WAJIB muncul walau pencatatan XP / quest / lencana di bawah bermasalah
+  var xpDapat = 0, teksLencana = "";
+  try {
+    // XP pengalaman: tiap jawaban benar bernilai 2 XP + 5 XP karena menyelesaikan test
+    if ((currentTestMode === 'pg' || currentTestMode === 'tulis') && totalSoal > 0) {
+      xpDapat = xpTambah(5 + jumlahBenar * 2, 'Test', true);
+      achCek(true, 900);
+    }
+  } catch (e) { console.warn('XP test:', e); }
+  try {
+    // Quest harian: Test Pilihan Ganda dikerjakan sampai semua soal terjawab
+    if (currentTestMode === 'pg' && tuntas) questCatatTest();
+  } catch (e) { console.warn('Quest test:', e); }
+  try {
+    // Bintang: seluruh kotoba satu jenis sudah dijawab di Test Pilihan Ganda (Semua bab + Semua soal)
+    if (currentTestMode === 'pg' && selectedBabForTest === 'Semua bab' && totalQuizLimitVal === 'Semua' && tuntas) {
+      var lencanaBaru = beriLencanaKotoba(currentJenis);
+      var namaJenisL = NAMA_JENIS_KOTOBA[currentJenis] || currentMenu;
+      teksLencana = lencanaBaru
+        ? "\n\n SELAMAT! Kamu mendapat Bintang untuk Kotoba " + namaJenisL + " karena menuntaskan seluruh " + totalSoal + " kotoba!"
+        : "\n\n Bintang Kotoba " + namaJenisL + " sudah kamu miliki.";
+    }
+  } catch (e) { console.warn('Bintang test:', e); }
 
-  // Quest harian: Test Pilihan Ganda dikerjakan sampai semua soal terjawab
-  if (currentTestMode === 'pg' && totalSoal > 0 && currentQuizIndex >= totalSoal) questCatatTest();
-
-  // Bintang: seluruh kotoba satu jenis sudah dijawab di Test Pilihan Ganda (Semua bab + Semua soal)
-  var teksLencana = "";
-  if (currentTestMode === 'pg' && selectedBabForTest === 'Semua bab' && totalQuizLimitVal === 'Semua' &&
-      totalSoal > 0 && currentQuizIndex >= totalSoal) {
-    var lencanaBaru = beriLencanaKotoba(currentJenis);
-    var namaJenisL = NAMA_JENIS_KOTOBA[currentJenis] || currentMenu;
-    teksLencana = lencanaBaru
-      ? "\n\n⭐ SELAMAT! Kamu mendapat Bintang untuk Kotoba " + namaJenisL + " karena menuntaskan seluruh " + totalSoal + " kotoba!"
-      : "\n\n⭐ Bintang Kotoba " + namaJenisL + " sudah kamu miliki.";
-  }
-
+  var ketAkhir = testWaktuHabis ? "\n Waktu habis" : "";
   document.getElementById('quiz-page').classList.add('hidden');
   document.getElementById('write-quiz-page').classList.add('hidden');
+  try { perbaruiInfoProgres(); } catch (e) {}
 
-  tampilkanCustomAlert("Test Selesai! 🎉",
+  tampilkanCustomAlert("Test Selesai! ",
     "User: " + studentName + "\n" +
     "Kelas: " + studentClass + "\n" +
     "Test: " + keteranganJenisTest + "\n" +
     "Jumlah Soal: " + totalSoal + " Soal\n" +
     barisBenarSalah +
-    "Waktu Pengerjaan: " + completionTimeFormatted + "\n" +
-    "Skor Akhir: " + quizScore + (xpDapat ? "\n✨ XP didapat: +" + xpDapat : "") + "\n\n" +
+    "Waktu Pengerjaan: " + completionTimeFormatted + ketAkhir + "\n" +
+    "Skor Akhir: " + quizScore + (xpDapat ? "\n XP didapat: +" + xpDapat : "") + "\n\n" +
     "Your Rank: " + rankUnik + teksLencana,
     function() {
       document.getElementById('data-page').classList.remove('hidden');
@@ -3210,6 +3227,7 @@ function selesaikanTestOtomatis() {
 function tampilkanSoalQuiz() {
   isAnswering = false;
   var q = quizQuestions[currentQuizIndex];
+  if (!q) { selesaikanTestOtomatis(); return; }           // data soal tidak lengkap: langsung tampilkan hasil
 
   document.getElementById('quiz-progress').innerText = "Soal " + (currentQuizIndex + 1) + " / " + quizQuestions.length;
 
@@ -3228,20 +3246,19 @@ function tampilkanSoalQuiz() {
     var btn = document.createElement('button');
     btn.className = 'btn-option';
     btn.innerText = opt;
+    btn.setAttribute('data-benar', opt === q.kunci ? '1' : '0');
     btn.onclick = function() { cekJawaban(opt, q.kunci, btn); };
     optionsContainer.appendChild(btn);
   });
 }
 
 function cekJawaban(pilihanUser, kunci, btnElement) {
-  if (isAnswering) return;
+  if (isAnswering || !testBerjalan) return;
   isAnswering = true;
+  var sesi = testSesi;
 
-  var allButtons = document.querySelectorAll('.btn-option');
-  allButtons.forEach(function(b) {
-    if (b.innerText === kunci) {
-      b.classList.add('correct');
-    }
+  document.querySelectorAll('.btn-option').forEach(function(b) {
+    if (b.getAttribute('data-benar') === '1') b.classList.add('correct');
   });
 
   if (pilihanUser === kunci) {
@@ -3253,6 +3270,7 @@ function cekJawaban(pilihanUser, kunci, btnElement) {
   simpanProgresTest();
 
   setTimeout(function() {
+    if (sesi !== testSesi || !testBerjalan) return;        // test sudah dihentikan / diulang / waktu habis: abaikan
     currentQuizIndex++;
     if (currentQuizIndex < quizQuestions.length) {
       tampilkanSoalQuiz();
@@ -3295,7 +3313,7 @@ function handleWriteKeydown(event) {
 }
 
 function cekJawabanTulis() {
-  if (tulisMenunggu) return;
+  if (tulisMenunggu || !testBerjalan) return;
 
   var inputField = document.getElementById('user-write-input');
   var userAns = inputField.value.trim().toLowerCase();
@@ -3313,7 +3331,9 @@ function cekJawabanTulis() {
     inputField.classList.remove('tulis-salah');
     inputField.classList.add('tulis-benar');
 
+    var sesiT = testSesi;
     setTimeout(function() {
+      if (sesiT !== testSesi || !testBerjalan) return;       // test sudah dihentikan / diulang / waktu habis
       resetIndikatorTulis();
       currentQuizIndex++;
       if (currentQuizIndex < quizQuestions.length) {
@@ -3443,25 +3463,27 @@ function toggleHafal(checkbox, encodedItem) {
   var index = list.findIndex(function(saved) {
     return saved.kotoba === item.kotoba && saved.arti === item.arti;
   });
+  var dicentang = checkbox.checked;
 
-  if (checkbox.checked) {
+  if (dicentang) {
     if (index === -1) list.push(item);
   } else {
     if (index !== -1) list.splice(index, 1);
   }
-  
-  updateHafalCount();
-  simpanHafalKeServer(currentJenis);
-  questCatatHafal(item.kotoba, item.arti, currentJenis, checkbox.checked);
-  renderData();   // kotoba kembali muncul di daftar asalnya
 
-  // Bila di-uncheck dari popup "Kotoba yang Sudah Dihafal": baris hilang dari popup
+  // 1) TAMPILAN DULU: daftar utama (hafal -> hilang dari daftar; batal hafal -> kembali ke daftar) dan popup langsung diperbarui
   var dalamPopup = checkbox.closest ? checkbox.closest('#hafal-list') : null;
-  if (dalamPopup && !checkbox.checked) {
-    var baris = checkbox.closest('.kotoba-item');
+  var baris = dalamPopup && checkbox.closest ? checkbox.closest('.kotoba-item') : null;
+  try { updateHafalCount(); } catch (e) { console.warn(e); }
+  try { renderData(); } catch (e) { console.warn(e); }
+  if (dalamPopup && !dicentang) {            // di popup "Kotoba yang Sudah Dihafal": baris hilang, kotoba kembali ke daftar utama
     if (baris) baris.classList.add('keluar');
-    setTimeout(renderModalHafal, 200);
+    setTimeout(function() { try { renderModalHafal(); } catch (e) { console.warn(e); } }, 200);
   }
+
+  // 2) EFEK SAMPING (simpan ke server, quest, achievement): kalau salah satunya error, tampilan di atas tetap benar
+  try { simpanHafalKeServer(currentJenis); } catch (e) { console.warn(e); }
+  try { questCatatHafal(item.kotoba, item.arti, currentJenis, dicentang); } catch (e) { console.warn(e); }
 }
 
 function updateHafalCount() {
