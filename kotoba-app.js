@@ -819,8 +819,16 @@ window.onload = function() {
 
 // ===== VIDEO INTRO: diputar setelah login berhasil, lalu memudar ke menu utama =====
 // File video: taruh satu folder dengan index.html (mp4 H.264).
-var INTRO_SRC = 'kd-intro.mp4';
+var INTRO_SRC_HP     = 'kd-intro.mp4';          // HP / layar tegak (vertikal)
+var INTRO_SRC_LAPTOP = 'kd-intro-hrzntl.mp4';   // laptop / layar lebar (horizontal)
 var introAktif = false;
+
+// Laptop = layar lanskap dengan mouse/trackpad, atau layar lanskap yang lebar (tablet / jendela besar). Selain itu = HP.
+function introSrc() {
+  var w = window.innerWidth, h = window.innerHeight;
+  var kasar = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+  return (w > h && (w >= 1000 || !kasar)) ? INTRO_SRC_LAPTOP : INTRO_SRC_HP;
+}
 
 function introEl(id) { return document.getElementById(id); }
 
@@ -828,7 +836,7 @@ function introEl(id) { return document.getElementById(id); }
 function introSiapkan() {
   var v = introEl('intro-video');
   if (!v || v.getAttribute('src')) return;
-  try { v.preload = 'auto'; v.src = INTRO_SRC; v.load(); } catch (e) {}
+  try { v.preload = 'auto'; v.src = introSrc(); v.load(); } catch (e) {}
 }
 
 // Tampilkan menu utama (tanpa pop-up update; itu muncul setelah intro selesai)
@@ -848,13 +856,21 @@ function mulaiIntro() {
   pg.classList.remove('hidden');
   function tampilPutar() { if (putar && v.paused && introAktif) putar.classList.remove('hidden'); }
   v.onended = selesaiIntro;                           // selesai -> transisi ke menu utama
-  v.onerror = selesaiIntro;                           // file tidak ada / gagal dimuat -> langsung ke menu utama
+  v.onerror = function() {                            // file laptop tidak ada -> coba file HP; gagal juga -> langsung ke menu utama
+    var cur = v.getAttribute('src') || '';
+    if (cur.indexOf(INTRO_SRC_LAPTOP) !== -1) {
+      v.src = INTRO_SRC_HP;
+      var q = v.play();
+      if (q && q.catch) q.catch(function() { if (introAktif && putar) putar.classList.remove('hidden'); });
+    } else selesaiIntro();
+  };
   v.onplaying = function() {
     if (putar) putar.classList.add('hidden');
     if (btn) btn.classList.toggle('hidden', !v.muted);
   };
   v.onclick = function() { if (v.muted) introSuara(); };
-  if (!v.getAttribute('src')) { v.preload = 'auto'; v.src = INTRO_SRC; }
+  var tujuan = introSrc();                            // pilih ulang bila layar diputar sejak tombol ditekan
+  if (!v.getAttribute('src') || (v.getAttribute('src') !== tujuan && v.currentTime === 0)) { v.preload = 'auto'; v.src = tujuan; }
   v.muted = false;                                    // pengguna sudah mengetuk tombol login, biasanya boleh bersuara
   var p = v.play();
   if (p && p.catch) p.catch(function() {              // ditolak -> ulangi tanpa suara
