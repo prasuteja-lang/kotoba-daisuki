@@ -54,7 +54,7 @@ var TOKO_ITEM = [
   { id: 'gl-chiennokishi',  jenis: 'gelar',   nama: 'Chie no Kishi',      ico: '', ket: 'Ksatria kebijaksanaan',              harga: 2000, gambar: 'icon-chiennokishi.png' },
 
   //  // ---------- TEMA KARTU PROFIL ----------
-  { id: 'kt-futuristik', jenis: 'kartu', nama: 'Kota Futuristik', ico: '', ket: 'Latar kartu profil kota masa depan',  harga: 2000, gambar: 'kartu-temafuturistik.gif' },
+  { id: 'kt-futuristik', jenis: 'kartu', nama: 'Kota Futuristik', ico: '', ket: 'Latar kartu profil kota masa depan',  harga: 2000, gambar: 'kartu-temafuturistik.gif',  gelap: true },
   { id: 'kt-hutan',      jenis: 'kartu', nama: 'Hutan & Air Terjun', ico: '', ket: 'Latar kartu profil hutan asri',    harga: 1500, gambar: 'kartu-temahutan.gif',     gelap: true },
   { id: 'kt-samurai',    jenis: 'kartu', nama: 'Samurai Senja',   ico: '', ket: 'Latar kartu profil samurai di torii', harga: 2000, gambar: 'kartu-temasamurai.gif',   gelap: true },
   { id: 'kt-shinto',     jenis: 'kartu', nama: 'Kuil Shinto',     ico: '', ket: 'Latar kartu profil kuil di hutan',    harga: 1500, gambar: 'kartu-temashinto.gif',    gelap: true },
