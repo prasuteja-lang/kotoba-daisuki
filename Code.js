@@ -4718,12 +4718,15 @@ function musikDuck(on) {
 
 /* =====================================================================
    SUARA BAHASA JEPANG (tombol 🔊 di Bunpou & Kanji memanggil bacaJepang)
-   1) Suara bawaan perangkat (Web Speech API), memilih suara bahasa Jepang.
-   2) Bila perangkat tidak punya suara Jepang / tidak mau bicara: cadangan lewat layanan
-      suara Google Translate (tidak resmi, bisa berhenti bekerja sewaktu-waktu).
-   3) Bila keduanya gagal: tampil pemberitahuan singkat.
+   Urutan otomatis:
+   1) Suara bawaan perangkat (Web Speech API). Daftar suara ditunggu sampai siap, lalu suara
+      Jepang dipilih otomatis (mengenali ja-JP, ja_JP, jpn-JPN, atau nama "Japanese/日本語").
+   2) Bila perangkat tidak punya suara Jepang / tidak mau bicara: suara dari server
+      (Apps Script getTtsJepang, hasilnya disimpan di cache supaya cepat).
+   3) Bila server gagal: layanan Google Translate langsung dari HP.
+   4) Bila semuanya gagal: pemberitahuan singkat.
    ===================================================================== */
-var tts = { audio: null, timer: null, pesanT: 0 };
+var tts = { audio: null, timer: null, pesanT: 0, token: 0, cache: {}, bisaWeb: ('speechSynthesis' in window) && typeof SpeechSynthesisUtterance !== 'undefined' };
 
 function ttsBersih(teks) {
   return String(teks == null ? '' : teks)
@@ -4734,57 +4737,128 @@ function ttsBersih(teks) {
     .slice(0, 180);
 }
 function ttsHentikan() {
+  tts.token++;                                    // batalkan semua proses yang masih menunggu
   clearTimeout(tts.timer);
-  try { if ('speechSynthesis' in window) speechSynthesis.cancel(); } catch (e) {}
+  try { if (tts.bisaWeb) speechSynthesis.cancel(); } catch (e) {}
   if (tts.audio) { try { tts.audio.pause(); } catch (e) {} tts.audio = null; }
+  if (typeof musikDuck === 'function') musikDuck(false);
 }
 function ttsPesan() {
   var t = Date.now();
   if (t - tts.pesanT < 15000) return;
   tts.pesanT = t;
-  var teks = 'Suara bahasa Jepang belum tersedia di perangkat ini. Pasang suara "Japanese" di pengaturan Text-to-speech, atau periksa koneksi internet.';
+  var teks = 'Suara bahasa Jepang belum tersedia di perangkat ini. Buka Pengaturan > Text-to-speech > Google > Pasang data suara "Japanese", atau periksa koneksi internet.';
   if (typeof tampilkanCustomAlert === 'function') tampilkanCustomAlert('Suara belum tersedia 🔇', teks);
 }
-function ttsCadangan(t) {
-  try {
-    var a = new Audio('https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=ja&q=' + encodeURIComponent(t));
-    tts.audio = a;
-    a.onerror = ttsPesan;
-    var p = a.play();
-    if (p && p.catch) p.catch(ttsPesan);
-  } catch (e) { ttsPesan(); }
+
+// ---- pilih suara Jepang secara otomatis ----
+function ttsDaftarSuara() {
+  try { return speechSynthesis.getVoices() || []; } catch (e) { return []; }
 }
+function ttsCariSuaraJepang() {
+  var ja = ttsDaftarSuara().filter(function(v) {
+    return /^(ja|jpn)([-_]|$)/i.test(v.lang || '') || /japan|nihongo|日本/i.test(v.name || '');
+  });
+  if (!ja.length) return null;
+  var urut = [
+    function(v) { return /^ja[-_]jp$/i.test(v.lang || '') && v.localService; },   // suara bawaan HP (offline)
+    function(v) { return /^ja[-_]jp$/i.test(v.lang || ''); },
+    function() { return true; }
+  ];
+  for (var i = 0; i < urut.length; i++) {
+    for (var k = 0; k < ja.length; k++) if (urut[i](ja[k])) return ja[k];
+  }
+  return null;
+}
+// daftar suara di Android/Chrome dimuat belakangan: tunggu sampai ada isinya (maks. batasMs)
+function ttsTungguDaftar(batasMs, cb) {
+  if (!tts.bisaWeb) { cb(); return; }
+  if (ttsDaftarSuara().length) { cb(); return; }
+  var mulai = Date.now(), selesai = false;
+  function akhir() { if (selesai) return; selesai = true; clearInterval(iv); cb(); }
+  var iv = setInterval(function() {
+    if (ttsDaftarSuara().length || Date.now() - mulai >= batasMs) akhir();
+  }, 100);
+}
+
+// ---- cadangan: putar audio dari data / alamat ----
+function ttsPutarAudio(src, token, gagal) {
+  if (token !== tts.token) return;
+  try {
+    var a = new Audio(src);
+    tts.audio = a;
+    var sudahGagal = false;
+    function bila() { if (sudahGagal) return; sudahGagal = true; if (token === tts.token) gagal(); }
+    a.onerror = bila;
+    var p = a.play();
+    if (p && p.catch) p.catch(bila);
+  } catch (e) { gagal(); }
+}
+function ttsGoogleLangsung(t, token) {
+  ttsPutarAudio('https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=ja&q=' + encodeURIComponent(t), token, ttsPesan);
+}
+function ttsServer(t, token) {
+  if (tts.cache[t]) { ttsPutarAudio(tts.cache[t], token, function() { ttsGoogleLangsung(t, token); }); return; }
+  try {
+    google.script.run
+      .withSuccessHandler(function(d) {
+        if (token !== tts.token) return;
+        if (!d || !d.data) { ttsGoogleLangsung(t, token); return; }
+        tts.cache[t] = 'data:' + (d.mime || 'audio/mpeg') + ';base64,' + d.data;
+        ttsPutarAudio(tts.cache[t], token, function() { ttsGoogleLangsung(t, token); });
+      })
+      .withFailureHandler(function() { if (token === tts.token) ttsGoogleLangsung(t, token); })
+      .getTtsJepang(t);
+  } catch (e) { ttsGoogleLangsung(t, token); }
+}
+function ttsCadangan(t, token) { ttsServer(t, token); }
+
 function bacaJepang(teks) {
   var t = ttsBersih(teks);
   if (!t) return;
   ttsHentikan();
-  if (!('speechSynthesis' in window) || typeof SpeechSynthesisUtterance === 'undefined') { ttsCadangan(t); return; }
+  var token = tts.token;                          // ttsHentikan sudah menaikkan token
 
-  var suara = [], ja = null;
-  try { suara = speechSynthesis.getVoices() || []; } catch (e) {}
-  suara.forEach(function(v) { if (!ja && /^ja([-_]|$)/i.test(v.lang)) ja = v; });
-  // daftar suara ada, tetapi tidak ada yang berbahasa Jepang -> langsung cadangan
-  if (suara.length && !ja) { ttsCadangan(t); return; }
+  if (!tts.bisaWeb) { ttsCadangan(t, token); return; }
 
-  var u = new SpeechSynthesisUtterance(t);
-  u.lang = 'ja-JP';
-  if (ja) u.voice = ja;
-  u.rate = 0.85;
-  var mulai = false;
-  u.onstart = function() { mulai = true; clearTimeout(tts.timer); musikDuck(true); };
-  u.onend = function() { musikDuck(false); };
-  u.onerror = function(e) {
-    clearTimeout(tts.timer); musikDuck(false);
-    if (!e || (e.error !== 'canceled' && e.error !== 'interrupted')) ttsCadangan(t);
-  };
-  try { speechSynthesis.resume(); } catch (e) {}
-  speechSynthesis.speak(u);
-  // bila dalam 2,5 detik tidak mulai bicara (mis. WebView tanpa mesin suara) -> cadangan
-  tts.timer = setTimeout(function() {
-    if (mulai) return;
-    try { speechSynthesis.cancel(); } catch (e) {}
-    ttsCadangan(t);
-  }, 2500);
+  ttsTungguDaftar(1500, function() {
+    if (token !== tts.token) return;
+    var semua = ttsDaftarSuara(), ja = ttsCariSuaraJepang();
+    // daftar suara ada, tetapi tidak ada yang berbahasa Jepang -> langsung cadangan
+    if (semua.length && !ja) { ttsCadangan(t, token); return; }
+
+    var u = new SpeechSynthesisUtterance(t);
+    u.lang = 'ja-JP';
+    if (ja) { u.voice = ja; u.lang = ja.lang || 'ja-JP'; }
+    u.rate = 0.85;
+    var mulai = false;
+    u.onstart = function() { mulai = true; clearTimeout(tts.timer); if (typeof musikDuck === 'function') musikDuck(true); };
+    u.onend = function() { if (typeof musikDuck === 'function') musikDuck(false); };
+    u.onerror = function(e) {
+      clearTimeout(tts.timer);
+      if (typeof musikDuck === 'function') musikDuck(false);
+      if (token !== tts.token) return;
+      if (!e || (e.error !== 'canceled' && e.error !== 'interrupted')) ttsCadangan(t, token);
+    };
+    try { speechSynthesis.resume(); } catch (e) {}
+    // jeda singkat setelah cancel() agar Chrome/WebView Android tidak mengabaikan speak()
+    setTimeout(function() {
+      if (token !== tts.token) return;
+      try { speechSynthesis.speak(u); } catch (e) { ttsCadangan(t, token); return; }
+      // bila dalam 4 detik tidak mulai bicara (mesin suara belum siap / tidak ada) -> cadangan
+      tts.timer = setTimeout(function() {
+        if (mulai || token !== tts.token) return;
+        try { speechSynthesis.cancel(); } catch (e) {}
+        ttsCadangan(t, token);
+      }, 4000);
+    }, 60);
+  });
 }
-// daftar suara di Chrome dimuat belakangan; panggilan ini memancing pemuatan lebih awal
-try { if ('speechSynthesis' in window) { speechSynthesis.getVoices(); if (speechSynthesis.addEventListener) speechSynthesis.addEventListener('voiceschanged', function() {}); } } catch (e) {}
+
+// pancing pemuatan daftar suara lebih awal (Chrome/WebView memuatnya belakangan)
+try {
+  if (tts.bisaWeb) {
+    speechSynthesis.getVoices();
+    if (speechSynthesis.addEventListener) speechSynthesis.addEventListener('voiceschanged', function() { speechSynthesis.getVoices(); });
+  }
+} catch (e) {}
