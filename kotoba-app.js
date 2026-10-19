@@ -1237,7 +1237,7 @@ function achSiap() {
     st.kanji = st.kanji || {}; st.tier = st.tier || {};
     st.test = st.test || 0; st.bestStreak = st.bestStreak || 0;
     st.xpAkt = st.xpAkt || 0; st.xpMax = st.xpMax || 0; st.lvl = st.lvl || 0;
-    st.beli = st.beli || {}; st.pakai = st.pakai || {};
+    st.beli = st.beli || {}; st.pakai = st.pakai || {}; st.bintangUjian = st.bintangUjian || {};
     achState = st;
   }
   return true;
@@ -1376,7 +1376,10 @@ function renderCapai() {
 // XP tidak pernah turun (xpMax), walau siswa membatalkan centang hafal.
 // Modul lain (mis. kanji-challenge.js) cukup memanggil: xpTambah(jumlah, 'Keterangan')
 var XP_BOBOT = { hafal: 5, bunpou: 20, kanji: 15, test: 30, streak: 10, tier: 100, bintang: 200 };
-var XP_LIMIT_HARIAN = 400;
+var XP_LIMIT_HARIAN = 1000;
+var XP_LIMIT_UJIAN = 1000;       // batas XP harian khusus latihan Ujian (terpisah dari XP_LIMIT_HARIAN)
+var UJIAN_BONUS_MIN_PERSEN = 60; // bonus bintang hanya diberikan bila jawaban benar minimal sekian persen
+var UJIAN_BONUS_BINTANG = 500;   // bonus XP (= 50 koin) saat latihan Ujian selesai & bintang pertama didapat, sekali per latihan
 var LV_JUDUL = [
   [1, '🌱 Pemula (初心者)'], [5, '📖 Murid Rajin (見習い)'], [10, '🎓 Pelajar (学生)'],
   [20, '⚔️ Ahli (達人)'], [35, '🏯 Senpai (先輩)'], [50, '👑 Shihan (師範)']
@@ -1417,13 +1420,21 @@ function levelInfo() {
   };
 }
 // tambah XP pengalaman. Mengembalikan XP yang benar-benar didapat (0 bila batas harian tercapai)
-function xpTambah(n, ket, diam) {
+// jenis: (kosong) = batas harian umum | 'ujian' = batas harian khusus Ujian | 'bebas' = tanpa batas (bonus bintang)
+function xpTambah(n, ket, diam, jenis) {
   if (!achSiap() || !(n > 0)) return 0;
-  var hari = questTanggal(0);
-  if (!achState.xpHari || achState.xpHari.tgl !== hari) achState.xpHari = { tgl: hari, n: 0 };
-  var dapat = Math.max(0, Math.min(Math.round(n), XP_LIMIT_HARIAN - achState.xpHari.n));
-  if (!dapat) return 0;
-  achState.xpHari.n += dapat;
+  var dapat;
+  if (jenis === 'bebas') {
+    dapat = Math.round(n);
+  } else {
+    var hari = questTanggal(0);
+    var kb = jenis === 'ujian' ? 'xpUjianHari' : 'xpHari';
+    var lim = jenis === 'ujian' ? XP_LIMIT_UJIAN : XP_LIMIT_HARIAN;
+    if (!achState[kb] || achState[kb].tgl !== hari) achState[kb] = { tgl: hari, n: 0 };
+    dapat = Math.max(0, Math.min(Math.round(n), lim - achState[kb].n));
+    if (!dapat) return 0;
+    achState[kb].n += dapat;
+  }
   achState.xpAkt = (achState.xpAkt || 0) + dapat;
   achSimpan();
   if (!diam) {
@@ -2001,7 +2012,8 @@ function pencapaianKeServer() {
       xpAkt: achState.xpAkt || 0,
       xpMax: levelInfo().xp,
       beli: achState.beli || {},
-      pakai: achState.pakai || {}
+      pakai: achState.pakai || {},
+      bintangUjian: achState.bintangUjian || {}
     };
     try { google.script.run.withFailureHandler(function() {}).simpanPencapaian(nama, JSON.stringify(data)); } catch (e) {}
     try { google.script.run.withFailureHandler(function() {}).simpanSkor(nama, studentClass, data.xpMax, levelInfo().level, avatarId || '', bingkaiAktif()); } catch (e) {}
@@ -2022,6 +2034,10 @@ function gabungPencapaian(c) {
     var it = tokoItem(k);
     if (it && achState.beli[k] == null) achState.beli[k] = (Number(cb[k]) >= 0 && cb[k] !== '') ? Number(cb[k]) : it.harga;
   });
+  // bintang Ujian yang sudah diberi bonus: gabungkan (tidak ada yang hilang, bonus tidak bisa diambil dua kali)
+  var cbu = (c.bintangUjian && typeof c.bintangUjian === 'object') ? c.bintangUjian : {};
+  if (!achState.bintangUjian) achState.bintangUjian = {};
+  Object.keys(cbu).forEach(function(k) { if (!achState.bintangUjian[k]) achState.bintangUjian[k] = cbu[k]; });
   var cp = (c.pakai && typeof c.pakai === 'object') ? c.pakai : {};
   Object.keys(TOKO_JENIS).forEach(function(j) { if (achState.pakai[j] == null && cp[j]) achState.pakai[j] = cp[j]; });
   var ld = String(c.lastDone || '');
@@ -4432,7 +4448,23 @@ function ujianTanggal(t) {
 function ujianCatatHasil() {
   var k = ujianKuis; if (!k || k.tercatat) return;
   k.tercatat = true;
-  xpTambah(10 + (k.skor || 0) * 2, 'Ujian');
+  // XP latihan: 10 + 2 per jawaban benar (batas harian Ujian terpisah dari XP lain)
+  k.xpDapat = xpTambah(10 + (k.skor || 0) * 2, 'Ujian', true, 'ujian');
+  // Bonus bintang: sekali per latihan (juga "Semua paket"), saat latihan selesai & bintang pertama didapat
+  k.bonusXp = 0;
+  if (achSiap()) {
+    if (!achState.bintangUjian) achState.bintangUjian = {};
+    k.bonusSyarat = (k.skor / (k.list.length || 1)) * 100 >= UJIAN_BONUS_MIN_PERSEN;
+    k.bonusSudah = !!achState.bintangUjian[k.kunciSkor];
+    if (!k.bonusSudah && k.bonusSyarat) {
+      achState.bintangUjian[k.kunciSkor] = Date.now();
+      k.bonusXp = xpTambah(UJIAN_BONUS_BINTANG, 'Bonus bintang Ujian', true, 'bebas');
+    }
+  }
+  if ((k.xpDapat || 0) + (k.bonusXp || 0) > 0) {
+    questToast('✨ +' + ((k.xpDapat || 0) + (k.bonusXp || 0)) + ' XP' + (k.bonusXp ? ' · 🌟 Bonus bintang +' + Math.round(k.bonusXp / KOIN_RASIO) + ' koin' : ' · Ujian'));
+    try { achCek(true, 2600); } catch (e) {}
+  }
   var d = ujianMuatSkor(), n = k.list.length;
   var lama = d.best[k.kunciSkor];
   k.rekorLama = lama || null;
@@ -4991,6 +5023,10 @@ function ujianRenderHasil() {
     '<div class="uj-hasil-rinci"><span>✅ Benar ' + k.skor + '</span><span>❌ Salah ' + salah + '</span><span>➖ Kosong ' + kosong + '</span>' +
       (k.terpakai != null ? '<span>⏱ ' + ujianFmtWaktu(k.terpakai) + '</span>' : '') + '</div>' +
     '<div class="uj-hasil-pesan">' + pesan + '</div>' +
+    ((k.xpDapat || k.bonusXp) ? '<div class="uj-hasil-xp" style="margin:6px 0;font-weight:700;color:#facc15">✨ +' + fmtAngka((k.xpDapat || 0) + (k.bonusXp || 0)) + ' XP' +
+      (k.bonusXp ? '<br><small style="font-weight:600">🌟 Bonus bintang +' + fmtAngka(k.bonusXp) + ' XP (+' + fmtAngka(k.bonusXp / KOIN_RASIO) + ' koin)</small>' : '') + '</div>'
+      : '<div class="uj-hasil-xp" style="margin:6px 0;opacity:.7"><small>Batas XP Ujian hari ini sudah tercapai</small></div>') +
+    ((!k.bonusSudah && !k.bonusSyarat) ? '<div class="uj-hasil-xp" style="margin:4px 0"><small>🌟 Capai minimal ' + UJIAN_BONUS_MIN_PERSEN + '% benar untuk bonus bintang +' + fmtAngka(UJIAN_BONUS_BINTANG) + ' XP (+' + fmtAngka(UJIAN_BONUS_BINTANG / KOIN_RASIO) + ' koin)</small></div>' : '') +
     '<div class="uj-hasil-rekor">' + rekor + '</div>' +
     '<div class="uj-judul">' + kanaEsc(k.judul) + '</div></div>' +
     '<div class="uj-aksi"><button class="uj-btn" onclick="ujianUlangi()">Ulangi</button> ' +
