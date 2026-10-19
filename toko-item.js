@@ -63,5 +63,5 @@ var TOKO_ITEM = [
   // (belum ada — lihat CONTOH di atas)
 
   // ---------- MUSIK ----------
-  // (belum ada — lihat CONTOH di atas)
+  { id: 'ms-yuuyake', jenis: 'musik',   nama: '夕焼けプレイリスト',ico: '🎶', ket: 'Musik latar nuansa melodi sore', harga: 600, url: '夕焼けプレイリスト.mp3' },
 ];
