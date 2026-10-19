@@ -148,15 +148,16 @@ html .lb-av.bk-pelangi { outline: 3px solid #ef4444; outline-offset: 1px; animat
 </head>
 <body>
 
-<!-- 1. HALAMAN PERTAMA: Video Opening (otomatis lanjut ke halaman login setelah selesai) -->
-<div id="ask-page" class="opening-page">
-  <video id="opening-video" playsinline webkit-playsinline preload="auto"></video>
-  <button type="button" id="opening-suara" class="opening-btn opening-suara hidden" onclick="openingSuara()">🔇 Ketuk untuk suara</button>
-  <button type="button" class="opening-btn opening-lewati" onclick="jawabHai()">Lewati ›</button>
+<!-- VIDEO INTRO: tampil setelah tombol "Lanjutkan ke Aplikasi" ditekan, lalu memudar ke menu utama -->
+<div id="intro-page" class="opening-page hidden">
+  <video id="intro-video" muted playsinline webkit-playsinline preload="none" poster="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"></video>
+  <button type="button" id="intro-putar" class="opening-putar hidden" onclick="introPutar()">▶ Putar Intro</button>
+  <button type="button" id="intro-suara" class="opening-btn opening-suara hidden" onclick="introSuara()">🔇 Ketuk untuk suara</button>
+  <button type="button" class="opening-btn opening-lewati" onclick="selesaiIntro()">Lewati ›</button>
 </div>
 
-<!-- 2. HALAMAN KEDUA: Sambutan & Identitas Peserta (Login) -->
-<div id="student-identity-page" class="card hidden">
+<!-- 1. HALAMAN PERTAMA: Sambutan & Identitas Peserta (Login) -->
+<div id="student-identity-page" class="card">
   <h3>Selamat Datang di Aplikasi Kotoba Joycare Indonesia! 🌸</h3>
   <p class="welcome-desc">
     Aplikasi ini dirancang khusus untuk membantu <i>minna-san</i> menghafal <i>kotoba</i> dengan lebih mudah, praktis, dan menyenangkan. Yuk, silakan masuk dengan akun kamu! ✨

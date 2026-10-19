@@ -803,7 +803,6 @@ window.onload = function() {
     studentName = savedUser;
     studentClass = savedClass;
     terapkanAturanKelas(studentClass);
-    document.getElementById('ask-page').classList.add('hidden');
     document.getElementById('student-identity-page').classList.add('hidden');
     document.getElementById('main-menu-page').classList.remove('hidden');
     if (pulihkanHalamanTerakhir()) {                  // dimuat ulang saat main (mis. layar diputar) -> lanjut di halaman tadi
@@ -813,55 +812,87 @@ window.onload = function() {
       tampilkanUpdateTerbaru();
     }
   } else {
-    document.getElementById('ask-page').classList.remove('hidden');
-    document.getElementById('student-identity-page').classList.add('hidden');
+    document.getElementById('student-identity-page').classList.remove('hidden');   // halaman pertama = login
     document.getElementById('main-menu-page').classList.add('hidden');
-    mulaiOpening();                                   // halaman 1 = video opening
   }
 };
 
-// ===== VIDEO OPENING (halaman 1) =====
-// File video: taruh satu folder dengan index.html (mp4 H.264 supaya jalan di semua HP), lalu sesuaikan namanya di sini.
-var OPENING_SRC = 'opening.mp4';
-function mulaiOpening() {
-  var v = document.getElementById('opening-video'), btn = document.getElementById('opening-suara');
-  if (!v) { jawabHai(); return; }
-  v.onended = jawabHai;                               // selesai -> halaman login
-  v.onerror = jawabHai;                               // file tidak ada / gagal dimuat -> langsung halaman login
-  v.src = OPENING_SRC;
+// ===== VIDEO INTRO: diputar setelah login berhasil, lalu memudar ke menu utama =====
+// File video: taruh satu folder dengan index.html (mp4 H.264).
+var INTRO_SRC = 'kd-intro.mp4';
+var introAktif = false;
+
+function introEl(id) { return document.getElementById(id); }
+
+// Dipanggil saat tombol "Lanjutkan ke Aplikasi" ditekan: mulai memuat video selagi login diperiksa server
+function introSiapkan() {
+  var v = introEl('intro-video');
+  if (!v || v.getAttribute('src')) return;
+  try { v.preload = 'auto'; v.src = INTRO_SRC; v.load(); } catch (e) {}
+}
+
+// Tampilkan menu utama (tanpa pop-up update; itu muncul setelah intro selesai)
+function masukKeMenu() {
+  var l = introEl('student-identity-page'), r = introEl('register-page'), m = introEl('main-menu-page');
+  if (l) l.classList.add('hidden');
+  if (r) r.classList.add('hidden');
+  if (m) m.classList.remove('hidden');
+}
+
+function mulaiIntro() {
+  var v = introEl('intro-video'), pg = introEl('intro-page');
+  if (!v || !pg) { masukKeMenu(); tampilkanUpdateTerbaru(); return; }
+  var btn = introEl('intro-suara'), putar = introEl('intro-putar');
+  introAktif = true;
+  pg.classList.remove('memudar');
+  pg.classList.remove('hidden');
+  function tampilPutar() { if (putar && v.paused && introAktif) putar.classList.remove('hidden'); }
+  v.onended = selesaiIntro;                           // selesai -> transisi ke menu utama
+  v.onerror = selesaiIntro;                           // file tidak ada / gagal dimuat -> langsung ke menu utama
+  v.onplaying = function() {
+    if (putar) putar.classList.add('hidden');
+    if (btn) btn.classList.toggle('hidden', !v.muted);
+  };
+  v.onclick = function() { if (v.muted) introSuara(); };
+  if (!v.getAttribute('src')) { v.preload = 'auto'; v.src = INTRO_SRC; }
+  v.muted = false;                                    // pengguna sudah mengetuk tombol login, biasanya boleh bersuara
+  var p = v.play();
+  if (p && p.catch) p.catch(function() {              // ditolak -> ulangi tanpa suara
+    v.muted = true;
+    var p2 = v.play();
+    if (p2 && p2.catch) p2.catch(tampilPutar);
+  });
+  setTimeout(tampilPutar, 2000);                      // belum jalan setelah 2 detik -> tombol putar manual
+}
+
+function introPutar() {                               // diketuk pengguna -> boleh bersuara
+  var v = introEl('intro-video'), putar = introEl('intro-putar');
+  if (!v) return;
   v.muted = false;
   var p = v.play();
-  if (p && p.catch) p.catch(function() {              // browser menolak autoplay bersuara -> ulangi tanpa suara
-    v.muted = true;
-    if (btn) btn.classList.remove('hidden');
-    var p2 = v.play();
-    if (p2 && p2.catch) p2.catch(jawabHai);           // tetap ditolak -> lewati ke login
-  });
+  if (p && p.catch) p.catch(function() { v.muted = true; var p2 = v.play(); if (p2 && p2.catch) p2.catch(function() {}); });
+  if (putar) putar.classList.add('hidden');
 }
-function openingSuara() {
-  var v = document.getElementById('opening-video'), btn = document.getElementById('opening-suara');
+function introSuara() {
+  var v = introEl('intro-video'), btn = introEl('intro-suara');
   if (v) { v.muted = false; if (v.paused) { var p = v.play(); if (p && p.catch) p.catch(function() {}); } }
   if (btn) btn.classList.add('hidden');
 }
-function hentikanOpening() {
-  var v = document.getElementById('opening-video');
-  if (!v) return;
-  v.onended = null; v.onerror = null;
-  try { v.pause(); v.removeAttribute('src'); v.load(); } catch (e) {}
-  var btn = document.getElementById('opening-suara');
-  if (btn) btn.classList.add('hidden');
-}
 
-function jawabHai() {
-  hentikanOpening();
-  document.getElementById('ask-page').classList.add('hidden');
-  document.getElementById('student-identity-page').classList.remove('hidden');
-}
-
-function kembaliKeAskPage() {
-  document.getElementById('student-identity-page').classList.add('hidden');
-  document.getElementById('ask-page').classList.remove('hidden');
-  mulaiOpening();
+// Selesai / dilewati / gagal: menu utama muncul di bawah, lapisan video memudar, lalu video dibersihkan
+function selesaiIntro() {
+  if (!introAktif) return;
+  introAktif = false;
+  var v = introEl('intro-video'), pg = introEl('intro-page');
+  if (v) { v.onended = null; v.onerror = null; v.onplaying = null; v.onclick = null; try { v.pause(); } catch (e) {} }
+  masukKeMenu();
+  if (pg) pg.classList.add('memudar');
+  setTimeout(function() {
+    if (pg) { pg.classList.add('hidden'); pg.classList.remove('memudar'); }
+    if (v) { try { v.removeAttribute('src'); v.load(); } catch (e) {} }
+    ['intro-suara', 'intro-putar'].forEach(function(id) { var e = introEl(id); if (e) e.classList.add('hidden'); });
+    tampilkanUpdateTerbaru();
+  }, 650);
 }
 
 function bukaHalamanRegister() {
@@ -957,6 +988,7 @@ function simpanIdentitasDanMasuk() {
     return;
   }
 
+  introSiapkan();                                     // mulai memuat video intro selagi login diperiksa
   google.script.run
     .withSuccessHandler(function(result) {
       if (result.success) {
@@ -967,9 +999,7 @@ function simpanIdentitasDanMasuk() {
         localStorage.setItem("kotoba_logged_user", sName);
         localStorage.setItem("kotoba_logged_class", sKelas);
         terapkanAturanKelas(sKelas);
-        document.getElementById('student-identity-page').classList.add('hidden');
-        document.getElementById('main-menu-page').classList.remove('hidden');
-        tampilkanUpdateTerbaru();
+        mulaiIntro();                                 // video intro -> memudar ke menu utama
       } else {
         tampilkanCustomAlert("Login Gagal ❌", result.message);
       }
