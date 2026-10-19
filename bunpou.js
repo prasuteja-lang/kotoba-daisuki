@@ -256,8 +256,7 @@ var bp = { data: [], view: 'buku', buku: '', bab: '', list: [], idx: 0, step: 0,
       if (r.contoh) {
         var furi = bp.furi ? bpRkFuriHtml(r) : '';
         h += '<div class="rk-ex"><div style="flex:1"><div class="jp' + (furi ? ' furi' : '') + '">' + (furi || bpEsc(r.contoh)) + '</div>' +
-             (r.artiContoh ? '<div class="id">' + bpEsc(r.artiContoh) + '</div>' : '') + '</div>' +
-             '<button class="bp-say" onclick="event.stopPropagation();bpRkSay(' + i + ')">🔊</button></div>';
+             (r.artiContoh ? '<div class="id">' + bpEsc(r.artiContoh) + '</div>' : '') + '</div></div>';
       }
       h += '</div>';
     });
@@ -332,10 +331,16 @@ var bp = { data: [], view: 'buku', buku: '', bab: '', list: [], idx: 0, step: 0,
     "try{if(!self.kuromoji)importScripts(S[i].js);kuromoji.builder({dicPath:S[i].dic}).build(function(e,t){if(e||!t){init(i+1);return}tk=t;postMessage({t:'ready'})})}catch(x){init(i+1)}}" +
     "onmessage=function(e){var m=e.data;if(m.t==='init'){S=m.src;init(0)}else if(m.t==='tok'){var o=m.items.map(function(s){try{return tk.tokenize(s).map(function(x){return [x.surface_form,x.reading]})}catch(x){return null}});postMessage({t:'res',items:m.items,out:o})}};";
 
-  function bpRkUpdTombol() { var b = document.getElementById('rk-furi'); if (b) b.textContent = bpRkFuriLabel(); }
+  function bpRkUpdTombol() {
+    ['rk-furi', 'bp-furi'].forEach(function (id) {
+      var b = document.getElementById(id);
+      if (b) { b.textContent = bpRkFuriLabel(); b.classList.toggle('on', bp.furi); }
+    });
+  }
   function bpRkRefresh() {
     bpRkUpdTombol();
     if (bp.view === 'rekap' && document.getElementById('rk-list')) bpRkIsi();
+    else if (bp.view === 'belajar' && bp.step === 2 && document.getElementById('bp-contoh')) bpIsiContoh();
   }
   function bpRkSiap() { bp.kzState = 'ready'; bpRkMinta(); bpRkRefresh(); }
   function bpRkGagal() {
@@ -382,12 +387,12 @@ var bp = { data: [], view: 'buku', buku: '', bab: '', list: [], idx: 0, step: 0,
 
   // minta bacaan untuk semua kalimat contoh yang belum punya (sekali jalan, bukan per chip)
   function bpRkMinta() {
-    if (bp.kzState !== 'ready' || !bp.rekap) return;
+    if (bp.kzState !== 'ready') return;
     var items = [], seen = {};
-    bp.rekap.forEach(function (r) {
-      var k = r.contoh;
-      if (k && !r.furi && !bp.kc[k] && !bp.kzPend[k] && !seen[k]) { seen[k] = 1; items.push(k); }
-    });
+    function tambah(k, furi) { if (k && !furi && !bp.kc[k] && !bp.kzPend[k] && !seen[k]) { seen[k] = 1; items.push(k); } }
+    (bp.rekap || []).forEach(function (r) { tambah(r.contoh, r.furi); });
+    var cur = bp.list && bp.list[bp.idx];
+    if (cur && cur.contoh) cur.contoh.forEach(function (c) { tambah(c.jp); });
     if (!items.length) return;
     if (bp.kw) { items.forEach(function (k) { bp.kzPend[k] = 1; }); bp.kw.postMessage({ t: 'tok', items: items }); return; }
     if (bp.kt) {
@@ -436,11 +441,6 @@ var bp = { data: [], view: 'buku', buku: '', bab: '', list: [], idx: 0, step: 0,
     bpRkIsi();
   }
 
-  function bpRkSay(i) {
-    var r = bp.rkShow[i]; if (!r || !r.contoh) return;
-    bacaJepang(r.contoh);
-  }
-
   function bpMulai(i) { bp.idx = i; bp.step = 0; bp.view = 'belajar'; bpRenderBelajar(); }
 
   function bpRumusHtml(t) {
@@ -449,39 +449,37 @@ var bp = { data: [], view: 'buku', buku: '', bab: '', list: [], idx: 0, step: 0,
     }).join(' ');
   }
 
-  // 🔊 contoh kalimat: pakai audio manual dari sheet (kolom Audio_contoh) bila ada; bila tidak ada / gagal -> suara otomatis (TTS)
-  var bpAu = { data: {}, tok: 0 };
-  function bpSayTombol(i, teks) { var b = document.getElementById('bp-say' + i); if (b) b.textContent = teks; }
-  function bpSay(i) {
-    var c = bp.list[bp.idx].contoh[i]; if (!c) return;
-    if (!c.audioId) { bacaJepang(c.jp); return; }
-    bpAudioContoh(c, i);
+  // Langkah "Contoh": tombol Furigana On/Off (sama seperti Rekap Bunpou, statusnya ikut dibagi dengan Rekap)
+  function bpContohHtml(c) {
+    var furi = bp.furi && bp.kzState === 'ready' ? bpRkAuto(c.jp) : '';
+    return '<div class="bp-box bp-ex"><div style="flex:1"><div class="jp' + (furi ? ' furi' : '') + '">' + (furi || bpEsc(c.jp)) + '</div>' +
+           (c.id ? '<div class="id">' + bpEsc(c.id) + '</div>' : '') + '</div></div>';
   }
-  function bpAudioContoh(c, i) {
-    var kunci = 'bp:' + c.audioId, tok = ++bpAu.tok;
-    if (typeof ttsHentikan === 'function') ttsHentikan();          // hentikan suara lain yang sedang berbunyi
-    var lengkap = (typeof tts !== 'undefined') && typeof ttsPutarServer === 'function';
-    function cadangan() { bpSayTombol(i, '🔊'); if (tok === bpAu.tok) bacaJepang(c.jp); }
-    function putar(b64, mime) {
-      bpSayTombol(i, '🔊');
-      if (tok !== bpAu.tok) return;
-      if (lengkap) { tts.cache[kunci] = b64; ttsPutarServer(kunci, tts.token, cadangan); return; }   // Web Audio: boleh diputar otomatis di HP
-      try {
-        var a = new Audio('data:' + (mime || 'audio/mpeg') + ';base64,' + b64);
-        var p = a.play(); if (p && p.catch) p.catch(cadangan);
-      } catch (e) { cadangan(); }
+  function bpIsiContoh() {
+    var el = document.getElementById('bp-contoh'), r = bp.list[bp.idx];
+    if (!el || !r) return;
+    var h = '';
+    if (bp.furi && bp.kzState === 'loading') h += '<div class="rk-hint">Memuat kamus furigana di latar belakang... kalimat tetap bisa dibaca, furigana muncul begitu siap.</div>';
+    else if (bp.furi && bp.kzState === 'error') h += '<div class="rk-hint err">Furigana otomatis gagal dimuat. Pastikan internet aktif, lalu matikan dan nyalakan lagi tombol Furigana.</div>';
+    r.contoh.forEach(function (c) { h += bpContohHtml(c); });
+    el.innerHTML = h;
+  }
+  function bpFuriContoh() {
+    bp.furi = !bp.furi;
+    if (bp.furi) {
+      if (bp.kzState === 'error') bp.kzState = 'idle';      // coba lagi
+      bpRkSiapkan(); bpRkMinta();
     }
-    if (bpAu.data[kunci]) { putar(bpAu.data[kunci].d, bpAu.data[kunci].m); return; }
-    bpSayTombol(i, '…');
-    google.script.run
-      .withSuccessHandler(function (d) {
-        if (!d || !d.data) { cadangan(); return; }
-        bpAu.data[kunci] = { d: d.data, m: d.mime };
-        putar(d.data, d.mime);
-      })
-      .withFailureHandler(function (e) { console.log('Audio gagal:', e); cadangan(); })
-      .getBunpouAudio(c.audioId);
+    bpRkUpdTombol();
+    bpIsiContoh();
   }
+  (function () {      // gaya tombol Furigana di halaman belajar (tampilan sama dengan tombol di Rekap)
+    var st = document.createElement('style');
+    st.textContent = '.bp-furi-bar{display:flex;justify-content:flex-end;margin-bottom:10px}' +
+      '.bp-furi{display:inline-block;background:#94a3b8;color:#fff;font-weight:700;font-size:12px;padding:7px 14px;border-radius:999px;cursor:pointer;user-select:none}' +
+      '.bp-furi.on{background:#10b981}';
+    document.head.appendChild(st);
+  })();
 
   function bpRenderBelajar() {
     var r = bp.list[bp.idx], h = '';
@@ -503,11 +501,9 @@ var bp = { data: [], view: 'buku', buku: '', bab: '', list: [], idx: 0, step: 0,
       if (r.tips) h += '<div class="bp-box bp-tip">✨ <b>Trik:</b> ' + bpEsc(r.tips) + '</div>';
       if (r.salah) h += '<div class="bp-box bp-warn">⚠️ <b>Salah kaprah:</b> ' + bpEsc(r.salah) + '</div>';
     } else if (bp.step === 2) {
-      h += '<div style="text-align:center;font-size:12px;color:#6b7280;margin-bottom:8px;">Ketuk 🔊 untuk mendengar kalimatnya</div>';
-      r.contoh.forEach(function (c, i) {
-        h += '<div class="bp-box bp-ex"><div style="flex:1"><div class="jp">' + bpEsc(c.jp) + '</div>' + (c.id ? '<div class="id">' + bpEsc(c.id) + '</div>' : '') + '</div>';
-        h += '<button class="bp-say" id="bp-say' + i + '" onclick="event.stopPropagation();bpSay(' + i + ')">🔊</button></div>';
-      });
+      h += '<div class="bp-furi-bar"><div class="bp-furi' + (bp.furi ? ' on' : '') + '" id="bp-furi" onclick="bpFuriContoh()">' + bpRkFuriLabel() + '</div></div>';
+      h += '<div id="bp-contoh"></div>';
+      if (bp.furi) { bpRkSiapkan(); bpRkMinta(); }
     } else {
       bpBuatQuiz(r); bpRenderQuiz(); return;
     }
@@ -516,6 +512,7 @@ var bp = { data: [], view: 'buku', buku: '', bab: '', list: [], idx: 0, step: 0,
     if (bp.step > 0) h += '<button style="background:#94a3b8" onclick="bp.step--;bpRenderBelajar()">‹ Kembali</button>';
     h += '<button style="background:#10b981" onclick="bp.step++;bpRenderBelajar()">' + (bp.step === 2 ? 'Uji Aku ✍️' : 'Lanjut ›') + '</button></div>';
     bpBody().innerHTML = h;
+    if (bp.step === 2) bpIsiContoh();
     window.scrollTo(0, 0);
   }
 
