@@ -1481,6 +1481,7 @@ function lbMuatAvatar(r, nama) {
   if (!daftar.length) return;
   google.script.run
     .withSuccessHandler(function(peta) {
+      try { console.log('[Peringkat] avatar dari sheet progress:', Object.keys(peta || {}).length, 'dari', daftar.length, 'pelajar', peta); } catch (e) {}
       if (nama !== studentName || !peta || lbState.data !== r) return;
       r.top.forEach(function(x) {
         var p = peta[String(x.nama).trim().toLowerCase()];
@@ -1490,7 +1491,7 @@ function lbMuatAvatar(r, nama) {
       });
       renderPeringkat();
     })
-    .withFailureHandler(function() { /* diam: papan tetap tampil tanpa foto tambahan */ })
+    .withFailureHandler(function(err) { try { console.warn('[Peringkat] getAvatarPeringkat gagal:', err && err.message ? err.message : err); } catch (e) {} })   // papan tetap tampil tanpa foto tambahan
     .getAvatarPeringkat(daftar);
 }
 function muatPeringkat(paksa) {
