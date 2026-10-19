@@ -1474,6 +1474,25 @@ function lbAvatar(av, bk) {
   var isi = av ? '<img src="' + urlAvatar(av, 100) + '" alt="" loading="lazy" onerror="this.outerHTML=\'😺\'">' : '😺';
   return '<div class="lb-av' + kls + '">' + isi + '</div>';
 }
+// Foto profil & bingkai pelajar lain: diambil dari sheet "progress" (kolom Avatar & Pencapaian) lewat getAvatarPeringkat di server.
+// Sheet "progress" adalah sumber yang paling baru, jadi menimpa data lama dari sheet "Peringkat". Papan tampil dulu, lalu foto menyusul.
+function lbMuatAvatar(r, nama) {
+  var daftar = ((r && r.top) || []).map(function(x) { return x.nama; });
+  if (!daftar.length) return;
+  google.script.run
+    .withSuccessHandler(function(peta) {
+      if (nama !== studentName || !peta || lbState.data !== r) return;
+      r.top.forEach(function(x) {
+        var p = peta[String(x.nama).trim().toLowerCase()];
+        if (!p) return;
+        if (p.a) x.avatar = p.a;
+        x.bingkai = p.b || '';                         // bingkai dilepas / belum dibeli -> kosong
+      });
+      renderPeringkat();
+    })
+    .withFailureHandler(function() { /* diam: papan tetap tampil tanpa foto tambahan */ })
+    .getAvatarPeringkat(daftar);
+}
 function muatPeringkat(paksa) {
   if (!studentName) { renderPeringkat(); return; }
   if (!paksa && lbState.data && Date.now() - lbState.t < 60000) { renderPeringkat(); return; }
@@ -1493,6 +1512,7 @@ function muatPeringkat(paksa) {
           achSimpan(); renderLevel(); renderHero();
         }
         renderPeringkat();
+        lbMuatAvatar(r, nama);                         // lengkapi foto profil & bingkai pelajar lain dari sheet "progress"
       })
       .withFailureHandler(function(err) {
         lbState = { status: 'gagal', data: lbState.data, t: 0, pesan: (err && err.message) ? err.message : '' };
