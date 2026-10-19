@@ -1778,3 +1778,10 @@ html.dark .rf-langkah div.ok { color:#6ee7b7; }
 html.dark .rf-langkah div.gagal { color:#fca5a5; }
 html.dark .rf-bar { background:#334155; }
 @media (prefers-reduced-motion: reduce) { .rf-ico.putar { animation:none; } }
+
+/* ===== VIDEO OPENING (halaman 1) ===== */
+.opening-page { position:fixed; inset:0; z-index:9999; background:#000; display:flex; align-items:center; justify-content:center; }
+.opening-page video { width:100%; height:100%; object-fit:contain; background:#000; }
+.opening-btn { position:absolute; border:none; border-radius:999px; padding:9px 16px; font-size:13px; font-weight:700; color:#fff; background:rgba(15,23,42,.6); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); cursor:pointer; width:auto; margin:0; }
+.opening-lewati { right:14px; top:calc(env(safe-area-inset-top, 0px) + 14px); }
+.opening-suara  { left:14px;  top:calc(env(safe-area-inset-top, 0px) + 14px); }

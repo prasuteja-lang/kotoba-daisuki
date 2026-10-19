@@ -816,10 +816,44 @@ window.onload = function() {
     document.getElementById('ask-page').classList.remove('hidden');
     document.getElementById('student-identity-page').classList.add('hidden');
     document.getElementById('main-menu-page').classList.add('hidden');
+    mulaiOpening();                                   // halaman 1 = video opening
   }
 };
 
+// ===== VIDEO OPENING (halaman 1) =====
+// File video: taruh satu folder dengan index.html (mp4 H.264 supaya jalan di semua HP), lalu sesuaikan namanya di sini.
+var OPENING_SRC = 'opening.mp4';
+function mulaiOpening() {
+  var v = document.getElementById('opening-video'), btn = document.getElementById('opening-suara');
+  if (!v) { jawabHai(); return; }
+  v.onended = jawabHai;                               // selesai -> halaman login
+  v.onerror = jawabHai;                               // file tidak ada / gagal dimuat -> langsung halaman login
+  v.src = OPENING_SRC;
+  v.muted = false;
+  var p = v.play();
+  if (p && p.catch) p.catch(function() {              // browser menolak autoplay bersuara -> ulangi tanpa suara
+    v.muted = true;
+    if (btn) btn.classList.remove('hidden');
+    var p2 = v.play();
+    if (p2 && p2.catch) p2.catch(jawabHai);           // tetap ditolak -> lewati ke login
+  });
+}
+function openingSuara() {
+  var v = document.getElementById('opening-video'), btn = document.getElementById('opening-suara');
+  if (v) { v.muted = false; if (v.paused) { var p = v.play(); if (p && p.catch) p.catch(function() {}); } }
+  if (btn) btn.classList.add('hidden');
+}
+function hentikanOpening() {
+  var v = document.getElementById('opening-video');
+  if (!v) return;
+  v.onended = null; v.onerror = null;
+  try { v.pause(); v.removeAttribute('src'); v.load(); } catch (e) {}
+  var btn = document.getElementById('opening-suara');
+  if (btn) btn.classList.add('hidden');
+}
+
 function jawabHai() {
+  hentikanOpening();
   document.getElementById('ask-page').classList.add('hidden');
   document.getElementById('student-identity-page').classList.remove('hidden');
 }
@@ -827,6 +861,7 @@ function jawabHai() {
 function kembaliKeAskPage() {
   document.getElementById('student-identity-page').classList.add('hidden');
   document.getElementById('ask-page').classList.remove('hidden');
+  mulaiOpening();
 }
 
 function bukaHalamanRegister() {

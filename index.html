@@ -148,11 +148,11 @@ html .lb-av.bk-pelangi { outline: 3px solid #ef4444; outline-offset: 1px; animat
 </head>
 <body>
 
-<!-- 1. HALAMAN PERTAMA: Konfirmasi Siswa Joycare -->
-<div id="ask-page" class="card">
-  <h2>Apakah kamu siswa Joycare?</h2>
-  <p class="welcome-desc">Silakan konfirmasi untuk melanjutkan ke aplikasi hafalan kotoba.</p>
-  <button class="btn-hai" onclick="jawabHai()">はい</button>
+<!-- 1. HALAMAN PERTAMA: Video Opening (otomatis lanjut ke halaman login setelah selesai) -->
+<div id="ask-page" class="opening-page">
+  <video id="opening-video" playsinline webkit-playsinline preload="auto"></video>
+  <button type="button" id="opening-suara" class="opening-btn opening-suara hidden" onclick="openingSuara()">🔇 Ketuk untuk suara</button>
+  <button type="button" class="opening-btn opening-lewati" onclick="jawabHai()">Lewati ›</button>
 </div>
 
 <!-- 2. HALAMAN KEDUA: Sambutan & Identitas Peserta (Login) -->
@@ -176,7 +176,6 @@ html .lb-av.bk-pelangi { outline: 3px solid #ef4444; outline-offset: 1px; animat
   </div>
 
   <button class="btn-ready" style="margin:0 0 10px 0;" onclick="simpanIdentitasDanMasuk()">Lanjutkan ke Aplikasi 🚀</button>
-  <button class="btn-back" style="margin:0;" onclick="kembaliKeAskPage()">Kembali</button>
 </div>
 
 <!-- 3. HALAMAN KETIGA: Form Buat Akun / Register -->
