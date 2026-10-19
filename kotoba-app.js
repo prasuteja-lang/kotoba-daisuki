@@ -931,6 +931,10 @@ function kembaliKeLoginFromUbahPass() {
   document.getElementById('student-identity-page').classList.remove('hidden');
 }
 
+// Menu Kotoba khusus kelas SSW (Kaigo, Konstruksi, Pengolahan Makanan) dan kelas yang BOLEH membukanya
+var KELAS_MENU_SSW = { kaigo: 'btn-menu-kaigo', konstruksi: 'btn-menu-konstruksi', kotoba: 'btn-menu-makanan' };   // jenis -> id tombol
+function kelasUmum(kelas) { return String(kelas || '').trim().toLowerCase() === 'umum'; }
+
 function terapkanAturanKelas(kelas) {
   perbaruiSapaan();
   var btnKaigo = document.getElementById('btn-menu-kaigo');
@@ -943,19 +947,25 @@ function terapkanAturanKelas(kelas) {
   setAktifMenu(btnKonstruksi);
   setAktifMenu(btnMakanan);
 
-  if (kelas === 'Joybridge') {
+  var k = String(kelas || '').trim().toLowerCase();
+  if (k === 'joybridge') {
     setNonaktifMenu(btnKaigo, 'Kotoba Kaigo');
     setNonaktifMenu(btnMakanan, 'Kotoba Pengolahan Makanan');
-  } else if (kelas === 'Joycare') {
+  } else if (k === 'joycare') {
     setNonaktifMenu(btnKonstruksi, 'Kotoba Konstruksi');
     setNonaktifMenu(btnMakanan, 'Kotoba Pengolahan Makanan');
-  } else if (kelas === 'Joyserve') {
+  } else if (k === 'joyserve') {
     setNonaktifMenu(btnKonstruksi, 'Kotoba Konstruksi');
     setNonaktifMenu(btnKaigo, 'Kotoba Kaigo');
-  } else if (kelas === 'Joygreen') {
+  } else if (k === 'joygreen') {
     setNonaktifMenu(btnKonstruksi, 'Kotoba Konstruksi');
     setNonaktifMenu(btnKaigo, 'Kotoba Kaigo');
     setNonaktifMenu(btnMakanan, 'Kotoba Pengolahan Makanan');
+  } else if (k === 'umum') {
+    // kelas Umum: semua menu SSW terkunci; hanya N5 (Modul), Irodori 1 dan Irodori 2 yang terbuka
+    setNonaktifMenu(btnKaigo, 'Kotoba Kaigo', '🔒 Khusus kelas SSW');
+    setNonaktifMenu(btnKonstruksi, 'Kotoba Konstruksi', '🔒 Khusus kelas SSW');
+    setNonaktifMenu(btnMakanan, 'Kotoba Pengolahan Makanan', '🔒 Khusus kelas SSW');
   }
 }
 
@@ -968,13 +978,13 @@ function setAktifMenu(btnEl) {
   if (pnl) pnl.innerText = '›';
 }
 
-function setNonaktifMenu(btnEl, namaMenuAsli) {
+function setNonaktifMenu(btnEl, namaMenuAsli, teks) {
   btnEl.classList.add('btn-disabled');
   btnEl.style.pointerEvents = "none";
   var sub = btnEl.querySelector('small');
   if (sub) {
     if (!sub.getAttribute('data-asli')) sub.setAttribute('data-asli', sub.innerText);
-    sub.innerText = '🔒 Bukan untuk kelasmu';
+    sub.innerText = teks || '🔒 Bukan untuk kelasmu';
   }
   var pnl = btnEl.querySelector('.mm-arrow');
   if (pnl) pnl.innerText = '🔒';
@@ -2655,6 +2665,10 @@ function tutupCustomAlert() {
 }
 
 function bukaMenuKotoba(jenis, kategori) {
+  if (kelasUmum(studentClass) && KELAS_MENU_SSW[jenis]) {       // menu SSW terkunci untuk kelas Umum
+    tampilkanCustomAlert("Terkunci 🔒", "Menu ini khusus kelas SSW. Kelas Umum dapat memakai N5 (Modul), Irodori 1, dan Irodori 2.");
+    return;
+  }
   currentJenis = jenis;
   currentMenu = kategori;
   document.getElementById('judul-menu-terpilih').innerText = kategori;
