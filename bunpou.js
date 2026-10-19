@@ -479,7 +479,7 @@ var bp = { data: [], view: 'buku', buku: '', bab: '', list: [], idx: 0, step: 0,
         bpAu.data[kunci] = { d: d.data, m: d.mime };
         putar(d.data, d.mime);
       })
-      .withFailureHandler(function () { cadangan(); })
+      .withFailureHandler(function (e) { console.log('Audio gagal:', e); cadangan(); })
       .getBunpouAudio(c.audioId);
   }
 
