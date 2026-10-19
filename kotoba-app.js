@@ -1379,10 +1379,16 @@ var XP_BOBOT = { hafal: 5, bunpou: 20, kanji: 15, test: 30, streak: 10, tier: 10
 var XP_LIMIT_HARIAN = 1000;
 var XP_LIMIT_UJIAN = 1000;       // batas XP harian khusus latihan Ujian (terpisah dari XP_LIMIT_HARIAN)
 var UJIAN_BONUS_MIN_PERSEN = 60; // bonus bintang hanya diberikan bila jawaban benar minimal sekian persen
-var UJIAN_BONUS_BINTANG = 500;   // bonus XP (= 50 koin) saat latihan Ujian selesai & bintang pertama didapat, sekali per latihan
+var UJIAN_BONUS_BINTANG = 250;   // bonus XP (= 25 koin) saat latihan Ujian selesai & bintang pertama didapat, sekali per latihan
 var LV_JUDUL = [
-  [1, '🌱 Pemula (初心者)'], [5, '📖 Murid Rajin (見習い)'], [10, '🎓 Pelajar (学生)'],
-  [20, '⚔️ Ahli (達人)'], [35, '🏯 Senpai (先輩)'], [50, '👑 Shihan (師範)']
+  [1, '🌱 Pemula (初心者)'], [5, '📖 Murid Rajin (見習い)'], [10, '🎓 Pelajar (学生)'], [15, '📚 Kutu Buku (読書家)'],
+  [20, '⚔️ Ahli (達人)'], [25, '🥋 Pendekar Muda (若武者)'], [30, '🎒 Petualang (旅人)'], [35, '🏯 Senpai (先輩)'],
+  [40, '🌸 Penjaga Sakura (桜守)'], [45, '🎋 Penjaga Bambu (竹守)'], [50, '👑 Shihan (師範)'], [55, '🗡️ Samurai (侍)'],
+  [60, '🥷 Shinobi (忍)'], [65, '🦅 Elang Tajam (鷹の目)'], [70, '🦊 Kitsune Bijak (賢狐)'], [75, '🌊 Penakluk Ombak (波乗り)'],
+  [80, '🐉 Naga Penjaga (守り龍)'], [85, '🌙 Bijak Rembulan (月の賢者)'], [90, '🔥 Pendekar Api (炎の剣士)'], [95, '⚡ Penguasa Petir (雷神)'],
+  [100, '🏅 Sensei (先生)'], [110, '⛩️ Penjaga Kuil (神主)'], [120, '🗻 Penakluk Fuji (富士の覇者)'], [130, '🌌 Penjelajah Bintang (星の旅人)'],
+  [140, '🏮 Legenda Hidup (生ける伝説)'], [150, '🐅 Harimau Putih (白虎)'], [160, '☀️ Penguasa Fajar (夜明けの王)'], [170, '✨ Bintang Kejora (明星)'],
+  [180, '🎖️ Grandmaster (大師範)'], [190, '🐲 Naga Langit (天龍)'], [200, '💎 Dewa Kotoba (言霊の神)']
 ];
 function fmtAngka(n) { return String(Math.round(n || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, '.'); }
 function levelJudul(L) {
