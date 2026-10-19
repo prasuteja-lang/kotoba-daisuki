@@ -449,38 +449,9 @@ var bp = { data: [], view: 'buku', buku: '', bab: '', list: [], idx: 0, step: 0,
     }).join(' ');
   }
 
-  // 🔊 contoh kalimat: pakai audio manual dari sheet (kolom Audio_contoh) bila ada; bila tidak ada / gagal -> suara otomatis (TTS)
-  var bpAu = { data: {}, tok: 0 };
-  function bpSayTombol(i, teks) { var b = document.getElementById('bp-say' + i); if (b) b.textContent = teks; }
   function bpSay(i) {
     var c = bp.list[bp.idx].contoh[i]; if (!c) return;
-    if (!c.audioId) { bacaJepang(c.jp); return; }
-    bpAudioContoh(c, i);
-  }
-  function bpAudioContoh(c, i) {
-    var kunci = 'bp:' + c.audioId, tok = ++bpAu.tok;
-    if (typeof ttsHentikan === 'function') ttsHentikan();          // hentikan suara lain yang sedang berbunyi
-    var lengkap = (typeof tts !== 'undefined') && typeof ttsPutarServer === 'function';
-    function cadangan() { bpSayTombol(i, '🔊'); if (tok === bpAu.tok) bacaJepang(c.jp); }
-    function putar(b64, mime) {
-      bpSayTombol(i, '🔊');
-      if (tok !== bpAu.tok) return;
-      if (lengkap) { tts.cache[kunci] = b64; ttsPutarServer(kunci, tts.token, cadangan); return; }   // Web Audio: boleh diputar otomatis di HP
-      try {
-        var a = new Audio('data:' + (mime || 'audio/mpeg') + ';base64,' + b64);
-        var p = a.play(); if (p && p.catch) p.catch(cadangan);
-      } catch (e) { cadangan(); }
-    }
-    if (bpAu.data[kunci]) { putar(bpAu.data[kunci].d, bpAu.data[kunci].m); return; }
-    bpSayTombol(i, '…');
-    google.script.run
-      .withSuccessHandler(function (d) {
-        if (!d || !d.data) { cadangan(); return; }
-        bpAu.data[kunci] = { d: d.data, m: d.mime };
-        putar(d.data, d.mime);
-      })
-      .withFailureHandler(function () { cadangan(); })
-      .getBunpouAudio(c.audioId);
+    bacaJepang(c.jp);
   }
 
   function bpRenderBelajar() {
@@ -506,7 +477,7 @@ var bp = { data: [], view: 'buku', buku: '', bab: '', list: [], idx: 0, step: 0,
       h += '<div style="text-align:center;font-size:12px;color:#6b7280;margin-bottom:8px;">Ketuk 🔊 untuk mendengar kalimatnya</div>';
       r.contoh.forEach(function (c, i) {
         h += '<div class="bp-box bp-ex"><div style="flex:1"><div class="jp">' + bpEsc(c.jp) + '</div>' + (c.id ? '<div class="id">' + bpEsc(c.id) + '</div>' : '') + '</div>';
-        h += '<button class="bp-say" id="bp-say' + i + '" onclick="event.stopPropagation();bpSay(' + i + ')">🔊</button></div>';
+        h += '<button class="bp-say" onclick="event.stopPropagation();bpSay(' + i + ')">🔊</button></div>';
       });
     } else {
       bpBuatQuiz(r); bpRenderQuiz(); return;
