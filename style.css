@@ -1130,13 +1130,26 @@ html.dark .pg-star.on { background: #1f1a0b; border-color: #f59e0b; color: #fcd3
 .hm-wtxt small { display:block; margin-top:2px; font-size:12px; color:#64748b; }
 .hm-wide .hm-arrow { flex:none; font-size:22px; color:var(--ac); opacity:.55; }
 
-/* ---------- HOME: tombol gambar Nihongo Adventure (adv-new.gif) ---------- */
-.hm-adv { display:block; margin:0 0 12px; border-radius:20px; overflow:hidden; line-height:0; text-decoration:none;
+/* ---------- HOME: tombol gambar Nihongo Adventure (adv-new.png) + sakura jatuh ---------- */
+.hm-adv { position:relative; display:block; margin:0 0 12px; border-radius:20px; overflow:hidden; line-height:0; text-decoration:none;
   cursor:pointer; user-select:none; -webkit-tap-highlight-color:transparent;
   box-shadow:0 6px 16px rgba(15,23,42,.18); transition:transform .15s ease; }
 .hm-adv:active { transform:scale(.985); }
 .hm-adv img { display:block; width:100%; height:auto; -webkit-user-drag:none; }
 html.dark .hm-adv { box-shadow:0 0 14px rgba(255,255,255,.12); }
+.hm-sakura { position:absolute; inset:0; overflow:hidden; pointer-events:none; }
+.hm-sakura i { position:absolute; top:0; width:var(--s,12px); height:calc(var(--s,12px) * .8);
+  border-radius:100% 0 100% 0; background:linear-gradient(135deg,#ffe4ee 0%,#ffb3d1 60%,#ff8fb9 100%);
+  opacity:0; will-change:transform,opacity; animation:sakuraJatuh 8s linear infinite; }
+@keyframes sakuraJatuh {
+  0%   { transform:translate3d(0,-16px,0) rotate(0deg); opacity:0; }
+  8%   { opacity:.9; }
+  25%  { transform:translate3d(calc(var(--dx,40px) * .5),35px,0) rotate(95deg); }
+  50%  { transform:translate3d(calc(var(--dx,40px) * -.2),78px,0) rotate(210deg); }
+  75%  { transform:translate3d(calc(var(--dx,40px) * .8),120px,0) rotate(300deg); opacity:.9; }
+  100% { transform:translate3d(var(--dx,40px),170px,0) rotate(390deg); opacity:0; }
+}
+@media (prefers-reduced-motion:reduce) { .hm-sakura { display:none; } }
 
 .hm-chips { display:flex; gap:8px; margin-top:11px; }
 .hm-chip {

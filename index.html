@@ -250,8 +250,30 @@ html .lb-av.bk-pelangi { outline: 3px solid #ef4444; outline-offset: 1px; animat
       </div>
     </div>
 
-    <!-- QUEST HARIAN -->
-    <div class="mm-quest" onclick="bukaQuest()" role="button" aria-label="Buka Progres &amp; Daily Quest">
+    <!-- TOMBOL NIHONGO ADVENTURE (menggantikan info streak): gambar adv-new.png + efek sakura jatuh, klik membuka game di tab baru -->
+    <a class="hm-adv" href="https://prasuteja-lang.github.io/game-jp-dialog/" target="_blank" rel="noopener" aria-label="Buka game Nihongo Adventure">
+      <img src="adv-new.png" alt="Nihongo Adventure" draggable="false">
+      <span class="hm-sakura" aria-hidden="true">
+        <i style="left:2.9%;--s:10px;--dx:-48px;animation-duration:7.8s;animation-delay:-0.5s"></i>
+        <i style="left:11.6%;--s:11px;--dx:-40px;animation-duration:6.2s;animation-delay:-4.3s"></i>
+        <i style="left:15.7%;--s:14px;--dx:-28px;animation-duration:6.3s;animation-delay:-5.7s"></i>
+        <i style="left:25.7%;--s:14px;--dx:-43px;animation-duration:6.2s;animation-delay:-2.2s"></i>
+        <i style="left:31.8%;--s:9px;--dx:-31px;animation-duration:8.6s;animation-delay:-5.6s"></i>
+        <i style="left:39.9%;--s:11px;--dx:-28px;animation-duration:7.7s;animation-delay:-5.5s"></i>
+        <i style="left:47.2%;--s:15px;--dx:54px;animation-duration:9.1s;animation-delay:-4.3s"></i>
+        <i style="left:54.1%;--s:15px;--dx:-40px;animation-duration:7.6s;animation-delay:-2.5s"></i>
+        <i style="left:58.1%;--s:12px;--dx:43px;animation-duration:8.4s;animation-delay:-8.8s"></i>
+        <i style="left:68.3%;--s:9px;--dx:34px;animation-duration:6.5s;animation-delay:-4.2s"></i>
+        <i style="left:77.4%;--s:14px;--dx:46px;animation-duration:6.2s;animation-delay:-6.7s"></i>
+        <i style="left:83.0%;--s:15px;--dx:-42px;animation-duration:8.6s;animation-delay:-4.6s"></i>
+        <i style="left:88.8%;--s:9px;--dx:43px;animation-duration:6.3s;animation-delay:-7.0s"></i>
+        <i style="left:97.3%;--s:13px;--dx:-32px;animation-duration:6.1s;animation-delay:-4.6s"></i>
+      </span>
+    </a>
+
+    <!-- INFO STREAK & TARGET HARIAN disembunyikan (info streak cukup di menu Profil).
+         Elemennya sengaja tidak dihapus agar kotoba-app.js tidak error. -->
+    <div class="mm-quest" style="display:none" onclick="bukaQuest()" role="button" aria-label="Buka Progres &amp; Daily Quest">
       <div class="mq-teks">
         <span id="mq-streak">🔥 Mulai streak-mu hari ini!</span>
         <span class="mq-dot">•</span>
@@ -278,11 +300,6 @@ html .lb-av.bk-pelangi { outline: 3px solid #ef4444; outline-offset: 1px; animat
         <span><b>Bunpou</b><small>Pola kalimat &amp; choukai</small></span>
       </div>
     </div>
-
-    <!-- TOMBOL NIHONGO ADVENTURE: gambar adv-new.gif, klik membuka game di tab baru -->
-    <a class="hm-adv" href="https://prasuteja-lang.github.io/game-jp-dialog/" target="_blank" rel="noopener" aria-label="Buka game Nihongo Adventure">
-      <img src="adv-new.gif" alt="Nihongo Adventure" loading="lazy" draggable="false">
-    </a>
 
     <div class="hm-wide hm-ujian" role="button" onclick="bukaUjianDariMain('jft')">
       <div class="hm-wide-top">
