@@ -1130,6 +1130,14 @@ html.dark .pg-star.on { background: #1f1a0b; border-color: #f59e0b; color: #fcd3
 .hm-wtxt small { display:block; margin-top:2px; font-size:12px; color:#64748b; }
 .hm-wide .hm-arrow { flex:none; font-size:22px; color:var(--ac); opacity:.55; }
 
+/* ---------- HOME: tombol gambar Nihongo Adventure (adv-new.gif) ---------- */
+.hm-adv { display:block; margin:0 0 12px; border-radius:20px; overflow:hidden; line-height:0; text-decoration:none;
+  cursor:pointer; user-select:none; -webkit-tap-highlight-color:transparent;
+  box-shadow:0 6px 16px rgba(15,23,42,.18); transition:transform .15s ease; }
+.hm-adv:active { transform:scale(.985); }
+.hm-adv img { display:block; width:100%; height:auto; -webkit-user-drag:none; }
+html.dark .hm-adv { box-shadow:0 0 14px rgba(255,255,255,.12); }
+
 .hm-chips { display:flex; gap:8px; margin-top:11px; }
 .hm-chip {
   flex:1 1 0; min-width:0; text-align:center; padding:8px 6px; border-radius:12px;
@@ -1279,7 +1287,7 @@ html.dark .hb-lv { background:color-mix(in srgb, var(--glow) 18%, transparent); 
 html.dark .fb-soon { background:#3a2a14; color:#fcd34d; }
 
 @media (prefers-reduced-motion: reduce) {
-  .hm-tile, .hm-wide, .kn-cell { transition:none; }
+  .hm-tile, .hm-wide, .hm-adv, .kn-cell { transition:none; }
 }
 
 /* ---------- KANA: penanda ada contoh + lembar contoh kotoba ---------- */
