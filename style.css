@@ -1110,6 +1110,15 @@ html.dark .pg-star.on { background: #1f1a0b; border-color: #f59e0b; color: #fcd3
 .hm-tile b { display:block; font-size:17px; font-weight:800; color:var(--ac); letter-spacing:.2px; }
 .hm-tile small { display:block; margin-top:2px; font-size:12px; line-height:1.35; color:#64748b; }
 
+/* ---------- HOME: tombol gambar game kanji (Daisuki & Challenge) ---------- */
+.hm-daisuki  { --ac:#f59e0b; --bg:#fffbeb; --glow:#fbbf24; }
+.hm-mitsudome { --ac:#7c3aed; --bg:#f5f3ff; --glow:#a78bfa; }
+.hm-tile.hm-img {
+  padding:0; background-color:var(--bg); background-repeat:no-repeat; background-position:center; background-size:cover;
+}
+.hm-tile.hm-daisuki  { background-image:url("kanji_daisukigames.png"); }
+.hm-tile.hm-mitsudome { background-image:url("kanji_mitsudome.png"); }
+
 /* ---------- HOME: kartu lebar (Ujian, Hiburan) ---------- */
 .hm-wide {
   margin:0 0 12px; padding:13px 14px 12px; text-align:left; cursor:pointer; user-select:none;
