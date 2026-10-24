@@ -284,8 +284,8 @@ html .lb-av.bk-pelangi { outline: 3px solid #ef4444; outline-offset: 1px; animat
 
     <!-- GAME KANJI: Kanji Daisuki & Kanji Challenge (tombol gambar, ukuran sama dengan tile Kotoba/Kana) -->
     <div class="hm-grid hm-grid-game">
-      <div class="hm-tile hm-img hm-daisuki" role="button" aria-label="Buka Kanji Daisuki" onclick="bukaKanjiDaisuki()"></div>
-      <div class="hm-tile hm-img hm-mitsudome" role="button" aria-label="Buka Kanji Challenge" onclick="kcBuka()"></div>
+      <div class="hm-tile hm-img hm-daisuki" role="button" aria-label="Buka Kanji Daisuki" onclick="bukaGameKanjiDariHome('daisuki')"></div>
+      <div class="hm-tile hm-img hm-mitsudome" role="button" aria-label="Buka Kanji Challenge" onclick="bukaGameKanjiDariHome('challenge')"></div>
     </div>
 
     <div class="hm-grid">
@@ -848,7 +848,7 @@ html .lb-av.bk-pelangi { outline: 3px solid #ef4444; outline-offset: 1px; animat
 <!-- KANJI: Game Kanji Daisuki -->
 <div id="kanji-daisuki-page" class="card hidden">
   <div class="page-header">
-    <button class="btn-icon-back" onclick="kdKeluarGame()"><span class="arrow">‹</span> Kembali</button>
+    <button class="btn-icon-back" onclick="kembaliGameKanjiKeHome(kdKeluarGame)"><span class="arrow">‹</span> Kembali</button>
     <h3>🀄 Kanji Daisuki Games</h3>
     <button class="btn-icon-back spacer">spacer</button>
   </div>
@@ -898,7 +898,7 @@ html .lb-av.bk-pelangi { outline: 3px solid #ef4444; outline-offset: 1px; animat
 <!-- KANJI: Kanji Challenge (multiplayer) -->
 <div id="kanji-challenge-page" class="card hidden">
   <div class="page-header">
-    <button class="btn-icon-back" onclick="kcKembali()"><span class="arrow">‹</span> Kembali</button>
+    <button class="btn-icon-back" onclick="kembaliGameKanjiKeHome(kcKembali)"><span class="arrow">‹</span> Kembali</button>
     <h3>🃏 Kanji Challenge</h3>
     <button class="btn-icon-back spacer">spacer</button>
   </div>
@@ -958,6 +958,25 @@ html .lb-av.bk-pelangi { outline: 3px solid #ef4444; outline-offset: 1px; animat
   <div id="kc-game-body"></div>
 </div>
 
+<script>
+/* Game Kanji (Daisuki & Challenge) dibuka dari Menu Utama sebagai halaman baru.
+   Menu Utama disembunyikan dulu lewat alur Kanji yang sudah ada, lalu game dibuka. */
+function bukaGameKanjiDariHome(jenis) {
+  if (typeof bukaKanjiDariMain === 'function') bukaKanjiDariMain();
+  else {
+    var mm = document.getElementById('main-menu-page'), km = document.getElementById('kanji-main-page');
+    if (mm) mm.classList.add('hidden');
+    if (km) km.classList.remove('hidden');
+  }
+  if (jenis === 'daisuki') bukaKanjiDaisuki(); else kcBuka();
+}
+/* Tombol Kembali: jalankan fungsi kembali bawaan game, lalu bila landing di menu Kanji, lanjut ke Menu Utama */
+function kembaliGameKanjiKeHome(fnKembali) {
+  fnKembali();
+  var km = document.getElementById('kanji-main-page');
+  if (km && !km.classList.contains('hidden')) kembaliKeMainDariKanji();
+}
+</script>
 <script>__js('kanji.js')</script>
 <script>__js('kanji-challenge.js')</script>
 <!-- ===== HALAMAN BUNPOU ===== -->
