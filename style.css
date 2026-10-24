@@ -1116,7 +1116,7 @@ html.dark .pg-star.on { background: #1f1a0b; border-color: #f59e0b; color: #fcd3
 .hm-tile.hm-img {
   padding:0; background-color:var(--bg); background-repeat:no-repeat; background-position:center; background-size:cover;
 }
-.hm-tile.hm-daisuki  { background-image:url("kanji_daisukigames.png"); }
+.hm-tile.hm-daisuki  { background-image:url("kanji_daisukigamse.png"); }
 .hm-tile.hm-mitsudome { background-image:url("kanji_mitsudome.png"); }
 
 /* ---------- HOME: kartu lebar (Ujian, Hiburan) ---------- */
