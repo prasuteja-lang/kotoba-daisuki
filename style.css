@@ -1110,14 +1110,13 @@ html.dark .pg-star.on { background: #1f1a0b; border-color: #f59e0b; color: #fcd3
 .hm-tile b { display:block; font-size:17px; font-weight:800; color:var(--ac); letter-spacing:.2px; }
 .hm-tile small { display:block; margin-top:2px; font-size:12px; line-height:1.35; color:#64748b; }
 
-/* ---------- HOME: tombol gambar game kanji (Daisuki & Challenge) ---------- */
-.hm-daisuki  { --ac:#f59e0b; --bg:#fffbeb; --glow:#fbbf24; }
-.hm-mitsudome { --ac:#7c3aed; --bg:#f5f3ff; --glow:#a78bfa; }
-.hm-tile.hm-img {
-  padding:0; background-color:var(--bg); background-repeat:no-repeat; background-position:center; background-size:cover;
-}
-.hm-tile.hm-daisuki  { background-image:url("kanji_daisukigamse.png"); }
-.hm-tile.hm-mitsudome { background-image:url("kanji_mitsudome.png"); }
+/* ---------- HOME: tombol gambar game kanji (Daisuki & Challenge), gaya sama seperti Nihongo Adventure ---------- */
+.hm-gimg { position:relative; display:block; border-radius:20px; overflow:hidden; line-height:0; cursor:pointer;
+  user-select:none; -webkit-tap-highlight-color:transparent; transition:transform .15s ease;
+  box-shadow:0 6px 16px rgba(0,0,0,.18); }
+.hm-gimg:active { transform:scale(.97); }
+.hm-gimg img { display:block; width:100%; height:auto; -webkit-user-drag:none; }
+html.dark .hm-gimg { box-shadow:0 0 14px rgba(255,255,255,.12); }
 
 /* ---------- HOME: kartu lebar (Ujian, Hiburan) ---------- */
 .hm-wide {
