@@ -282,6 +282,12 @@ html .lb-av.bk-pelangi { outline: 3px solid #ef4444; outline-offset: 1px; animat
       <div class="mq-bar"><i id="mq-bar"></i></div>
     </div>
 
+    <!-- GAME KANJI: Kanji Daisuki & Kanji Challenge (tombol gambar, ukuran sama dengan tile Kotoba/Kana) -->
+    <div class="hm-grid hm-grid-game">
+      <div class="hm-tile hm-img hm-daisuki" role="button" aria-label="Buka Kanji Daisuki" onclick="bukaKanjiDaisuki()"></div>
+      <div class="hm-tile hm-img hm-mitsudome" role="button" aria-label="Buka Kanji Challenge" onclick="kcBuka()"></div>
+    </div>
+
     <div class="hm-grid">
       <div class="hm-tile hm-kotoba" role="button" onclick="bukaKotobaDariMain()">
         <span class="hm-glyph">語</span><span class="hm-go">›</span>
@@ -804,17 +810,6 @@ html .lb-av.bk-pelangi { outline: 3px solid #ef4444; outline-offset: 1px; animat
     <div class="kanji-loading">Memuat data kanji...</div>
   </div>
 
-  <hr class="kanji-divider">
-
-  <div class="kanji-daisuki-btn" onclick="bukaKanjiDaisuki()">
-    <span>Kanji Daisuki</span>
-    <span class="kk-arrow">›</span>
-  </div>
-
-  <div class="kc-menu-btn" onclick="kcBuka()">
-    <span>Kanji Challenge!</span>
-    <span class="kk-arrow">›</span>
-  </div>
 </div>
 
 <!-- KANJI: Daftar Kanji per Level (grid) -->
